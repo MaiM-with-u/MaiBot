@@ -118,7 +118,9 @@ class EmojiManager:
 
             try:
                 # 获取所有表情包
-                all_emojis = list(db.emoji.find({}, {"_id": 1, "path": 1, "embedding": 1, "description": 1}))
+                all_emojis = [e for e in
+                              db.emoji.find({}, {"_id": 1, "path": 1, "embedding": 1, "description": 1, "blacklist": 1})
+                              if 'blacklist' not in e]
 
                 if not all_emojis:
                     logger.warning("数据库中没有任何表情包")
@@ -173,7 +175,7 @@ class EmojiManager:
             logger.error(f"[错误] 获取表情包失败: {str(e)}")
             return None
 
-    async def _get_emoji_discription(self, image_base64: str) -> str:
+    async def _get_emoji_description(self, image_base64: str) -> str:
         """获取表情包的标签，使用image_manager的描述生成功能"""
 
         try:
@@ -273,7 +275,7 @@ class EmojiManager:
 
                 if existing_emoji:
                     # 即使表情包已存在，也检查是否需要同步到images集合
-                    description = existing_emoji.get("discription")
+                    description = existing_emoji.get("description")
                     # 检查是否在images集合中存在
                     existing_image = db.images.find_one({"hash": image_hash})
                     if not existing_image:
@@ -298,7 +300,7 @@ class EmojiManager:
                     description = existing_description
                 else:
                     # 获取表情包的描述
-                    description = await self._get_emoji_discription(image_base64)
+                    description = await self._get_emoji_description(image_base64)
 
                 if global_config.EMOJI_CHECK:
                     check = await self._check_emoji(image_base64, image_format)
@@ -316,7 +318,7 @@ class EmojiManager:
                         "filename": filename,
                         "path": image_path,
                         "embedding": embedding,
-                        "discription": description,
+                        "description": description,
                         "hash": image_hash,
                         "timestamp": int(time.time()),
                     }
@@ -398,6 +400,11 @@ class EmojiManager:
                             logger.warning(f"[检查] 表情包文件hash不匹配，ID: {emoji.get('_id', 'unknown')}")
                             db.emoji.delete_one({"_id": emoji["_id"]})
                             removed_count += 1
+
+                    # 修复拼写错误
+                    if "discription" in emoji:
+                        desc = emoji["discription"]
+                        db.emoji.update_one({"_id": emoji["_id"]}, {"$unset": {"discription": ""}, "$set": {"description": desc}})
 
                 except Exception as item_error:
                     logger.error(f"[错误] 处理表情包记录时出错: {str(item_error)}")
