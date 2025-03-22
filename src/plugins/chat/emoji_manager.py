@@ -248,20 +248,14 @@ class EmojiManager:
                     if existing_emoji_by_path["_id"] != existing_emoji_by_hash["_id"]:
                         logger.error(f"[错误] 表情包已存在但记录不一致: {filename}")
                         db.emoji.delete_one({"_id": existing_emoji_by_path["_id"]})
-                        db.emoji.update_one(
-                            {"_id": existing_emoji_by_hash["_id"]}, {"$set": {"path": image_path, "filename": filename}}
-                        )
-                        existing_emoji_by_hash["path"] = image_path
-                        existing_emoji_by_hash["filename"] = filename
-                    existing_emoji = existing_emoji_by_hash
+                        db.emoji.delete_one({"_id": existing_emoji_by_hash["_id"]})
+                        existing_emoji = None
+                    else:
+                        existing_emoji = existing_emoji_by_hash
                 elif existing_emoji_by_hash:
                     logger.error(f"[错误] 表情包hash已存在但path不存在: {filename}")
-                    db.emoji.update_one(
-                        {"_id": existing_emoji_by_hash["_id"]}, {"$set": {"path": image_path, "filename": filename}}
-                    )
-                    existing_emoji_by_hash["path"] = image_path
-                    existing_emoji_by_hash["filename"] = filename
-                    existing_emoji = existing_emoji_by_hash
+                    db.emoji.delete_one({"_id": existing_emoji_by_hash["_id"]})
+                    existing_emoji = None
                 elif existing_emoji_by_path:
                     logger.error(f"[错误] 表情包path已存在但hash不存在: {filename}")
                     db.emoji.delete_one({"_id": existing_emoji_by_path["_id"]})
