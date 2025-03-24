@@ -173,7 +173,7 @@ def on_select(evt: gr.SelectData, *tag_values):
     if new_index is None:
         emoji_show = None
         targets = []
-        for current_value in zip(tag_values, tags.keys()):
+        for current_value, tag in zip(tag_values, tags.keys()):  # noqa: B007
             if current_value:
                 neglect_update += 1
                 targets.append(False)
