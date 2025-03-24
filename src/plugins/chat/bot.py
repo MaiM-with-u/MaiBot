@@ -44,6 +44,9 @@ chat_config = LogConfig(
 # 配置主程序日志格式
 logger = get_module_logger("chat_bot", config=chat_config)
 
+#处理重复戳一戳使用的字典
+last_poke_times = {}  # 格式: {group_id: last_timestamp}
+
 
 class ChatBot:
     def __init__(self):
@@ -154,7 +157,7 @@ class ChatBot:
             )
             # 开始思考的时间点
             thinking_time_point = round(time.time(), 2)
-            # logger.debug(f"开始思考的时间点: {thinking_time_point}")
+            logger.info(f"开始思考的时间点: {thinking_time_point}")
             think_id = "mt" + str(thinking_time_point)
             thinking_message = MessageThinking(
                 message_id=think_id,
@@ -294,9 +297,26 @@ class ChatBot:
             if event.group_id:
                 if event.group_id not in global_config.talk_allowed_groups:
                     return
+                
+            #保证bot在一分钟之内只响应一次戳一戳，防止群体戳bot导致的（呆滞）刷屏
+                current_time = time.time()
+                # 检查群号是否在字典中
+                if event.group_id in last_poke_times:
+                    last_time = last_poke_times[event.group_id]
+                    # 如果时间差小于60秒，直接返回
+                    if current_time - last_time < 60:
+                        return
+                    # 否则更新时间
+                    last_poke_times[event.group_id] = current_time
+                else:
+                    # 群号不在字典中，添加记录
+                    last_poke_times[event.group_id] = current_time
+
+
+
 
             raw_message = f"[戳了戳]{global_config.BOT_NICKNAME}"  # 默认类型
-            if info := event.model_extra["raw_info"]:
+            if info := event.raw_info:
                 poke_type = info[2].get("txt", "戳了戳")  # 戳戳类型，例如“拍一拍”、“揉一揉”、“捏一捏”
                 custom_poke_message = info[4].get("txt", "")  # 自定义戳戳消息，若不存在会为空字符串
                 raw_message = f"[{poke_type}]{global_config.BOT_NICKNAME}{custom_poke_message}"
@@ -418,11 +438,12 @@ class ChatBot:
         # 用户屏蔽,不区分私聊/群聊
         if event.user_id in global_config.ban_user_id:
             return
-
+        
         if isinstance(event, GroupMessageEvent):
             if event.group_id:
                 if event.group_id not in global_config.talk_allowed_groups:
                     return
+
 
         # 获取合并转发消息的详细信息
         forward_info = await bot.get_forward_msg(message_id=event.message_id)
@@ -433,17 +454,17 @@ class ChatBot:
         for node in messages:
             # 提取发送者昵称
             nickname = node["sender"].get("nickname", "未知用户")
-
+            
             # 递归处理消息内容
-            message_content = await self.process_message_segments(node["message"], layer=0)
-
+            message_content = await self.process_message_segments(node["message"],layer=0)
+            
             # 拼接为【昵称】+ 内容
             processed_messages.append(f"【{nickname}】{message_content}")
 
         # 组合所有消息
         combined_message = "\n".join(processed_messages)
         combined_message = f"合并转发消息内容：\n{combined_message}"
-
+        
         # 构建用户信息（使用转发消息的发送者）
         user_info = UserInfo(
             user_id=event.user_id,
@@ -455,7 +476,11 @@ class ChatBot:
         # 构建群聊信息（如果是群聊）
         group_info = None
         if isinstance(event, GroupMessageEvent):
-            group_info = GroupInfo(group_id=event.group_id, group_name=None, platform="qq")
+            group_info = GroupInfo(
+                group_id=event.group_id,
+                group_name=None,
+                platform="qq"
+            )
 
         # 创建消息对象
         message_cq = MessageRecvCQ(
@@ -470,19 +495,19 @@ class ChatBot:
         # 进入标准消息处理流程
         await self.message_process(message_cq)
 
-    async def process_message_segments(self, segments: list, layer: int) -> str:
+    async def process_message_segments(self, segments: list,layer:int) -> str:
         """递归处理消息段"""
         parts = []
         for seg in segments:
-            part = await self.process_segment(seg, layer + 1)
+            part = await self.process_segment(seg,layer+1)
             parts.append(part)
         return "".join(parts)
 
-    async def process_segment(self, seg: dict, layer: int) -> str:
+    async def process_segment(self, seg: dict , layer:int) -> str:
         """处理单个消息段"""
         seg_type = seg["type"]
-        if layer > 3:
-            # 防止有那种100层转发消息炸飞麦麦
+        if layer > 3 :
+            #防止有那种100层转发消息炸飞麦麦
             return "【转发消息】"
         if seg_type == "text":
             return seg["data"]["text"]
@@ -499,14 +524,13 @@ class ChatBot:
             nested_messages.append("合并转发消息内容：")
             for node in nested_nodes:
                 nickname = node["sender"].get("nickname", "未知用户")
-                content = await self.process_message_segments(node["message"], layer=layer)
+                content = await self.process_message_segments(node["message"],layer=layer)
                 # nested_messages.append('-' * layer)
                 nested_messages.append(f"{'--' * layer}【{nickname}】{content}")
             # nested_messages.append(f"{'--' * layer}合并转发第【{layer}】层结束")
             return "\n".join(nested_messages)
         else:
             return f"[{seg_type}]"
-
-
+        
 # 创建全局ChatBot实例
 chat_bot = ChatBot()
