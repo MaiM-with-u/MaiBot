@@ -75,22 +75,22 @@ conda activate maimbot
 pip install -r requirements.txt
 ```
 
-### 2️⃣ **然后你需要启动MongoDB数据库，来存储信息**
+### 3️⃣ **然后你需要启动MongoDB数据库，来存储信息**
 
 - 安装并启动MongoDB服务
 - 默认连接本地27017端口
 
-### 3️⃣ **配置NapCat，让麦麦bot与qq取得联系**
+### 4️⃣ **配置NapCat，让麦麦bot与qq取得联系**
 
 - 安装并登录NapCat（用你的qq小号）
 - 添加反向WS: `ws://127.0.0.1:8080/onebot/v11/ws`
 
-### 4️⃣ **配置文件设置，让麦麦Bot正常工作**
+### 5️⃣ **配置文件设置，让麦麦Bot正常工作**
 
 - 修改环境配置文件：`.env.prod`
 - 修改机器人配置文件：`bot_config.toml`
 
-### 5️⃣ **启动麦麦机器人**
+### 6️⃣ **启动麦麦机器人**
 
 - 打开命令行，cd到对应路径
 
@@ -104,7 +104,7 @@ nb run
 python bot.py
 ```
 
-### 6️⃣ **其他组件(可选)**
+### 7️⃣ **其他组件(可选)**
 
 - `run_thingking.bat`: 启动可视化推理界面（未完善）
 - 直接运行 knowledge.py生成知识库
