@@ -17,6 +17,7 @@ from ..moods.moods import MoodManager  # 导入情绪管理器
 from .config import global_config
 from .emoji_manager import emoji_manager  # 导入表情包管理器
 from .llm_generator import ResponseGenerator
+from .llm_generator import ResponseAction
 from .message import MessageSending, MessageRecv, MessageThinking, MessageSet
 from .message_cq import (
     MessageRecvCQ,
@@ -172,6 +173,17 @@ class ChatBot:
         else:
             # 决定不回复时，也更新回复意愿
             willing_manager.change_reply_willing_not_sent(chat)
+
+        # 对ResponseAction的消息进行删除处理
+        if isinstance(response, ResponseAction):
+            try:
+                container = message_manager.get_container(chat.stream_id)
+                for msg in container.messages:
+                    if isinstance(msg, MessageThinking) and msg.message_info.message_id == think_id:
+                        container.messages.remove(msg)
+                        break
+            except Exception:
+                pass
 
         # print(f"response: {response}")
         if response:

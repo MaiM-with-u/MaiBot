@@ -24,6 +24,25 @@ logger = get_module_logger("llm_generator", config=llm_config)
 driver = get_driver()
 config = driver.config
 
+class ResponseAction:
+    def __init__(self):
+        self.tags = []
+
+    def add_action(self, action: str):
+        self.tags.append(action)
+
+    def empty(self):
+        return len(self.tags) == 0
+
+    def __contains__(self, other: str):
+        if isinstance(other, str):
+            return other in self.tags
+        else:
+            # 非str输入直接抛异常
+            raise TypeError
+
+    def __bool__(self):
+        return False
 
 class ResponseGenerator:
     def __init__(self):
@@ -73,9 +92,26 @@ class ResponseGenerator:
             model_response = await self._process_response(model_response)
             if model_response:
                 return model_response, raw_content
+        
+        if isinstance(model_response, ResponseAction):
+            logger.info(f"{global_config.BOT_NICKNAME}认为这是一个动作，不进行回复")
+            
+            #这里执行相应标签的动作
+            if '[refuse]' in model_response:
+                logger.info(f"{global_config.BOT_NICKNAME}认为不应/无需回复，做出[refuse]动作")
+            if '[console_test]' in model_response:
+                    logger.info("成功执行控制台测试！")                
+            if '[user_test]' in model_response:
+                logger.info("我勒个人工注射多巴胺")
+                from src.plugins.moods.moods import MoodState
+                from src.plugins.moods.moods import MoodManager
+                MoodManager.get_instance().current_mood = MoodState(1, 1, '强制开心')
+            
+            return model_response, raw_content
+        
         return None, raw_content
 
-    async def _generate_response_with_model(self, message: MessageThinking, model: LLM_request) -> Optional[str]:
+    async def _generate_response_with_model(self, message: MessageThinking, model: LLM_request) -> Optional[Union[str, ResponseAction]]:
         """使用指定的模型生成回复"""
         sender_name = ""
         if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
@@ -116,6 +152,17 @@ class ResponseGenerator:
         # 生成回复
         try:
             content, reasoning_content, self.current_model_name = await model.generate_response(prompt)
+            logger.info(f"content:{content}")
+            actions = ResponseAction()
+            if '[refuse]' in content.lower():
+                actions.add_action('[refuse]')
+            if '[console_test]' in content.lower():
+                actions.add_action('[console_test]')
+            if '[user_test]' in content.lower():
+                actions.add_action('[user_test]')
+            
+            if not actions.empty():
+                return actions
         except Exception:
             logger.exception("生成回复时出错")
             return None
