@@ -10,7 +10,7 @@ from .message import MessageSending, MessageThinking, MessageSet
 
 from .storage import MessageStorage
 from .config import global_config
-from .utils import truncate_message, calculate_typing_time
+from .utils import truncate_message
 
 from src.common.logger import LogConfig, SENDER_STYLE_CONFIG
 
@@ -59,10 +59,6 @@ class Message_Sender:
                     logger.warning(f"消息“{message.processed_plain_text}”已被撤回，不发送")
                     break
             if not is_recalled:
-                
-                typing_time = calculate_typing_time(message.processed_plain_text)
-                await asyncio.sleep(typing_time)
-                
                 message_json = message.to_dict()
                 message_send = MessageSendCQ(data=message_json)
                 message_preview = truncate_message(message.processed_plain_text)

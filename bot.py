@@ -139,12 +139,10 @@ async def graceful_shutdown():
             uvicorn_server.force_exit = True  # 强制退出
             await uvicorn_server.shutdown()
 
-        logger.info("正在关闭所有任务...")
         tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        logger.info("所有任务已关闭")
 
     except Exception as e:
         logger.error(f"麦麦关闭失败: {e}")

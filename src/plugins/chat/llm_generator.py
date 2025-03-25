@@ -35,7 +35,7 @@ class ResponseGenerator:
             request_type="response",
         )
         self.model_v3 = LLM_request(
-            model=global_config.llm_normal, temperature=0.9, max_tokens=3000, request_type="response"
+            model=global_config.llm_normal, temperature=0.7, max_tokens=3000, request_type="response"
         )
         self.model_r1_distill = LLM_request(
             model=global_config.llm_reasoning_minor, temperature=0.7, max_tokens=3000, request_type="response"
@@ -95,6 +95,25 @@ class ResponseGenerator:
             sender_name=sender_name,
             stream_id=message.chat_stream.stream_id,
         )
+
+        # 读空气模块 简化逻辑，先停用
+        # if global_config.enable_kuuki_read:
+        #     content_check, reasoning_content_check = await self.model_v3.generate_response(prompt_check)
+        #     print(f"\033[1;32m[读空气]\033[0m 读空气结果为{content_check}")
+        #     if 'yes' not in content_check.lower() and random.random() < 0.3:
+        #         self._save_to_db(
+        #             message=message,
+        #             sender_name=sender_name,
+        #             prompt=prompt,
+        #             prompt_check=prompt_check,
+        #             content="",
+        #             content_check=content_check,
+        #             reasoning_content="",
+        #             reasoning_content_check=reasoning_content_check
+        #         )
+        #         return None
+
+        # 生成回复
         try:
             content, reasoning_content, self.current_model_name = await model.generate_response(prompt)
         except Exception:
@@ -108,11 +127,15 @@ class ResponseGenerator:
             prompt=prompt,
             prompt_check=prompt_check,
             content=content,
+            # content_check=content_check if global_config.enable_kuuki_read else "",
             reasoning_content=reasoning_content,
+            # reasoning_content_check=reasoning_content_check if global_config.enable_kuuki_read else ""
         )
 
         return content
 
+    # def _save_to_db(self, message: Message, sender_name: str, prompt: str, prompt_check: str,
+    #                 content: str, content_check: str, reasoning_content: str, reasoning_content_check: str):
     def _save_to_db(
         self,
         message: MessageRecv,

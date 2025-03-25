@@ -143,12 +143,12 @@ class ChatManager:
         if stream_id in self.streams:
             stream = self.streams[stream_id]
             # 更新用户信息和群组信息
+            stream.update_active_time()
+            stream = copy.deepcopy(stream)
             stream.user_info = user_info
             if group_info:
                 stream.group_info = group_info
-            stream.update_active_time()
-            await self._save_stream(stream)  # 先保存更改
-            return copy.deepcopy(stream)  # 然后返回副本
+            return stream
 
         # 检查数据库中是否存在
         data = db.chat_streams.find_one({"stream_id": stream_id})

@@ -26,14 +26,11 @@ from .chat_stream import chat_manager
 from .message_sender import message_manager  # 导入新的消息管理器
 from .relationship_manager import relationship_manager
 from .storage import MessageStorage
-from .utils import is_mentioned_bot_in_message, get_recent_group_detailed_plain_text
+from .utils import is_mentioned_bot_in_message
 from .utils_image import image_path_to_base64
 from .utils_user import get_user_nickname, get_user_cardname
 from ..willing.willing_manager import willing_manager  # 导入意愿管理器
 from .message_base import UserInfo, GroupInfo, Seg
-
-from src.think_flow_demo.heartflow import subheartflow_manager
-from src.think_flow_demo.outer_world import outer_world
 
 from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
 
@@ -300,6 +297,10 @@ class ChatBot:
             # 使用情绪管理器更新情绪
             self.mood_manager.update_mood_from_emotion(emotion[0], global_config.mood_intensity_factor)
 
+            # willing_manager.change_reply_willing_after_sent(
+            #     chat_stream=chat
+            # )
+
     async def handle_notice(self, event: NoticeEvent, bot: Bot) -> None:
         """处理收到的通知"""
         if isinstance(event, PokeNotifyEvent):
@@ -319,11 +320,11 @@ class ChatBot:
 
             raw_message = f"[戳了戳]{global_config.BOT_NICKNAME}"  # 默认类型
             if info := event.model_extra["raw_info"]:
-                poke_type = info[2].get("txt", "戳了戳")  # 戳戳类型，例如"拍一拍"、"揉一揉"、"捏一捏"
+                poke_type = info[2].get("txt", "戳了戳")  # 戳戳类型，例如“拍一拍”、“揉一揉”、“捏一捏”
                 custom_poke_message = info[4].get("txt", "")  # 自定义戳戳消息，若不存在会为空字符串
                 raw_message = f"[{poke_type}]{global_config.BOT_NICKNAME}{custom_poke_message}"
 
-                raw_message += "，作为一个类似摸摸头的友善行为"
+                raw_message += "（这是一个类似摸摸头的友善行为，而不是恶意行为，请不要作出攻击发言）"
 
             user_info = UserInfo(
                 user_id=event.user_id,

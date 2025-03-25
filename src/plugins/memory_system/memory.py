@@ -799,7 +799,7 @@ class Hippocampus:
         """
         topics_response = await self.llm_topic_judge.generate_response(self.find_topic_llm(text, 4))
         # 使用正则表达式提取<>中的内容
-        # print(f"话题: {topics_response[0]}")
+        print(f"话题: {topics_response[0]}")
         topics = re.findall(r'<([^>]+)>', topics_response[0])
         
         # 如果没有找到<>包裹的内容，返回['none']
@@ -884,7 +884,7 @@ class Hippocampus:
         """计算输入文本对记忆的激活程度"""
         # 识别主题
         identified_topics = await self._identify_topics(text)
-        # print(f"识别主题: {identified_topics}")
+        print(f"识别主题: {identified_topics}")
         
         if identified_topics[0] == "none":
             return 0
