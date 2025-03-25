@@ -398,9 +398,7 @@ class EmojiManager:
                     # 修复拼写错误
                     if "discription" in emoji:
                         desc = emoji["discription"]
-                        db.emoji.update_one(
-                            {"_id": emoji["_id"]}, {"$unset": {"discription": ""}, "$set": {"description": desc}}
-                        )
+                        db.emoji.update_one({"_id": emoji["_id"]}, {"$unset": {"discription": ""}, "$set": {"description": desc}})
 
                 except Exception as item_error:
                     logger.error(f"[错误] 处理表情包记录时出错: {str(item_error)}")

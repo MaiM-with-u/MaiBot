@@ -6,7 +6,6 @@ from ...common.database import db
 from .message_base import UserInfo
 from .chat_stream import ChatStream
 import math
-from bson.decimal128 import Decimal128
 
 logger = get_module_logger("rel_manager")
 
@@ -114,19 +113,6 @@ class RelationshipManager:
         if relationship:
             for k, value in kwargs.items():
                 if k == "relationship_value":
-                    # 检查relationship.relationship_value是否为double类型
-                    if not isinstance(relationship.relationship_value, float):
-                        try:
-                            # 处理 Decimal128 类型
-                            if isinstance(relationship.relationship_value, Decimal128):
-                                relationship.relationship_value = float(relationship.relationship_value.to_decimal())
-                            else:
-                                relationship.relationship_value = float(relationship.relationship_value)
-                            logger.info(f"[关系管理] 用户 {user_id}({platform}) 的关系值已转换为double类型: {relationship.relationship_value}")
-                        except (ValueError, TypeError):
-                            # 如果不能解析/强转则将relationship.relationship_value设置为double类型的0
-                            relationship.relationship_value = 0.0
-                            logger.warning(f"[关系管理] 用户 {user_id}({platform}) 的关系值无法转换为double类型，已设置为0")
                     relationship.relationship_value += value
             await self.storage_relationship(relationship)
             relationship.saved = True
@@ -325,7 +311,7 @@ class RelationshipManager:
             level_num = 0
         elif -227 <= relationship_value < -73:
             level_num = 1
-        elif -73 <= relationship_value < 227:
+        elif -76 <= relationship_value < 227:
             level_num = 2
         elif 227 <= relationship_value < 587:
             level_num = 3
