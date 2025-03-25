@@ -277,6 +277,19 @@ if defined VIRTUAL_ENV (
     goto menu
 )
 
+if exist "%_root%\config\conda_env" (
+    set /p CONDA_ENV=<"%_root%\config\conda_env"
+    call conda activate !CONDA_ENV! || (
+    echo 激活失败，可能原因：
+    echo 1. 环境不存在
+    echo 2. conda配置异常
+    pause
+    goto conda_menu
+	)
+	echo 成功激活conda环境：!CONDA_ENV!
+	goto menu
+)
+
 echo =====================================
 echo 虚拟环境检测警告：
 echo 当前使用系统Python路径：!PYTHON_HOME!
@@ -390,6 +403,7 @@ call conda activate !CONDA_ENV! || (
     goto conda_menu
 )
 echo 成功激活conda环境：!CONDA_ENV!
+echo !CONDA_ENV! > "%_root%\config\conda_env"
 echo 要安装依赖吗？
 set /p install_confirm="继续？(Y/N): "
 if /i "!install_confirm!"=="Y" (
