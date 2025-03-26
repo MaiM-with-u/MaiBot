@@ -135,15 +135,23 @@ class ChatBot:
 
         await self.storage.store_message(message, chat, topic[0] if topic else None)
 
-        is_mentioned = is_mentioned_bot_in_message(message)
-        reply_probability = await willing_manager.change_reply_willing_received(
-            chat_stream=chat,
-            is_mentioned_bot=is_mentioned,
-            config=global_config,
-            is_emoji=message.is_emoji,
-            interested_rate=interested_rate,
-            sender_id=str(message.message_info.user_info.user_id),
-        )
+        if (f"[CQ:at,qq={global_config.BOT_QQ}" in message_cq.raw_message) and global_config.at_bot_inevitable_reply:
+            reply_probability = 1
+            logger.info("被@，回复概率设置为100%")
+        else:
+            is_mentioned = is_mentioned_bot_in_message(message)
+            if is_mentioned and global_config.metioned_bot_inevitable_reply:
+                reply_probability = 1
+                logger.info("被提及，回复概率设置为100%")
+            else:
+                reply_probability = await willing_manager.change_reply_willing_received(
+                    chat_stream=chat,
+                    is_mentioned_bot=is_mentioned,
+                    config=global_config,
+                    is_emoji=message.is_emoji,
+                    interested_rate=interested_rate,
+                    sender_id=str(message.message_info.user_info.user_id),
+                )
         
         if global_config.enable_think_flow:
             current_willing_old = willing_manager.get_willing(chat_stream=chat)
