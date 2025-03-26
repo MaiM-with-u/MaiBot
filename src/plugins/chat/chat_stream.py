@@ -173,9 +173,13 @@ class ChatManager:
         await self._save_stream(stream)
         return copy.deepcopy(stream)
 
-    def get_stream(self, stream_id: str) -> Optional[ChatStream]:
+    def get_stream(self, stream_id: str, new_group_info: GroupInfo = None) -> Optional[ChatStream]:
         """通过stream_id获取聊天流"""
-        return self.streams.get(stream_id)
+        stream = self.streams.get(stream_id)
+        # 动态更新群信息
+        if stream and new_group_info:
+            stream.group_info = new_group_info
+        return stream
 
     def get_stream_by_info(
         self, platform: str, user_info: UserInfo, group_info: Optional[GroupInfo] = None

@@ -1,5 +1,5 @@
 [inner]
-version = "0.0.11"
+version = "0.0.12"
 
 [mai_version]
 version = "0.6.0"
@@ -29,6 +29,7 @@ talk_allowed = [
 ]  #可以回复消息的群号码
 talk_frequency_down = []  #降低回复频率的群号码
 ban_user_id = []  #禁止回复和读取消息的QQ号
+group_prompts = {123 = "这是一个qq群聊"}  # 群聊描述(避免换行)
 
 [personality]
 prompt_personality = [

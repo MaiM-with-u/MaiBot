@@ -68,7 +68,7 @@ class PromptBuilder:
             chat_talking_prompt = get_recent_group_detailed_plain_text(
                 stream_id, limit=global_config.MAX_CONTEXT_SIZE, combine=True
             )
-            chat_stream = chat_manager.get_stream(stream_id)
+            chat_stream = chat_manager.get_stream(stream_id, chat_stream.group_info)
             if chat_stream.group_info:
                 chat_talking_prompt = chat_talking_prompt
             else:
@@ -100,7 +100,16 @@ class PromptBuilder:
 
         # 类型
         if chat_in_group:
-            chat_target = "你正在qq群里聊天，下面是群里在聊的内容："
+            group_info = chat_stream.group_info
+            group_prompt = global_config.group_prompts.get(str(group_info.group_id))
+            if not group_prompt:
+                group_prompt = ''
+            else:
+                group_prompt = "，这是" + group_prompt
+            group_name = group_info.group_name
+            if not group_name:
+                group_name = "qq群"
+            chat_target = f"你正在{group_name}里聊天{group_prompt}，下面是群里在聊的内容："
             chat_target_2 = "和群里聊天"
         else:
             chat_target = f"你正在和{sender_name}聊天，这是你们之前聊的内容："

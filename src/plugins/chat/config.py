@@ -28,6 +28,7 @@ class BotConfig:
     talk_allowed_groups = set()
     talk_frequency_down_groups = set()
     ban_user_id = set()
+    group_prompts = dict()
     
     #personality
     PROMPT_PERSONALITY = [
@@ -413,6 +414,7 @@ class BotConfig:
             config.talk_allowed_groups = set(groups_config.get("talk_allowed", []))
             config.talk_frequency_down_groups = set(groups_config.get("talk_frequency_down", []))
             config.ban_user_id = set(groups_config.get("ban_user_id", []))
+            config.group_prompts = groups_config.get("group_prompts", dict())
 
         def experimental(parent: dict):
             experimental_config = parent["experimental"]

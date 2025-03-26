@@ -357,7 +357,8 @@ class ChatBot:
             )
 
             if isinstance(event, GroupRecallNoticeEvent):
-                group_info = GroupInfo(group_id=event.group_id, group_name=None, platform="qq")
+                group_info = GroupInfo.from_dict(await bot.get_group_info(group_id=event.group_id))
+                group_info.platform = "qq"
             else:
                 group_info = None
 
@@ -418,9 +419,9 @@ class ChatBot:
                 platform="qq",
             )
 
-            group_info = GroupInfo(group_id=event.group_id, group_name=None, platform="qq")
+            group_info = GroupInfo.from_dict(await bot.get_group_info(group_id=event.group_id))
+            group_info.platform = "qq"
 
-        # group_info = await bot.get_group_info(group_id=event.group_id)
         # sender_info = await bot.get_group_member_info(group_id=event.group_id, user_id=event.user_id, no_cache=True)
 
         message_cq = MessageRecvCQ(
