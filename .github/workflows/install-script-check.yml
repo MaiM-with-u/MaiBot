@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main-fix
+      - ft/ubuntu-latest
   pull_request:
     branches:
       - main-fix
+      - ft/ubuntu-latest
   workflow_dispatch:
 
 jobs:
@@ -17,10 +19,10 @@ jobs:
         uses: actions/checkout@v4
       
       - name: 🛠️ 赋予执行权限
-        run: chmod +x install.sh  # 确保你的脚本文件名正确
+        run: chmod +x run_ubuntu.sh  # 确保你的脚本文件名正确
       
       - name: 🔍 执行安装脚本
-        run: ./install.sh
+        run: ./run_ubuntu.sh
       
       - name: ✅ 检查执行结果
         run: echo "脚本运行成功"
