@@ -115,7 +115,7 @@ class BotConfig:
     # experimental
     enable_friend_chat: bool = False  # 是否启用好友聊天
     enable_think_flow: bool = False  # 是否启用思考流程
-    
+    enable_think_flow: bool = False # 是否允许执行动作
     
 
     # 模型配置
@@ -421,6 +421,7 @@ class BotConfig:
             experimental_config = parent["experimental"]
             config.enable_friend_chat = experimental_config.get("enable_friend_chat", config.enable_friend_chat)
             config.enable_think_flow = experimental_config.get("enable_think_flow", config.enable_think_flow)
+            config.enable_action_execute = experimental_config.get("enable_action_execute", config.enable_action_execute)
             
         # 版本表达式：>=1.0.0,<2.0.0
         # 允许字段：func: method, support: str, notice: str, necessary: bool
