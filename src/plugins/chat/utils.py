@@ -46,11 +46,14 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
     """检查消息是否提到了机器人"""
     keywords = [global_config.BOT_NICKNAME]
     nicknames = global_config.BOT_ALIAS_NAMES
-    message_id = int(re.findall(r"\[CQ:reply,id=([0-9]*)\]", message.raw_message)[0])
+    at_qq_list = re.findall(r"\[CQ:at,qq=([0-9]*),name", message.raw_message)
+    if int(at_qq_list[0] if len(at_qq_list) != 0 else "0") == global_config.BOT_QQ:
+        return True
+    message_id_list = re.findall(r"\[CQ:reply,id=([0-9]*)\]", message.raw_message)
+    message_id = int(message_id_list[0] if len(message_id_list) != 0 else "0")
     result = db.messages.find_one({"message_id": message_id})
     message_content = re.sub(r'\[CQ:reply,[\s\S]*?\]','', message.raw_message)
     message_content = re.sub(r'\[CQ:cq,[\s\S]*?\]','', message_content)
-    logger.exception(f"raw_message : {message.raw_message}")
     for keyword in keywords:
         if (f"[回复 {keyword} 的消息:  " in message.processed_plain_text) and result == None:
             return True
