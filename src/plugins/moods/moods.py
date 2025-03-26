@@ -4,9 +4,14 @@ import time
 from dataclasses import dataclass
 
 from ..chat.config import global_config
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, MOOD_STYLE_CONFIG
 
-logger = get_module_logger("mood_manager")
+mood_config = LogConfig(
+    # 使用海马体专用样式
+    console_format=MOOD_STYLE_CONFIG["console_format"],
+    file_format=MOOD_STYLE_CONFIG["file_format"],
+)
+logger = get_module_logger("mood_manager", config=mood_config)
 
 
 @dataclass
@@ -122,7 +127,7 @@ class MoodManager:
         time_diff = current_time - self.last_update
 
         # Valence 向中性（0）回归
-        valence_target = 0.0
+        valence_target = 0
         self.current_mood.valence = valence_target + (self.current_mood.valence - valence_target) * math.exp(
             -self.decay_rate_valence * time_diff
         )

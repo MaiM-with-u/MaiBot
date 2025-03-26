@@ -122,11 +122,12 @@ class RelationshipManager:
                                 relationship.relationship_value = float(relationship.relationship_value.to_decimal())
                             else:
                                 relationship.relationship_value = float(relationship.relationship_value)
-                            logger.info(f"[关系管理] 用户 {user_id}({platform}) 的关系值已转换为double类型: {relationship.relationship_value}")
+                            logger.info(
+                                f"[关系管理] 用户 {user_id}({platform}) 的关系值已转换为double类型: {relationship.relationship_value}")  # noqa: E501
                         except (ValueError, TypeError):
                             # 如果不能解析/强转则将relationship.relationship_value设置为double类型的0
                             relationship.relationship_value = 0.0
-                            logger.warning(f"[关系管理] 用户 {user_id}({platform}) 的关系值无法转换为double类型，已设置为0")
+                            logger.warning(f"[关系管理] 用户 {user_id}({platform}) 的无法转换为double类型，已设置为0")
                     relationship.relationship_value += value
             await self.storage_relationship(relationship)
             relationship.saved = True

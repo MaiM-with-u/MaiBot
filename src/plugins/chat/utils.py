@@ -244,21 +244,17 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
         List[str]: 分割后的句子列表
     """
     len_text = len(text)
-    if len_text < 5:
+    if len_text < 4:
         if random.random() < 0.01:
             return list(text)  # 如果文本很短且触发随机条件,直接按字符分割
         else:
             return [text]
     if len_text < 12:
-        split_strength = 0.3
+        split_strength = 0.2
     elif len_text < 32:
-        split_strength = 0.7
+        split_strength = 0.6
     else:
-        split_strength = 0.9
-    # 先移除换行符
-    # print(f"split_strength: {split_strength}")
-
-    # print(f"处理前的文本: {text}")
+        split_strength = 0.7
 
     # 检查是否为西文字符段落
     if not is_western_paragraph(text):
@@ -348,7 +344,7 @@ def random_remove_punctuation(text: str) -> str:
 
     for i, char in enumerate(text):
         if char == "。" and i == text_len - 1:  # 结尾的句号
-            if random.random() > 0.4:  # 80%概率删除结尾句号
+            if random.random() > 0.1:  # 90%概率删除结尾句号
                 continue
         elif char == "，":
             rand = random.random()
@@ -364,10 +360,12 @@ def random_remove_punctuation(text: str) -> str:
 def process_llm_response(text: str) -> List[str]:
     # processed_response = process_text_with_typos(content)
     # 对西文字符段落的回复长度设置为汉字字符的两倍
-    if len(text) > 100 and not is_western_paragraph(text) :
+    max_length = global_config.response_max_length
+    max_sentence_num = global_config.response_max_sentence_num
+    if len(text) > max_length and not is_western_paragraph(text) :
         logger.warning(f"回复过长 ({len(text)} 字符)，返回默认回复")
         return ["懒得说"]
-    elif len(text) > 200 :
+    elif len(text) > max_length * 2 :
         logger.warning(f"回复过长 ({len(text)} 字符)，返回默认回复")
         return ["懒得说"]
     # 处理长消息
@@ -377,7 +375,10 @@ def process_llm_response(text: str) -> List[str]:
         tone_error_rate=global_config.chinese_typo_tone_error_rate,
         word_replace_rate=global_config.chinese_typo_word_replace_rate,
     )
-    split_sentences = split_into_sentences_w_remove_punctuation(text)
+    if global_config.enable_response_spliter:
+        split_sentences = split_into_sentences_w_remove_punctuation(text)
+    else:
+        split_sentences = [text]
     sentences = []
     for sentence in split_sentences:
         if global_config.chinese_typo_enable:
@@ -389,14 +390,14 @@ def process_llm_response(text: str) -> List[str]:
             sentences.append(sentence)
     # 检查分割后的消息数量是否过多（超过3条）
 
-    if len(sentences) > 3:
+    if len(sentences) > max_sentence_num:
         logger.warning(f"分割后消息数量过多 ({len(sentences)} 条)，返回默认回复")
         return [f"{global_config.BOT_NICKNAME}不知道哦"]
 
     return sentences
 
 
-def calculate_typing_time(input_string: str, chinese_time: float = 0.4, english_time: float = 0.2) -> float:
+def calculate_typing_time(input_string: str, chinese_time: float = 0.2, english_time: float = 0.1) -> float:
     """
     计算输入字符串所需的时间，中文和英文字符有不同的输入时间
         input_string (str): 输入的字符串

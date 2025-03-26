@@ -18,6 +18,8 @@ from ..memory_system.memory import hippocampus
 from .message_sender import message_manager, message_sender
 from .storage import MessageStorage
 from src.common.logger import get_module_logger
+from src.think_flow_demo.outer_world import outer_world
+from src.think_flow_demo.heartflow import subheartflow_manager
 
 logger = get_module_logger("chat_init")
 
@@ -33,14 +35,29 @@ config = driver.config
 
 # 初始化表情管理器
 emoji_manager.initialize()
-
-logger.debug(f"正在唤醒{global_config.BOT_NICKNAME}......")
+logger.success("--------------------------------")
+logger.success(f"正在唤醒{global_config.BOT_NICKNAME}......使用版本：{global_config.MAI_VERSION}")
+logger.success("--------------------------------")
 # 注册消息处理器
 msg_in = on_message(priority=5)
 # 注册和bot相关的通知处理器
 notice_matcher = on_notice(priority=1)
 # 创建定时任务
 scheduler = require("nonebot_plugin_apscheduler").scheduler
+
+
+async def start_think_flow():
+    """启动外部世界"""
+    try:
+        outer_world_task = asyncio.create_task(outer_world.open_eyes())
+        logger.success("大脑和外部世界启动成功")
+        # 启动心流系统
+        heartflow_task = asyncio.create_task(subheartflow_manager.heartflow_start_working())
+        logger.success("心流系统启动成功")  
+        return outer_world_task, heartflow_task
+    except Exception as e:
+        logger.error(f"启动大脑和外部世界失败: {e}")
+        raise
 
 
 @driver.on_startup
@@ -55,8 +72,13 @@ async def start_background_tasks():
     mood_manager.start_mood_update(update_interval=global_config.mood_update_interval)
     logger.success("情绪管理器启动成功")
 
+    # 启动大脑和外部世界
+    if global_config.enable_think_flow:
+        logger.success("启动测试功能：心流系统")
+        await start_think_flow()
+
     # 只启动表情包管理任务
-    asyncio.create_task(emoji_manager.start_periodic_check(interval_MINS=global_config.EMOJI_CHECK_INTERVAL))
+    asyncio.create_task(emoji_manager.start_periodic_check())
     await bot_schedule.initialize()
     bot_schedule.print_schedule()
 
@@ -84,7 +106,7 @@ async def _(bot: Bot):
         _message_manager_started = True
         logger.success("-----------消息处理器已启动！-----------")
 
-    asyncio.create_task(emoji_manager._periodic_scan(interval_MINS=global_config.EMOJI_REGISTER_INTERVAL))
+    asyncio.create_task(emoji_manager._periodic_scan())
     logger.success("-----------开始偷表情包！-----------")
     asyncio.create_task(chat_manager._initialize())
     asyncio.create_task(chat_manager._auto_save_task())
@@ -128,7 +150,7 @@ async def merge_memory_task():
     # print("\033[1;32m[记忆整合]\033[0m 记忆整合完成")
 
 
-@scheduler.scheduled_job("interval", seconds=30, id="print_mood")
+@scheduler.scheduled_job("interval", seconds=15, id="print_mood")
 async def print_mood_task():
     """每30秒打印一次情绪状态"""
     mood_manager = MoodManager.get_instance()

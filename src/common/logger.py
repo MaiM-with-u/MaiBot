@@ -86,6 +86,25 @@ MEMORY_STYLE_CONFIG = {
     },
 }
 
+
+#MOOD
+MOOD_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{extra[module]: <12}</cyan> | "
+            "<light-green>心情</light-green> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 心情 | {message}"),
+    },
+    "simple": {
+        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <light-green>心情</light-green> | {message}"),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 心情 | {message}"),
+    },
+}
+
 SENDER_STYLE_CONFIG = {
     "advanced": {
         "console_format": (
@@ -163,7 +182,7 @@ TOPIC_STYLE_CONFIG = TOPIC_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else TOPIC_ST
 SENDER_STYLE_CONFIG = SENDER_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else SENDER_STYLE_CONFIG["advanced"]
 LLM_STYLE_CONFIG = LLM_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else LLM_STYLE_CONFIG["advanced"]
 CHAT_STYLE_CONFIG = CHAT_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else CHAT_STYLE_CONFIG["advanced"]
-
+MOOD_STYLE_CONFIG = MOOD_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else MOOD_STYLE_CONFIG["advanced"]
 
 def is_registered_module(record: dict) -> bool:
     """检查是否为已注册的模块"""

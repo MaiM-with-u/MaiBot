@@ -22,18 +22,18 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Determine Image Tags
         id: tags
         run: |
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "tags=${{ vars.DOCKERHUB_USERNAME }}/maimbot:${{ github.ref_name }},${{ vars.DOCKERHUB_USERNAME }}/maimbot:latest" >> $GITHUB_OUTPUT
+            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:${{ github.ref_name }},${{ secrets.DOCKERHUB_USERNAME }}/maimbot:latest" >> $GITHUB_OUTPUT
           elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "tags=${{ vars.DOCKERHUB_USERNAME }}/maimbot:main,${{ vars.DOCKERHUB_USERNAME }}/maimbot:latest" >> $GITHUB_OUTPUT
+            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:main,${{ secrets.DOCKERHUB_USERNAME }}/maimbot:latest" >> $GITHUB_OUTPUT
           elif [ "${{ github.ref }}" == "refs/heads/main-fix" ]; then
-            echo "tags=${{ vars.DOCKERHUB_USERNAME }}/maimbot:main-fix" >> $GITHUB_OUTPUT
+            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:main-fix" >> $GITHUB_OUTPUT
           fi
 
       - name: Build and Push Docker Image
@@ -44,5 +44,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.tags.outputs.tags }}
           push: true
-          cache-from: type=registry,ref=${{ vars.DOCKERHUB_USERNAME }}/maimbot:buildcache
-          cache-to: type=registry,ref=${{ vars.DOCKERHUB_USERNAME }}/maimbot:buildcache,mode=max
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:buildcache,mode=max
