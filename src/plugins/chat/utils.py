@@ -47,7 +47,11 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
     keywords = [global_config.BOT_NICKNAME]
     nicknames = global_config.BOT_ALIAS_NAMES
     message_content = re.sub(r'\[CQ:reply,[\s\S]*?\]','', message.raw_message)
+    message_content = re.sub(r'\[CQ:cq,[\s\S]*?\]','', message_content)
+    logger.exception(f"raw_message : {message.raw_message}")
     for keyword in keywords:
+        if f"[回复 {keyword} 的消息:  " in message.processed_plain_text:
+            return True
         if keyword in message_content:
             return True
     for nickname in nicknames:
