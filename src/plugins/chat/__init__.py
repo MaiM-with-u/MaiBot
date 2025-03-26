@@ -150,7 +150,7 @@ async def merge_memory_task():
     # print("\033[1;32m[记忆整合]\033[0m 记忆整合完成")
 
 
-@scheduler.scheduled_job("interval", seconds=30, id="print_mood")
+@scheduler.scheduled_job("interval", seconds=15, id="print_mood")
 async def print_mood_task():
     """每30秒打印一次情绪状态"""
     mood_manager = MoodManager.get_instance()

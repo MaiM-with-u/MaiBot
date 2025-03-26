@@ -54,7 +54,9 @@ def send_heartbeat(server_url, client_id):
     sys = platform.system()
     try:
         headers = {"Client-ID": client_id, "User-Agent": f"HeartbeatClient/{client_id[:8]}"}
-        data = json.dumps({"system": sys})
+        data = json.dumps(
+            {"system": sys, "Version": global_config.MAI_VERSION},
+        )
         response = requests.post(f"{server_url}/api/clients", headers=headers, data=data)
 
         if response.status_code == 201:
@@ -92,9 +94,9 @@ class HeartbeatThread(threading.Thread):
                 logger.info(f"{self.interval}秒后发送下一次心跳...")
             else:
                 logger.info(f"{self.interval}秒后重试...")
-            
+
             self.last_heartbeat_time = time.time()
-            
+
             # 使用可中断的等待代替 sleep
             # 每秒检查一次是否应该停止或发送心跳
             remaining_wait = self.interval
@@ -104,7 +106,7 @@ class HeartbeatThread(threading.Thread):
                 if self.stop_event.wait(wait_time):
                     break  # 如果事件被设置，立即退出等待
                 remaining_wait -= wait_time
-                
+
                 # 检查是否由于外部原因导致间隔异常延长
                 if time.time() - self.last_heartbeat_time >= self.interval * 1.5:
                     logger.warning("检测到心跳间隔异常延长，立即发送心跳")
