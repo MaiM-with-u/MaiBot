@@ -46,11 +46,12 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
     """检查消息是否提到了机器人"""
     keywords = [global_config.BOT_NICKNAME]
     nicknames = global_config.BOT_ALIAS_NAMES
+    message_content = re.sub(r'\[CQ:reply,[\s\S]*?\]','', message.raw_message)
     for keyword in keywords:
-        if keyword in message.processed_plain_text:
+        if keyword in message_content:
             return True
     for nickname in nicknames:
-        if nickname in message.processed_plain_text:
+        if nickname in message_content:
             return True
     return False
 
