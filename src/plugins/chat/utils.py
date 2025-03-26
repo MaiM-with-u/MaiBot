@@ -46,9 +46,13 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
     """检查消息是否提到了机器人"""
     keywords = [global_config.BOT_NICKNAME]
     nicknames = global_config.BOT_ALIAS_NAMES
+    message_id = int(re.findall(r"\[CQ:reply,id=([0-9]*)\]", message.raw_message)[0])
+    result = db.messages.find_one({"message_id": message_id})
     message_content = re.sub(r'\[CQ:reply,[\s\S]*?\]','', message.raw_message)
+    message_content = re.sub(r'\[CQ:cq,[\s\S]*?\]','', message_content)
+    logger.exception(f"raw_message : {message.raw_message}")
     for keyword in keywords:
-        if f"[回复 {keyword} 的消息:  " in message.processed_plain_text:
+        if (f"[回复 {keyword} 的消息:  " in message.processed_plain_text) and result == None:
             return True
         if keyword in message_content:
             return True
@@ -56,7 +60,6 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
         if nickname in message_content:
             return True
     return False
-
 
 async def get_embedding(text, request_type="embedding"):
     """获取文本的embedding向量"""
