@@ -49,14 +49,9 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
     at_qq_list = re.findall(r"\[CQ:at,qq=([0-9]*),name", message.raw_message)
     if int(at_qq_list[0] if len(at_qq_list) != 0 else "0") == global_config.BOT_QQ:
         return True
-    message_id_list = re.findall(r"\[CQ:reply,id=([0-9]*)\]", message.raw_message)
-    message_id = int(message_id_list[0] if len(message_id_list) != 0 else "0")
-    result = db.messages.find_one({"message_id": message_id})
     message_content = re.sub(r'\[CQ:reply,[\s\S]*?\]','', message.raw_message)
     message_content = re.sub(r'\[CQ:cq,[\s\S]*?\]','', message_content)
     for keyword in keywords:
-        if (f"[回复 {keyword} 的消息:  " in message.processed_plain_text) and result == None:
-            return True
         if keyword in message_content:
             return True
     for nickname in nicknames:
@@ -549,3 +544,11 @@ def is_western_paragraph(paragraph):
     """检测是否为西文字符段落"""
     return all(is_western_char(char) for char in paragraph if char.isalnum())
   
+def is_reply_bot_in_message(reply_message) -> bool:
+    """判断回复对象是否为bot"""
+    if reply_message != None:
+        reply_user_id = reply_message.sender.user_id
+        if reply_user_id == global_config.BOT_QQ:
+            logger.exception(f"is reply: True")
+            return True
+    return False
