@@ -230,7 +230,7 @@ class ChatBot:
             if global_config.enable_action_execute and response_actions:
                 for action in response_actions:
                     logger.info(f"正在处理{action}")
-                    response = usable_action[action](response)
+                    response = usable_action[action](response, locals())
 
             # 记录开始思考的时间，避免从思考到回复的时间太久
             thinking_start_time = thinking_message.thinking_start_time
