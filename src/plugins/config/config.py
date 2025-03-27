@@ -115,7 +115,7 @@ class BotConfig:
     # experimental
     enable_friend_chat: bool = False  # 是否启用好友聊天
     enable_think_flow: bool = False  # 是否启用思考流程
-    enable_think_flow: bool = False # 是否允许执行动作
+    enable_action_execute: bool = False # 是否允许执行动作
     
 
     # 模型配置

@@ -1,6 +1,7 @@
 class ResponseAction:
     def __init__(self):
         self.tags = []
+        self.msgs = []
 
     def parse_action(self, msg: str, action: str) -> str:
         if action in msg:
@@ -18,6 +19,15 @@ class ResponseAction:
             # 非str输入直接抛异常
             raise TypeError
 
-    def __bool__(self):
-        # 这是为了直接嵌入到llm_generator.py的处理流里 便于跳过消息处理流程
-        return False
+    
+
+
+from ....config.actions import usable_action_description
+
+extern_prompt = f"""
+`<UseableAction>`
+{'\n'.join(usable_action_description)}
+`</UseableAction>`
+你可以使用**`<UseableAction>`**中给出的标签来执行特定动作，请参考对应部分的描述。
+注意，标签一定是以“[内容]”形式输出的，你可以在一次响应中执行多个动作。
+"""
