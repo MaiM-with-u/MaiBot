@@ -58,7 +58,9 @@ class BotConfig:
     response_interested_rate_amplifier: float = 1.0  # 回复兴趣度放大系数
     down_frequency_rate: float = 3  # 降低回复频率的群组回复意愿降低系数
     emoji_response_penalty: float = 0.0  # 表情包回复惩罚
-    
+    metioned_bot_inevitable_reply: bool = False # 提及 bot 必然回复
+    at_bot_inevitable_reply: bool = False # @bot 必然回复
+
     # response
     MODEL_R1_PROBABILITY: float = 0.8  # R1模型概率
     MODEL_V3_PROBABILITY: float = 0.1  # V3模型概率
@@ -261,6 +263,10 @@ class BotConfig:
                 config.down_frequency_rate = willing_config.get("down_frequency_rate", config.down_frequency_rate)
                 config.emoji_response_penalty = willing_config.get(
                     "emoji_response_penalty", config.emoji_response_penalty)
+                config.metioned_bot_inevitable_reply = willing_config.get(
+                    "metioned_bot_inevitable_reply", config.metioned_bot_inevitable_reply)
+                config.at_bot_inevitable_reply = willing_config.get(
+                    "at_bot_inevitable_reply", config.at_bot_inevitable_reply)
                 
         def model(parent: dict):
             # 加载模型配置
