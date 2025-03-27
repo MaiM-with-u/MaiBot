@@ -549,6 +549,5 @@ def is_reply_bot_in_message(reply_message) -> bool:
     if reply_message != None:
         reply_user_id = reply_message.sender.user_id
         if reply_user_id == global_config.BOT_QQ:
-            logger.exception(f"is reply: True")
             return True
     return False
