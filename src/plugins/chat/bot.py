@@ -186,10 +186,10 @@ class ChatBot:
             willing_manager.change_reply_willing_not_sent(chat)
 
         # print(f"response: {response}")
-        response_action = None
+        response_actions = None
         if global_config.enable_action_execute:
             from ..action_executer.action_executer import ResponseAction
-            from ....config.actions import usable_action
+            from ..action_executer.actions import usable_action
             if isinstance(response, ResponseAction):
                 response_actions = response.tags
                 response = response.msgs
@@ -224,9 +224,10 @@ class ChatBot:
                 return
 
             # 清理掉思考消息后开始做发送前处理
-            if global_config.enable_action_execute:
-                for action in response_action:
-                    await response = usable_action[action](response)
+            if global_config.enable_action_execute and response_actions:
+                for action in response_actions:
+                    response = usable_action[action](response)
+                    logger.info(f"正在处理{action}")
 
             # 记录开始思考的时间，避免从思考到回复的时间太久
             thinking_start_time = thinking_message.thinking_start_time

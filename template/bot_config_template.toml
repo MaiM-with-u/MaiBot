@@ -134,6 +134,7 @@ enable = true
 [experimental]
 enable_friend_chat = false # 是否启用好友聊天
 enable_think_flow = false # 是否启用思维流 注意：可能会消耗大量token，请谨慎开启
+enable_action_execute = false # 是否启用动作执行器
 
 #下面的模型若使用硅基流动则不需要更改，使用ds官方则改成.env.prod自定义的宏，使用自定义模型则选择定位相似的模型自己填写
 #推理模型
