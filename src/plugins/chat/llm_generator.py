@@ -68,6 +68,18 @@ class ResponseGenerator:
         # print(f"raw_content: {raw_content}")
         # print(f"model_response: {model_response}")
 
+        if global_config.enable_action_execute:
+            from ..action_executer.action_executer import ResponseAction
+            from ....config.actions import usable_action
+            actions = ResponseAction()
+            for action in usable_action:
+                model_response = actions.parse_action(model_response, action)
+            if not actions.empty():
+                actions.msgs = await self._process_response(model_response)
+                if actions.msgs:
+                    return actions, raw_content
+            return None, raw_content
+
         if model_response:
             logger.info(f"{global_config.BOT_NICKNAME}的回复是：{model_response}")
             model_response = await self._process_response(model_response)

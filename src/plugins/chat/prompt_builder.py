@@ -168,6 +168,10 @@ class PromptBuilder:
 请回复的平淡一些，简短一些，说中文，不要刻意突出自身学科背景， 
 请注意不要输出多余内容(包括前后缀，冒号和引号，括号，表情等)，只输出回复内容。
 {moderation_prompt}不要输出多余内容(包括前后缀，冒号和引号，括号，表情包，at或 @等 )。"""
+        
+        if global_config.enable_action_execute:
+            from ..action_executer.action_executer import extern_prompt
+            prompt = prompt + extern_prompt
 
         prompt_check_if_response = ""
         

@@ -186,9 +186,17 @@ class ChatBot:
             willing_manager.change_reply_willing_not_sent(chat)
 
         # print(f"response: {response}")
+        response_action = None
+        if global_config.enable_action_execute:
+            from ..action_executer.action_executer import ResponseAction
+            from ....config.actions import usable_action
+            if isinstance(response, ResponseAction):
+                response_actions = response.tags
+                response = response.msgs
+
         if response:
             stream_id = message.chat_stream.stream_id
-            
+
             if global_config.enable_think_flow:
                 chat_talking_prompt = ""
                 if stream_id:
@@ -214,6 +222,11 @@ class ChatBot:
             if not thinking_message:
                 logger.warning("未找到对应的思考消息，可能已超时被移除")
                 return
+
+            # 清理掉思考消息后开始做发送前处理
+            if global_config.enable_action_execute:
+                for action in response_action:
+                    await response = usable_action[action](response)
 
             # 记录开始思考的时间，避免从思考到回复的时间太久
             thinking_start_time = thinking_message.thinking_start_time
