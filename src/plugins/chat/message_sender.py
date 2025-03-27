@@ -59,6 +59,11 @@ class Message_Sender:
                     logger.warning(f"消息“{message.processed_plain_text}”已被撤回，不发送")
                     break
             if not is_recalled:
+                
+                typing_time = calculate_typing_time(message.processed_plain_text)
+                logger.info(f"麦麦正在打字，预计需要{typing_time}秒")
+                await asyncio.sleep(typing_time)
+                
                 message_json = message.to_dict()
                 message_send = MessageSendCQ(data=message_json)
                 message_preview = truncate_message(message.processed_plain_text)
@@ -95,7 +100,7 @@ class MessageContainer:
         self.max_size = max_size
         self.messages = []
         self.last_send_time = 0
-        self.thinking_timeout = 20  # 思考超时时间（秒）
+        self.thinking_timeout = 10  # 思考超时时间（秒）
 
     def get_timeout_messages(self) -> List[MessageSending]:
         """获取所有超时的Message_Sending对象（思考时间超过30秒），按thinking_start_time排序"""
@@ -204,7 +209,7 @@ class MessageManager:
                 # print(thinking_time)
                 if (
                     message_earliest.is_head
-                    and message_earliest.update_thinking_time() > 15
+                    and message_earliest.update_thinking_time() > 20
                     and not message_earliest.is_private_message()  # 避免在私聊时插入reply
                 ):
                     logger.debug(f"设置回复消息{message_earliest.processed_plain_text}")
@@ -231,7 +236,7 @@ class MessageManager:
                         # print(msg.is_private_message())
                         if (
                             msg.is_head
-                            and msg.update_thinking_time() > 15
+                            and msg.update_thinking_time() > 25
                             and not msg.is_private_message()  # 避免在私聊时插入reply
                         ):
                             logger.debug(f"设置回复消息{msg.processed_plain_text}")

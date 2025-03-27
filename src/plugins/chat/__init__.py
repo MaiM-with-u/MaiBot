@@ -79,9 +79,17 @@ async def start_background_tasks():
 
     # 只启动表情包管理任务
     asyncio.create_task(emoji_manager.start_periodic_check())
-    await bot_schedule.initialize()
-    bot_schedule.print_schedule()
 
+
+@driver.on_startup
+async def init_schedule():
+    """在 NoneBot2 启动时初始化日程系统"""
+    bot_schedule.initialize(
+        name=global_config.BOT_NICKNAME, 
+        personality=global_config.PROMPT_PERSONALITY, 
+        behavior=global_config.PROMPT_SCHEDULE_GEN, 
+        interval=global_config.SCHEDULE_DOING_UPDATE_INTERVAL)
+    asyncio.create_task(bot_schedule.mai_schedule_start())
 
 @driver.on_startup
 async def init_relationships():
@@ -157,13 +165,13 @@ async def print_mood_task():
     mood_manager.print_mood_status()
 
 
-@scheduler.scheduled_job("interval", seconds=7200, id="generate_schedule")
-async def generate_schedule_task():
-    """每2小时尝试生成一次日程"""
-    logger.debug("尝试生成日程")
-    await bot_schedule.initialize()
-    if not bot_schedule.enable_output:
-        bot_schedule.print_schedule()
+# @scheduler.scheduled_job("interval", seconds=7200, id="generate_schedule")
+# async def generate_schedule_task():
+#     """每2小时尝试生成一次日程"""
+#     logger.debug("尝试生成日程")
+#     await bot_schedule.initialize()
+#     if not bot_schedule.enable_output:
+#         bot_schedule.print_schedule()
 
 
 @scheduler.scheduled_job("interval", seconds=3600, id="remove_recalled_message")

@@ -51,13 +51,13 @@ class ResponseGenerator:
         # 从global_config中获取模型概率值并选择模型
         rand = random.random()
         if rand < global_config.MODEL_R1_PROBABILITY:
-            self.current_model_type = "r1"
+            self.current_model_type = "深深地"
             current_model = self.model_r1
         elif rand < global_config.MODEL_R1_PROBABILITY + global_config.MODEL_V3_PROBABILITY:
-            self.current_model_type = "v3"
+            self.current_model_type = "浅浅的"
             current_model = self.model_v3
         else:
-            self.current_model_type = "r1_distill"
+            self.current_model_type = "又浅又浅的"
             current_model = self.model_r1_distill
 
         logger.info(f"{global_config.BOT_NICKNAME}{self.current_model_type}思考中")

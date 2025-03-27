@@ -42,6 +42,7 @@ class BotConfig:
     # schedule
     ENABLE_SCHEDULE_GEN: bool = False  # 是否启用日程生成
     PROMPT_SCHEDULE_GEN = "无日程"
+    SCHEDULE_DOING_UPDATE_INTERVAL: int = 300  # 日程表更新间隔 单位秒
 
     # message
     MAX_CONTEXT_SIZE: int = 15  # 上下文最大消息数
@@ -219,6 +220,8 @@ class BotConfig:
             schedule_config = parent["schedule"]
             config.ENABLE_SCHEDULE_GEN = schedule_config.get("enable_schedule_gen", config.ENABLE_SCHEDULE_GEN)
             config.PROMPT_SCHEDULE_GEN = schedule_config.get("prompt_schedule_gen", config.PROMPT_SCHEDULE_GEN)
+            config.SCHEDULE_DOING_UPDATE_INTERVAL = schedule_config.get(
+                "schedule_doing_update_interval", config.SCHEDULE_DOING_UPDATE_INTERVAL)
             logger.info(
                 f"载入自定义日程prompt:{schedule_config.get('prompt_schedule_gen', config.PROMPT_SCHEDULE_GEN)}")
 

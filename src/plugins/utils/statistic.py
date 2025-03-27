@@ -20,6 +20,13 @@ class LLMStatistics:
         self.output_file = output_file
         self.running = False
         self.stats_thread = None
+        self._init_database()
+
+    def _init_database(self):
+        """初始化数据库集合"""
+        if "online_time" not in db.list_collection_names():
+            db.create_collection("online_time")
+            db.online_time.create_index([("timestamp", 1)])
 
     def start(self):
         """启动统计线程"""
@@ -34,6 +41,16 @@ class LLMStatistics:
         self.running = False
         if self.stats_thread:
             self.stats_thread.join()
+
+    def _record_online_time(self):
+        """记录在线时间"""
+        try:
+            db.online_time.insert_one({
+                "timestamp": datetime.now(),
+                "duration": 5  # 5分钟
+            })
+        except Exception:
+            logger.exception("记录在线时间失败")
 
     def _collect_statistics_for_period(self, start_time: datetime) -> Dict[str, Any]:
         """收集指定时间段的LLM请求统计数据
@@ -56,10 +73,11 @@ class LLMStatistics:
             "tokens_by_type": defaultdict(int),
             "tokens_by_user": defaultdict(int),
             "tokens_by_model": defaultdict(int),
+            # 新增在线时间统计
+            "online_time_minutes": 0,
         }
 
         cursor = db.llm_usage.find({"timestamp": {"$gte": start_time}})
-
         total_requests = 0
 
         for doc in cursor:
@@ -74,7 +92,7 @@ class LLMStatistics:
 
             prompt_tokens = doc.get("prompt_tokens", 0)
             completion_tokens = doc.get("completion_tokens", 0)
-            total_tokens = prompt_tokens + completion_tokens  # 根据数据库字段调整
+            total_tokens = prompt_tokens + completion_tokens
             stats["tokens_by_type"][request_type] += total_tokens
             stats["tokens_by_user"][user_id] += total_tokens
             stats["tokens_by_model"][model_name] += total_tokens
@@ -90,6 +108,11 @@ class LLMStatistics:
 
         if total_requests > 0:
             stats["average_tokens"] = stats["total_tokens"] / total_requests
+
+        # 统计在线时间
+        online_time_cursor = db.online_time.find({"timestamp": {"$gte": start_time}})
+        for doc in online_time_cursor:
+            stats["online_time_minutes"] += doc.get("duration", 0)
 
         return stats
 
@@ -115,7 +138,8 @@ class LLMStatistics:
         output.append(f"总请求数: {stats['total_requests']}")
         if stats["total_requests"] > 0:
             output.append(f"总Token数: {stats['total_tokens']}")
-            output.append(f"总花费: {stats['total_cost']:.4f}¥\n")
+            output.append(f"总花费: {stats['total_cost']:.4f}¥")
+            output.append(f"在线时间: {stats['online_time_minutes']}分钟\n")
 
             data_fmt = "{:<32}  {:>10}  {:>14}  {:>13.4f} ¥"
 
@@ -184,13 +208,16 @@ class LLMStatistics:
         """统计循环，每1分钟运行一次"""
         while self.running:
             try:
+                # 记录在线时间
+                self._record_online_time()
+                # 收集并保存统计数据
                 all_stats = self._collect_all_statistics()
                 self._save_statistics(all_stats)
             except Exception:
                 logger.exception("统计数据处理失败")
 
-            # 等待1分钟
-            for _ in range(60):
+            # 等待5分钟
+            for _ in range(300):  # 5分钟 = 300秒
                 if not self.running:
                     break
                 time.sleep(1)
