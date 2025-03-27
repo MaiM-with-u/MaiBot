@@ -2,7 +2,7 @@ from .outer_world import outer_world
 import asyncio
 from src.plugins.moods.moods import MoodManager
 from src.plugins.models.utils_model import LLM_request
-from src.plugins.chat.config import global_config, BotConfig
+from src.plugins.chat.config import global_config
 import re
 import time
 from src.plugins.schedule.schedule_generator import bot_schedule
@@ -37,7 +37,7 @@ class SubHeartflow:
         if not self.current_mind:
             self.current_mind = "你什么也没想"
             
-        self.personality_info = " ".join(BotConfig.PROMPT_PERSONALITY)
+        self.personality_info = " ".join(global_config.PROMPT_PERSONALITY)
     
     def assign_observe(self,stream_id):
         self.outer_world = outer_world.get_world_by_stream_id(stream_id)
