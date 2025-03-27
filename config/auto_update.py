@@ -15,13 +15,12 @@ def update_config():
     old_config_path = config_dir / "bot_config.toml"
     new_config_path = config_dir / "bot_config.toml"
     action_template_path = template_dir / "actions_template.py"
-    action_config_path = config_dir / "actions.py"
+    action_config_path = root_dir / "src" / "plugins" / "action_executer" / "actions.py"
 
-    # 如果config里没有actions.py就复制一份过来
+    # 如果action_executer里没有actions.py就复制一份过来
     if not action_config_path.exists():
         shutil.copy(action_template_path, action_config_path)
-    Path('config/__init__.py').touch()
-
+    
     # 读取旧配置文件
     old_config = {}
     if old_config_path.exists():
