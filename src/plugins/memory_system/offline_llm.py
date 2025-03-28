@@ -10,7 +10,7 @@ from src.common.logger import get_module_logger
 logger = get_module_logger("offline_llm")
 
 
-class LLMModel:
+class LLM_request_off:
     def __init__(self, model_name="deepseek-ai/DeepSeek-V3", **kwargs):
         self.model_name = model_name
         self.params = kwargs

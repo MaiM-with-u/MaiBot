@@ -1,4 +1,3 @@
-import math
 import random
 import time
 import re
@@ -12,7 +11,7 @@ from src.common.logger import get_module_logger
 
 from ..models.utils_model import LLM_request
 from ..utils.typo_generator import ChineseTypoGenerator
-from .config import global_config
+from ..config.config import global_config
 from .message import MessageRecv, Message
 from .message_base import UserInfo
 from .chat_stream import ChatStream
@@ -65,60 +64,6 @@ async def get_embedding(text, request_type="embedding"):
     # return llm.get_embedding_sync(text)
     return await llm.get_embedding(text)
 
-
-def calculate_information_content(text):
-    """计算文本的信息量（熵）"""
-    char_count = Counter(text)
-    total_chars = len(text)
-
-    entropy = 0
-    for count in char_count.values():
-        probability = count / total_chars
-        entropy -= probability * math.log2(probability)
-
-    return entropy
-
-
-def get_closest_chat_from_db(length: int, timestamp: str):
-    # print(f"获取最接近指定时间戳的聊天记录，长度: {length}, 时间戳: {timestamp}")
-    # print(f"当前时间: {timestamp},转换后时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))}")
-    chat_records = []
-    closest_record = db.messages.find_one({"time": {"$lte": timestamp}}, sort=[("time", -1)])
-    # print(f"最接近的记录: {closest_record}")
-    if closest_record:
-        closest_time = closest_record["time"]
-        chat_id = closest_record["chat_id"]  # 获取chat_id
-        # 获取该时间戳之后的length条消息，保持相同的chat_id
-        chat_records = list(
-            db.messages.find(
-                {
-                    "time": {"$gt": closest_time},
-                    "chat_id": chat_id,  # 添加chat_id过滤
-                }
-            )
-            .sort("time", 1)
-            .limit(length)
-        )
-        # print(f"获取到的记录: {chat_records}")
-        length = len(chat_records)
-        # print(f"获取到的记录长度: {length}")
-        # 转换记录格式
-        formatted_records = []
-        for record in chat_records:
-            # 兼容行为，前向兼容老数据
-            formatted_records.append(
-                {
-                    "_id": record["_id"],
-                    "time": record["time"],
-                    "chat_id": record["chat_id"],
-                    "detailed_plain_text": record.get("detailed_plain_text", ""),  # 添加文本内容
-                    "memorized_times": record.get("memorized_times", 0),  # 添加记忆次数
-                }
-            )
-
-        return formatted_records
-
-    return []
 
 
 async def get_recent_group_messages(chat_id: str, limit: int = 12) -> list:

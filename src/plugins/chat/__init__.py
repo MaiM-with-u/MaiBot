@@ -9,12 +9,13 @@ from ..moods.moods import MoodManager  # 导入情绪管理器
 from ..schedule.schedule_generator import bot_schedule
 from ..utils.statistic import LLMStatistics
 from .bot import chat_bot
-from .config import global_config
+from ..config.config import global_config
 from .emoji_manager import emoji_manager
 from .relationship_manager import relationship_manager
 from ..willing.willing_manager import willing_manager
 from .chat_stream import chat_manager
-from ..memory_system.memory import hippocampus
+# from ..memory_system.memory import hippocampus
+from src.plugins.memory_system.Hippocampus import HippocampusManager
 from .message_sender import message_manager, message_sender
 from .storage import MessageStorage
 from src.common.logger import get_module_logger
@@ -59,6 +60,22 @@ async def start_think_flow():
         logger.error(f"启动大脑和外部世界失败: {e}")
         raise
 
+async def start_memory():
+    """启动记忆系统"""
+    try:
+        start_time = time.time()
+        logger.info("开始初始化记忆系统...")
+        
+        # 使用HippocampusManager初始化海马体
+        hippocampus_manager = HippocampusManager.get_instance()
+        hippocampus_manager.initialize(global_config=global_config)
+        
+        end_time = time.time()
+        logger.success(f"记忆系统初始化完成，耗时: {end_time - start_time:.2f} 秒")
+    except Exception as e:
+        logger.error(f"记忆系统初始化失败: {e}")
+        raise
+
 
 @driver.on_startup
 async def start_background_tasks():
@@ -79,9 +96,19 @@ async def start_background_tasks():
 
     # 只启动表情包管理任务
     asyncio.create_task(emoji_manager.start_periodic_check())
-    await bot_schedule.initialize()
-    bot_schedule.print_schedule()
+    
+    asyncio.create_task(start_memory())
 
+
+@driver.on_startup
+async def init_schedule():
+    """在 NoneBot2 启动时初始化日程系统"""
+    bot_schedule.initialize(
+        name=global_config.BOT_NICKNAME, 
+        personality=global_config.PROMPT_PERSONALITY, 
+        behavior=global_config.PROMPT_SCHEDULE_GEN, 
+        interval=global_config.SCHEDULE_DOING_UPDATE_INTERVAL)
+    asyncio.create_task(bot_schedule.mai_schedule_start())
 
 @driver.on_startup
 async def init_relationships():
@@ -131,14 +158,14 @@ async def _(bot: Bot, event: NoticeEvent, state: T_State):
 @scheduler.scheduled_job("interval", seconds=global_config.build_memory_interval, id="build_memory")
 async def build_memory_task():
     """每build_memory_interval秒执行一次记忆构建"""
-    await hippocampus.operation_build_memory()
+    await HippocampusManager.get_instance().build_memory()
 
 
 @scheduler.scheduled_job("interval", seconds=global_config.forget_memory_interval, id="forget_memory")
 async def forget_memory_task():
     """每30秒执行一次记忆构建"""
     print("\033[1;32m[记忆遗忘]\033[0m 开始遗忘记忆...")
-    await hippocampus.operation_forget_topic(percentage=global_config.memory_forget_percentage)
+    await HippocampusManager.get_instance().forget_memory(percentage=global_config.memory_forget_percentage)
     print("\033[1;32m[记忆遗忘]\033[0m 记忆遗忘完成")
 
 
@@ -157,13 +184,13 @@ async def print_mood_task():
     mood_manager.print_mood_status()
 
 
-@scheduler.scheduled_job("interval", seconds=7200, id="generate_schedule")
-async def generate_schedule_task():
-    """每2小时尝试生成一次日程"""
-    logger.debug("尝试生成日程")
-    await bot_schedule.initialize()
-    if not bot_schedule.enable_output:
-        bot_schedule.print_schedule()
+# @scheduler.scheduled_job("interval", seconds=7200, id="generate_schedule")
+# async def generate_schedule_task():
+#     """每2小时尝试生成一次日程"""
+#     logger.debug("尝试生成日程")
+#     await bot_schedule.initialize()
+#     if not bot_schedule.enable_output:
+#         bot_schedule.print_schedule()
 
 
 @scheduler.scheduled_job("interval", seconds=3600, id="remove_recalled_message")

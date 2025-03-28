@@ -6,15 +6,13 @@ from typing import Tuple, Union
 
 import aiohttp
 from src.common.logger import get_module_logger
-from nonebot import get_driver
 import base64
 from PIL import Image
 import io
 from ...common.database import db
-from ..chat.config import global_config
+from ..config.config import global_config
+from ..config.config_env import env_config
 
-driver = get_driver()
-config = driver.config
 
 logger = get_module_logger("model_utils")
 
@@ -34,8 +32,9 @@ class LLM_request:
     def __init__(self, model, **kwargs):
         # 将大写的配置键转换为小写并从config中获取实际值
         try:
-            self.api_key = getattr(config, model["key"])
-            self.base_url = getattr(config, model["base_url"])
+            self.api_key = getattr(env_config, model["key"])
+            self.base_url = getattr(env_config, model["base_url"])
+            # print(self.api_key, self.base_url)
         except AttributeError as e:
             logger.error(f"原始 model dict 信息：{model}")
             logger.error(f"配置错误：找不到对应的配置项 - {str(e)}")

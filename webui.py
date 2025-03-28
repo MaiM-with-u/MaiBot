@@ -5,6 +5,7 @@ import toml
 import signal
 import sys
 import requests
+import socket
 try:
     from src.common.logger import get_module_logger
 
@@ -39,50 +40,35 @@ def signal_handler(signum, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 is_share = False
-debug = True
-# 检查配置文件是否存在
-if not os.path.exists("config/bot_config.toml"):
-    logger.error("配置文件 bot_config.toml 不存在，请检查配置文件路径")
-    raise FileNotFoundError("配置文件 bot_config.toml 不存在，请检查配置文件路径")
+debug = False
 
-if not os.path.exists(".env.prod"):
-    logger.error("环境配置文件 .env.prod 不存在，请检查配置文件路径")
-    raise FileNotFoundError("环境配置文件 .env.prod 不存在，请检查配置文件路径")
-
-config_data = toml.load("config/bot_config.toml")
-# 增加对老版本配置文件支持
-LEGACY_CONFIG_VERSION = version.parse("0.0.1")
-
-# 增加最低支持版本
-MIN_SUPPORT_VERSION = version.parse("0.0.8")
-MIN_SUPPORT_MAIMAI_VERSION = version.parse("0.5.13")
-
-if "inner" in config_data:
-    CONFIG_VERSION = config_data["inner"]["version"]
-    PARSED_CONFIG_VERSION = version.parse(CONFIG_VERSION)
-    if PARSED_CONFIG_VERSION < MIN_SUPPORT_VERSION:
-        logger.error("您的麦麦版本过低！！已经不再支持，请更新到最新版本！！")
-        logger.error("最低支持的麦麦版本：" + str(MIN_SUPPORT_MAIMAI_VERSION))
-        raise Exception("您的麦麦版本过低！！已经不再支持，请更新到最新版本！！")
-else:
-    logger.error("您的麦麦版本过低！！已经不再支持，请更新到最新版本！！")
-    logger.error("最低支持的麦麦版本：" + str(MIN_SUPPORT_MAIMAI_VERSION))
-    raise Exception("您的麦麦版本过低！！已经不再支持，请更新到最新版本！！")
-
-
-HAVE_ONLINE_STATUS_VERSION = version.parse("0.0.9")
-
-# 定义意愿模式可选项
-WILLING_MODE_CHOICES = [
-    "classical",
-    "dynamic",
-    "custom",
-]
-
-
-# 添加WebUI配置文件版本
-WEBUI_VERSION = version.parse("0.0.10")
-
+def init_model_pricing():
+    """初始化模型价格配置"""
+    model_list = [
+        "llm_reasoning",
+        "llm_reasoning_minor",
+        "llm_normal",
+        "llm_topic_judge",
+        "llm_summary_by_topic",
+        "llm_emotion_judge",
+        "vlm",
+        "embedding",
+        "moderation"
+    ]
+    
+    for model in model_list:
+        if model in config_data["model"]:
+            # 检查是否已有pri_in和pri_out配置
+            has_pri_in = "pri_in" in config_data["model"][model]
+            has_pri_out = "pri_out" in config_data["model"][model]
+            
+            # 只在缺少配置时添加默认值
+            if not has_pri_in:
+                config_data["model"][model]["pri_in"] = 0
+                logger.info(f"为模型 {model} 添加默认输入价格配置")
+            if not has_pri_out:
+                config_data["model"][model]["pri_out"] = 0
+                logger.info(f"为模型 {model} 添加默认输出价格配置")
 
 # ==============================================
 # env环境配置文件读取部分
@@ -122,6 +108,68 @@ def parse_env_config(config_file):
         os.environ[env_variable] = value
 
     return env_variables
+
+
+# 检查配置文件是否存在
+if not os.path.exists("config/bot_config.toml"):
+    logger.error("配置文件 bot_config.toml 不存在，请检查配置文件路径")
+    raise FileNotFoundError("配置文件 bot_config.toml 不存在，请检查配置文件路径")
+else:
+    config_data = toml.load("config/bot_config.toml")
+    init_model_pricing()
+
+if not os.path.exists(".env.prod"):
+    logger.error("环境配置文件 .env.prod 不存在，请检查配置文件路径")
+    raise FileNotFoundError("环境配置文件 .env.prod 不存在，请检查配置文件路径")
+else:
+    # 载入env文件并解析
+    env_config_file = ".env.prod"  # 配置文件路径
+    env_config_data = parse_env_config(env_config_file)
+
+# 增加最低支持版本
+MIN_SUPPORT_VERSION = version.parse("0.0.8")
+MIN_SUPPORT_MAIMAI_VERSION = version.parse("0.5.13")
+
+if "inner" in config_data:
+    CONFIG_VERSION = config_data["inner"]["version"]
+    PARSED_CONFIG_VERSION = version.parse(CONFIG_VERSION)
+    if PARSED_CONFIG_VERSION < MIN_SUPPORT_VERSION:
+        logger.error("您的麦麦版本过低！！已经不再支持，请更新到最新版本！！")
+        logger.error("最低支持的麦麦版本：" + str(MIN_SUPPORT_MAIMAI_VERSION))
+        raise Exception("您的麦麦版本过低！！已经不再支持，请更新到最新版本！！")
+else:
+    logger.error("您的麦麦版本过低！！已经不再支持，请更新到最新版本！！")
+    logger.error("最低支持的麦麦版本：" + str(MIN_SUPPORT_MAIMAI_VERSION))
+    raise Exception("您的麦麦版本过低！！已经不再支持，请更新到最新版本！！")
+
+# 添加麦麦版本
+
+if "mai_version" in config_data:
+    MAI_VERSION = version.parse(str(config_data["mai_version"]["version"]))
+    logger.info("您的麦麦版本为：" + str(MAI_VERSION))
+else:
+    logger.info("检测到配置文件中并没有定义麦麦版本，将使用默认版本")
+    MAI_VERSION = version.parse("0.5.15")
+    logger.info("您的麦麦版本为：" + str(MAI_VERSION))
+
+# 增加在线状态更新版本
+HAVE_ONLINE_STATUS_VERSION = version.parse("0.0.9")
+# 增加日程设置重构版本
+SCHEDULE_CHANGED_VERSION = version.parse("0.0.11")
+
+# 定义意愿模式可选项
+WILLING_MODE_CHOICES = [
+    "classical",
+    "dynamic",
+    "custom",
+]
+
+
+# 添加WebUI配置文件版本
+WEBUI_VERSION = version.parse("0.0.11")
+
+
+
 
 
 # env环境配置文件保存函数
@@ -482,7 +530,9 @@ def save_personality_config(
     t_prompt_personality_1,
     t_prompt_personality_2,
     t_prompt_personality_3,
-    t_prompt_schedule,
+    t_enable_schedule_gen,
+    t_prompt_schedule_gen,
+    t_schedule_doing_update_interval,
     t_personality_1_probability,
     t_personality_2_probability,
     t_personality_3_probability,
@@ -492,8 +542,13 @@ def save_personality_config(
     config_data["personality"]["prompt_personality"][1] = t_prompt_personality_2
     config_data["personality"]["prompt_personality"][2] = t_prompt_personality_3
 
-    # 保存日程生成提示词
-    config_data["personality"]["prompt_schedule"] = t_prompt_schedule
+    # 保存日程生成部分
+    if PARSED_CONFIG_VERSION >= SCHEDULE_CHANGED_VERSION:
+        config_data["schedule"]["enable_schedule_gen"] = t_enable_schedule_gen
+        config_data["schedule"]["prompt_schedule_gen"] = t_prompt_schedule_gen
+        config_data["schedule"]["schedule_doing_update_interval"] = t_schedule_doing_update_interval
+    else:
+        config_data["personality"]["prompt_schedule"] = t_prompt_schedule_gen
 
     # 保存三个人格的概率
     config_data["personality"]["personality_1_probability"] = t_personality_1_probability
@@ -521,13 +576,15 @@ def save_message_and_emoji_config(
     t_enable_check,
     t_check_prompt,
 ):
-    config_data["message"]["min_text_length"] = t_min_text_length
+    if PARSED_CONFIG_VERSION < version.parse("0.0.11"):
+        config_data["message"]["min_text_length"] = t_min_text_length
     config_data["message"]["max_context_size"] = t_max_context_size
     config_data["message"]["emoji_chance"] = t_emoji_chance
     config_data["message"]["thinking_timeout"] = t_thinking_timeout
-    config_data["message"]["response_willing_amplifier"] = t_response_willing_amplifier
-    config_data["message"]["response_interested_rate_amplifier"] = t_response_interested_rate_amplifier
-    config_data["message"]["down_frequency_rate"] = t_down_frequency_rate
+    if PARSED_CONFIG_VERSION < version.parse("0.0.11"):
+        config_data["message"]["response_willing_amplifier"] = t_response_willing_amplifier
+        config_data["message"]["response_interested_rate_amplifier"] = t_response_interested_rate_amplifier
+        config_data["message"]["down_frequency_rate"] = t_down_frequency_rate
     config_data["message"]["ban_words"] = t_ban_words_final_result
     config_data["message"]["ban_msgs_regex"] = t_ban_msgs_regex_final_result
     config_data["emoji"]["check_interval"] = t_check_interval
@@ -539,6 +596,21 @@ def save_message_and_emoji_config(
     logger.info("消息和表情配置已保存到 bot_config.toml 文件中")
     return "消息和表情配置已保存"
 
+def save_willing_config(
+        t_willing_mode,
+        t_response_willing_amplifier,
+        t_response_interested_rate_amplifier,
+        t_down_frequency_rate,
+        t_emoji_response_penalty,
+):
+    config_data["willing"]["willing_mode"] = t_willing_mode
+    config_data["willing"]["response_willing_amplifier"] = t_response_willing_amplifier
+    config_data["willing"]["response_interested_rate_amplifier"] = t_response_interested_rate_amplifier
+    config_data["willing"]["down_frequency_rate"] = t_down_frequency_rate
+    config_data["willing"]["emoji_response_penalty"] = t_emoji_response_penalty
+    save_config_to_file(config_data)
+    logger.info("willinng配置已保存到 bot_config.toml 文件中")
+    return "willinng配置已保存"
 
 def save_response_model_config(
     t_willing_mode,
@@ -552,39 +624,79 @@ def save_response_model_config(
     t_model1_pri_out,
     t_model2_name,
     t_model2_provider,
+    t_model2_pri_in,
+    t_model2_pri_out,
     t_model3_name,
     t_model3_provider,
+    t_model3_pri_in,
+    t_model3_pri_out,
     t_emotion_model_name,
     t_emotion_model_provider,
+    t_emotion_model_pri_in,
+    t_emotion_model_pri_out,
     t_topic_judge_model_name,
     t_topic_judge_model_provider,
+    t_topic_judge_model_pri_in,
+    t_topic_judge_model_pri_out,
     t_summary_by_topic_model_name,
     t_summary_by_topic_model_provider,
+    t_summary_by_topic_model_pri_in,
+    t_summary_by_topic_model_pri_out,
     t_vlm_model_name,
     t_vlm_model_provider,
+    t_vlm_model_pri_in,
+    t_vlm_model_pri_out,
 ):
     if PARSED_CONFIG_VERSION >= version.parse("0.0.10"):
         config_data["willing"]["willing_mode"] = t_willing_mode
     config_data["response"]["model_r1_probability"] = t_model_r1_probability
     config_data["response"]["model_v3_probability"] = t_model_r2_probability
     config_data["response"]["model_r1_distill_probability"] = t_model_r3_probability
-    config_data["response"]["max_response_length"] = t_max_response_length
+    if PARSED_CONFIG_VERSION <= version.parse("0.0.10"):
+        config_data["response"]["max_response_length"] = t_max_response_length
+    
+    # 保存模型1配置
     config_data["model"]["llm_reasoning"]["name"] = t_model1_name
     config_data["model"]["llm_reasoning"]["provider"] = t_model1_provider
     config_data["model"]["llm_reasoning"]["pri_in"] = t_model1_pri_in
     config_data["model"]["llm_reasoning"]["pri_out"] = t_model1_pri_out
+    
+    # 保存模型2配置
     config_data["model"]["llm_normal"]["name"] = t_model2_name
     config_data["model"]["llm_normal"]["provider"] = t_model2_provider
+    config_data["model"]["llm_normal"]["pri_in"] = t_model2_pri_in
+    config_data["model"]["llm_normal"]["pri_out"] = t_model2_pri_out
+    
+    # 保存模型3配置
     config_data["model"]["llm_reasoning_minor"]["name"] = t_model3_name
-    config_data["model"]["llm_normal"]["provider"] = t_model3_provider
+    config_data["model"]["llm_reasoning_minor"]["provider"] = t_model3_provider
+    config_data["model"]["llm_reasoning_minor"]["pri_in"] = t_model3_pri_in
+    config_data["model"]["llm_reasoning_minor"]["pri_out"] = t_model3_pri_out
+    
+    # 保存情感模型配置
     config_data["model"]["llm_emotion_judge"]["name"] = t_emotion_model_name
     config_data["model"]["llm_emotion_judge"]["provider"] = t_emotion_model_provider
+    config_data["model"]["llm_emotion_judge"]["pri_in"] = t_emotion_model_pri_in
+    config_data["model"]["llm_emotion_judge"]["pri_out"] = t_emotion_model_pri_out
+    
+    # 保存主题判断模型配置
     config_data["model"]["llm_topic_judge"]["name"] = t_topic_judge_model_name
     config_data["model"]["llm_topic_judge"]["provider"] = t_topic_judge_model_provider
+    config_data["model"]["llm_topic_judge"]["pri_in"] = t_topic_judge_model_pri_in
+    config_data["model"]["llm_topic_judge"]["pri_out"] = t_topic_judge_model_pri_out
+    
+    # 保存主题总结模型配置
     config_data["model"]["llm_summary_by_topic"]["name"] = t_summary_by_topic_model_name
     config_data["model"]["llm_summary_by_topic"]["provider"] = t_summary_by_topic_model_provider
+    config_data["model"]["llm_summary_by_topic"]["pri_in"] = t_summary_by_topic_model_pri_in
+    config_data["model"]["llm_summary_by_topic"]["pri_out"] = t_summary_by_topic_model_pri_out
+    
+    # 保存识图模型配置
     config_data["model"]["vlm"]["name"] = t_vlm_model_name
     config_data["model"]["vlm"]["provider"] = t_vlm_model_provider
+    config_data["model"]["vlm"]["pri_in"] = t_vlm_model_pri_in
+    config_data["model"]["vlm"]["pri_out"] = t_vlm_model_pri_out
+    
     save_config_to_file(config_data)
     logger.info("回复&模型设置已保存到 bot_config.toml 文件中")
     return "回复&模型设置已保存"
@@ -600,6 +712,12 @@ def save_memory_mood_config(
     t_mood_update_interval,
     t_mood_decay_rate,
     t_mood_intensity_factor,
+    t_build_memory_dist1_mean,
+    t_build_memory_dist1_std,
+    t_build_memory_dist1_weight,
+    t_build_memory_dist2_mean,
+    t_build_memory_dist2_std,
+    t_build_memory_dist2_weight,
 ):
     config_data["memory"]["build_memory_interval"] = t_build_memory_interval
     config_data["memory"]["memory_compress_rate"] = t_memory_compress_rate
@@ -607,6 +725,15 @@ def save_memory_mood_config(
     config_data["memory"]["memory_forget_time"] = t_memory_forget_time
     config_data["memory"]["memory_forget_percentage"] = t_memory_forget_percentage
     config_data["memory"]["memory_ban_words"] = t_memory_ban_words_final_result
+    if PARSED_CONFIG_VERSION >= version.parse("0.0.11"):
+        config_data["memory"]["build_memory_distribution"] = [
+            t_build_memory_dist1_mean,
+            t_build_memory_dist1_std,
+            t_build_memory_dist1_weight,
+            t_build_memory_dist2_mean,
+            t_build_memory_dist2_std,
+            t_build_memory_dist2_weight,
+        ]
     config_data["mood"]["update_interval"] = t_mood_update_interval
     config_data["mood"]["decay_rate"] = t_mood_decay_rate
     config_data["mood"]["intensity_factor"] = t_mood_intensity_factor
@@ -627,6 +754,9 @@ def save_other_config(
     t_tone_error_rate,
     t_word_replace_rate,
     t_remote_status,
+    t_enable_response_spliter,
+    t_max_response_length,
+    t_max_sentence_num,
 ):
     config_data["keywords_reaction"]["enable"] = t_keywords_reaction_enabled
     config_data["others"]["enable_advance_output"] = t_enable_advance_output
@@ -640,6 +770,10 @@ def save_other_config(
     config_data["chinese_typo"]["word_replace_rate"] = t_word_replace_rate
     if PARSED_CONFIG_VERSION > HAVE_ONLINE_STATUS_VERSION:
         config_data["remote"]["enable"] = t_remote_status
+    if PARSED_CONFIG_VERSION >= version.parse("0.0.11"):
+        config_data["response_spliter"]["enable_response_spliter"] = t_enable_response_spliter
+        config_data["response_spliter"]["response_max_length"] = t_max_response_length
+        config_data["response_spliter"]["response_max_sentence_num"] = t_max_sentence_num
     save_config_to_file(config_data)
     logger.info("其他设置已保存到 bot_config.toml 文件中")
     return "其他设置已保存"
@@ -656,7 +790,6 @@ def save_group_config(
     save_config_to_file(config_data)
     logger.info("群聊设置已保存到 bot_config.toml 文件中")
     return "群聊设置已保存"
-
 
 with gr.Blocks(title="MaimBot配置文件编辑") as app:
     gr.Markdown(
@@ -997,11 +1130,33 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                         inputs=personality_probability_change_inputs,
                         outputs=[warning_less_text],
                     )
-
             with gr.Row():
-                prompt_schedule = gr.Textbox(
-                    label="日程生成提示词", value=config_data["personality"]["prompt_schedule"], interactive=True
-                )
+                gr.Markdown("---")
+            with gr.Row():
+                gr.Markdown("麦麦提示词设置")
+            if PARSED_CONFIG_VERSION >= SCHEDULE_CHANGED_VERSION:
+                with gr.Row():
+                    enable_schedule_gen = gr.Checkbox(value=config_data["schedule"]["enable_schedule_gen"],
+                                                    label="是否开启麦麦日程生成(尚未完成)",
+                                                    interactive=True
+                                                    )
+                with gr.Row():
+                    prompt_schedule_gen = gr.Textbox(
+                        label="日程生成提示词", value=config_data["schedule"]["prompt_schedule_gen"], interactive=True
+                    )
+                with gr.Row():
+                    schedule_doing_update_interval = gr.Number(
+                        value=config_data["schedule"]["schedule_doing_update_interval"],
+                        label="日程表更新间隔 单位秒",
+                        interactive=True
+                        )
+            else:
+                with gr.Row():
+                    prompt_schedule_gen = gr.Textbox(
+                        label="日程生成提示词", value=config_data["personality"]["prompt_schedule"], interactive=True
+                    )
+                    enable_schedule_gen = gr.Checkbox(value=False,visible=False,interactive=False)
+                    schedule_doing_update_interval = gr.Number(value=0,visible=False,interactive=False)
             with gr.Row():
                 personal_save_btn = gr.Button(
                     "保存人格配置",
@@ -1017,7 +1172,9 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                     prompt_personality_1,
                     prompt_personality_2,
                     prompt_personality_3,
-                    prompt_schedule,
+                    enable_schedule_gen,
+                    prompt_schedule_gen,
+                    schedule_doing_update_interval,
                     personality_1_probability,
                     personality_2_probability,
                     personality_3_probability,
@@ -1027,11 +1184,14 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
         with gr.TabItem("3-消息&表情包设置"):
             with gr.Row():
                 with gr.Column(scale=3):
-                    with gr.Row():
-                        min_text_length = gr.Number(
-                            value=config_data["message"]["min_text_length"],
-                            label="与麦麦聊天时麦麦只会回答文本大于等于此数的消息",
-                        )
+                    if PARSED_CONFIG_VERSION < version.parse("0.0.11"):
+                        with gr.Row():
+                            min_text_length = gr.Number(
+                                value=config_data["message"]["min_text_length"],
+                                label="与麦麦聊天时麦麦只会回答文本大于等于此数的消息",
+                            )
+                    else:
+                        min_text_length = gr.Number(visible=False,value=0,interactive=False)
                     with gr.Row():
                         max_context_size = gr.Number(
                             value=config_data["message"]["max_context_size"], label="麦麦获得的上文数量"
@@ -1049,21 +1209,27 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                             value=config_data["message"]["thinking_timeout"],
                             label="麦麦正在思考时，如果超过此秒数，则停止思考",
                         )
-                    with gr.Row():
-                        response_willing_amplifier = gr.Number(
-                            value=config_data["message"]["response_willing_amplifier"],
-                            label="麦麦回复意愿放大系数，一般为1",
-                        )
-                    with gr.Row():
-                        response_interested_rate_amplifier = gr.Number(
-                            value=config_data["message"]["response_interested_rate_amplifier"],
-                            label="麦麦回复兴趣度放大系数,听到记忆里的内容时放大系数",
-                        )
-                    with gr.Row():
-                        down_frequency_rate = gr.Number(
-                            value=config_data["message"]["down_frequency_rate"],
-                            label="降低回复频率的群组回复意愿降低系数",
-                        )
+                    if PARSED_CONFIG_VERSION < version.parse("0.0.11"):
+                        with gr.Row():
+                            response_willing_amplifier = gr.Number(
+                                value=config_data["message"]["response_willing_amplifier"],
+                                label="麦麦回复意愿放大系数，一般为1",
+                            )
+                        with gr.Row():
+                            response_interested_rate_amplifier = gr.Number(
+                                value=config_data["message"]["response_interested_rate_amplifier"],
+                                label="麦麦回复兴趣度放大系数,听到记忆里的内容时放大系数",
+                            )
+                        with gr.Row():
+                            down_frequency_rate = gr.Number(
+                                value=config_data["message"]["down_frequency_rate"],
+                                label="降低回复频率的群组回复意愿降低系数",
+                            )
+                    else:
+                        response_willing_amplifier = gr.Number(visible=False,value=0,interactive=False)
+                        response_interested_rate_amplifier = gr.Number(visible=False,value=0,interactive=False)
+                        down_frequency_rate = gr.Number(visible=False,value=0,interactive=False)
+
                     with gr.Row():
                         gr.Markdown("### 违禁词列表")
                     with gr.Row():
@@ -1207,7 +1373,7 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                         ],
                         outputs=[emoji_save_message],
                     )
-        with gr.TabItem("4-回复&模型设置"):
+        with gr.TabItem("4-意愿设置"):
             with gr.Row():
                 with gr.Column(scale=3):
                     with gr.Row():
@@ -1229,6 +1395,55 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                             )
                     else:
                         willing_mode = gr.Textbox(visible=False, value="disabled")
+                    if PARSED_CONFIG_VERSION >= version.parse("0.0.11"):
+                        with gr.Row():
+                                response_willing_amplifier = gr.Number(
+                                    value=config_data["willing"]["response_willing_amplifier"],
+                                    label="麦麦回复意愿放大系数，一般为1",
+                                )
+                        with gr.Row():
+                            response_interested_rate_amplifier = gr.Number(
+                                value=config_data["willing"]["response_interested_rate_amplifier"],
+                                label="麦麦回复兴趣度放大系数,听到记忆里的内容时放大系数",
+                            )
+                        with gr.Row():
+                            down_frequency_rate = gr.Number(
+                                value=config_data["willing"]["down_frequency_rate"],
+                                label="降低回复频率的群组回复意愿降低系数",
+                            )
+                        with gr.Row():
+                            emoji_response_penalty = gr.Number(
+                                value=config_data["willing"]["emoji_response_penalty"],
+                                label="表情包回复惩罚系数，设为0为不回复单个表情包，减少单独回复表情包的概率",
+                            )
+                    else:
+                        response_willing_amplifier = gr.Number(visible=False, value=1.0)
+                        response_interested_rate_amplifier = gr.Number(visible=False, value=1.0)
+                        down_frequency_rate = gr.Number(visible=False, value=1.0)
+                        emoji_response_penalty = gr.Number(visible=False, value=1.0)
+                    with gr.Row():
+                        willing_save_btn = gr.Button(
+                            "保存意愿设置设置",
+                            variant="primary",
+                            elem_id="save_personality_btn",
+                            elem_classes="save_personality_btn",
+                        )
+                    with gr.Row():
+                        willing_save_message = gr.Textbox(label="意愿设置保存结果")
+                    willing_save_btn.click(
+                        save_willing_config,
+                        inputs=[
+                            willing_mode,
+                            response_willing_amplifier,
+                            response_interested_rate_amplifier,
+                            down_frequency_rate,
+                            emoji_response_penalty,
+                        ],
+                        outputs=[emoji_save_message],
+                    )
+        with gr.TabItem("4-回复&模型设置"):
+            with gr.Row():
+                with gr.Column(scale=3):
                     with gr.Row():
                         model_r1_probability = gr.Slider(
                             minimum=0,
@@ -1289,10 +1504,13 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                             inputs=[model_r1_probability, model_r2_probability, model_r3_probability],
                             outputs=[model_warning_less_text],
                         )
-                    with gr.Row():
-                        max_response_length = gr.Number(
-                            value=config_data["response"]["max_response_length"], label="麦麦回答的最大token数"
-                        )
+                    if PARSED_CONFIG_VERSION <= version.parse("0.0.10"):
+                        with gr.Row():
+                            max_response_length = gr.Number(
+                                value=config_data["response"]["max_response_length"], label="麦麦回答的最大token数"
+                            )
+                    else:
+                        max_response_length = gr.Number(visible=False,value=0)
                     with gr.Row():
                         gr.Markdown("""### 模型设置""")
                     with gr.Row():
@@ -1336,6 +1554,16 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                                     value=config_data["model"]["llm_normal"]["provider"],
                                     label="模型2提供商",
                                 )
+                            with gr.Row():
+                                model2_pri_in = gr.Number(
+                                    value=config_data["model"]["llm_normal"]["pri_in"],
+                                    label="模型2（次要回复模型）的输入价格（非必填，可以记录消耗）",
+                                )
+                            with gr.Row():
+                                model2_pri_out = gr.Number(
+                                    value=config_data["model"]["llm_normal"]["pri_out"],
+                                    label="模型2（次要回复模型）的输出价格（非必填，可以记录消耗）",
+                                )
                         with gr.TabItem("3-次要模型"):
                             with gr.Row():
                                 model3_name = gr.Textbox(
@@ -1346,6 +1574,16 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                                     choices=MODEL_PROVIDER_LIST,
                                     value=config_data["model"]["llm_reasoning_minor"]["provider"],
                                     label="模型3提供商",
+                                )
+                            with gr.Row():
+                                model3_pri_in = gr.Number(
+                                    value=config_data["model"]["llm_reasoning_minor"]["pri_in"],
+                                    label="模型3（次要回复模型）的输入价格（非必填，可以记录消耗）",
+                                )
+                            with gr.Row():
+                                model3_pri_out = gr.Number(
+                                    value=config_data["model"]["llm_reasoning_minor"]["pri_out"],
+                                    label="模型3（次要回复模型）的输出价格（非必填，可以记录消耗）",
                                 )
                         with gr.TabItem("4-情感&主题模型"):
                             with gr.Row():
@@ -1361,6 +1599,16 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                                     label="情感模型提供商",
                                 )
                             with gr.Row():
+                                emotion_model_pri_in = gr.Number(
+                                    value=config_data["model"]["llm_emotion_judge"]["pri_in"],
+                                    label="情感模型的输入价格（非必填，可以记录消耗）",
+                                )
+                            with gr.Row():
+                                emotion_model_pri_out = gr.Number(
+                                    value=config_data["model"]["llm_emotion_judge"]["pri_out"],
+                                    label="情感模型的输出价格（非必填，可以记录消耗）",
+                                )
+                            with gr.Row():
                                 gr.Markdown("""### 主题模型设置""")
                             with gr.Row():
                                 topic_judge_model_name = gr.Textbox(
@@ -1373,6 +1621,18 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                                     label="主题判断模型提供商",
                                 )
                             with gr.Row():
+                                topic_judge_model_pri_in = gr.Number(
+                                    value=config_data["model"]["llm_topic_judge"]["pri_in"],
+                                    label="主题判断模型的输入价格（非必填，可以记录消耗）",
+                                )
+                            with gr.Row():
+                                topic_judge_model_pri_out = gr.Number(
+                                    value=config_data["model"]["llm_topic_judge"]["pri_out"],
+                                    label="主题判断模型的输出价格（非必填，可以记录消耗）",
+                                )
+                            with gr.Row():
+                                gr.Markdown("""### 主题总结模型设置""")
+                            with gr.Row():
                                 summary_by_topic_model_name = gr.Textbox(
                                     value=config_data["model"]["llm_summary_by_topic"]["name"], label="主题总结模型名称"
                                 )
@@ -1381,6 +1641,16 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                                     choices=MODEL_PROVIDER_LIST,
                                     value=config_data["model"]["llm_summary_by_topic"]["provider"],
                                     label="主题总结模型提供商",
+                                )
+                            with gr.Row():
+                                summary_by_topic_model_pri_in = gr.Number(
+                                    value=config_data["model"]["llm_summary_by_topic"]["pri_in"],
+                                    label="主题总结模型的输入价格（非必填，可以记录消耗）",
+                                )
+                            with gr.Row():
+                                summary_by_topic_model_pri_out = gr.Number(
+                                    value=config_data["model"]["llm_summary_by_topic"]["pri_out"],
+                                    label="主题总结模型的输出价格（非必填，可以记录消耗）",
                                 )
                         with gr.TabItem("5-识图模型"):
                             with gr.Row():
@@ -1394,6 +1664,16 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                                     choices=MODEL_PROVIDER_LIST,
                                     value=config_data["model"]["vlm"]["provider"],
                                     label="识图模型提供商",
+                                )
+                            with gr.Row():
+                                vlm_model_pri_in = gr.Number(
+                                    value=config_data["model"]["vlm"]["pri_in"],
+                                    label="识图模型的输入价格（非必填，可以记录消耗）",
+                                )
+                            with gr.Row():
+                                vlm_model_pri_out = gr.Number(
+                                    value=config_data["model"]["vlm"]["pri_out"],
+                                    label="识图模型的输出价格（非必填，可以记录消耗）",
                                 )
                     with gr.Row():
                         save_model_btn = gr.Button("保存回复&模型设置", variant="primary", elem_id="save_model_btn")
@@ -1413,16 +1693,28 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                                 model1_pri_out,
                                 model2_name,
                                 model2_provider,
+                                model2_pri_in,
+                                model2_pri_out,
                                 model3_name,
                                 model3_provider,
+                                model3_pri_in,
+                                model3_pri_out,
                                 emotion_model_name,
                                 emotion_model_provider,
+                                emotion_model_pri_in,
+                                emotion_model_pri_out,
                                 topic_judge_model_name,
                                 topic_judge_model_provider,
+                                topic_judge_model_pri_in,
+                                topic_judge_model_pri_out,
                                 summary_by_topic_model_name,
                                 summary_by_topic_model_provider,
+                                summary_by_topic_model_pri_in,
+                                summary_by_topic_model_pri_out,
                                 vlm_model_name,
                                 vlm_model_provider,
+                                vlm_model_pri_in,
+                                vlm_model_pri_out,
                             ],
                             outputs=[save_btn_message],
                         )
@@ -1436,6 +1728,79 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                             value=config_data["memory"]["build_memory_interval"],
                             label="记忆构建间隔 单位秒,间隔越低，麦麦学习越多，但是冗余信息也会增多",
                         )
+                    if PARSED_CONFIG_VERSION >= version.parse("0.0.11"):
+                        with gr.Row():
+                            gr.Markdown("---")
+                        with gr.Row():
+                            gr.Markdown("""### 记忆构建分布设置""")
+                        with gr.Row():
+                            gr.Markdown("""记忆构建分布参数说明：\n
+                                        分布1均值：第一个正态分布的均值\n
+                                        分布1标准差：第一个正态分布的标准差\n
+                                        分布1权重：第一个正态分布的权重\n
+                                        分布2均值：第二个正态分布的均值\n
+                                        分布2标准差：第二个正态分布的标准差\n
+                                        分布2权重：第二个正态分布的权重
+                                        """)
+                        with gr.Row():
+                            with gr.Column(scale=1):
+                                build_memory_dist1_mean = gr.Number(
+                                    value=config_data["memory"].get(
+                                        "build_memory_distribution", 
+                                        [4.0,2.0,0.6,24.0,8.0,0.4]
+                                    )[0],
+                                    label="分布1均值",
+                                )
+                            with gr.Column(scale=1):
+                                build_memory_dist1_std = gr.Number(
+                                    value=config_data["memory"].get(
+                                        "build_memory_distribution", 
+                                        [4.0,2.0,0.6,24.0,8.0,0.4]
+                                    )[1],
+                                    label="分布1标准差",
+                                )
+                            with gr.Column(scale=1):
+                                build_memory_dist1_weight = gr.Number(
+                                    value=config_data["memory"].get(
+                                        "build_memory_distribution", 
+                                        [4.0,2.0,0.6,24.0,8.0,0.4]
+                                    )[2],
+                                    label="分布1权重",
+                                )
+                        with gr.Row():
+                            with gr.Column(scale=1):
+                                build_memory_dist2_mean = gr.Number(
+                                    value=config_data["memory"].get(
+                                        "build_memory_distribution", 
+                                        [4.0,2.0,0.6,24.0,8.0,0.4]
+                                    )[3],
+                                    label="分布2均值",
+                                )
+                            with gr.Column(scale=1):
+                                build_memory_dist2_std = gr.Number(
+                                    value=config_data["memory"].get(
+                                        "build_memory_distribution", 
+                                        [4.0,2.0,0.6,24.0,8.0,0.4]
+                                    )[4],
+                                    label="分布2标准差",
+                                )
+                            with gr.Column(scale=1):
+                                build_memory_dist2_weight = gr.Number(
+                                    value=config_data["memory"].get(
+                                        "build_memory_distribution", 
+                                        [4.0,2.0,0.6,24.0,8.0,0.4]
+                                    )[5],
+                                    label="分布2权重",
+                                )
+                        with gr.Row():
+                            gr.Markdown("---")
+                    else:
+                        build_memory_dist1_mean = gr.Number(value=0.0,visible=False,interactive=False)
+                        build_memory_dist1_std = gr.Number(value=0.0,visible=False,interactive=False)
+                        build_memory_dist1_weight = gr.Number(value=0.0,visible=False,interactive=False)
+                        build_memory_dist2_mean = gr.Number(value=0.0,visible=False,interactive=False)
+                        build_memory_dist2_std = gr.Number(value=0.0,visible=False,interactive=False)
+                        build_memory_dist2_weight = gr.Number(value=0.0,visible=False,interactive=False)
                     with gr.Row():
                         memory_compress_rate = gr.Number(
                             value=config_data["memory"]["memory_compress_rate"],
@@ -1538,6 +1903,12 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                                 mood_update_interval,
                                 mood_decay_rate,
                                 mood_intensity_factor,
+                                build_memory_dist1_mean,
+                                build_memory_dist1_std,
+                                build_memory_dist1_weight,
+                                build_memory_dist2_mean,
+                                build_memory_dist2_std,
+                                build_memory_dist2_weight,
                             ],
                             outputs=[save_memory_mood_message],
                         )
@@ -1709,22 +2080,31 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                         keywords_reaction_enabled = gr.Checkbox(
                             value=config_data["keywords_reaction"]["enable"], label="是否针对某个关键词作出反应"
                         )
-                    with gr.Row():
-                        enable_advance_output = gr.Checkbox(
-                            value=config_data["others"]["enable_advance_output"], label="是否开启高级输出"
-                        )
-                    with gr.Row():
-                        enable_kuuki_read = gr.Checkbox(
-                            value=config_data["others"]["enable_kuuki_read"], label="是否启用读空气功能"
-                        )
-                    with gr.Row():
-                        enable_debug_output = gr.Checkbox(
-                            value=config_data["others"]["enable_debug_output"], label="是否开启调试输出"
-                        )
-                    with gr.Row():
-                        enable_friend_chat = gr.Checkbox(
-                            value=config_data["others"]["enable_friend_chat"], label="是否开启好友聊天"
-                        )
+                    if PARSED_CONFIG_VERSION <= version.parse("0.0.10"):
+                        with gr.Row():
+                            enable_advance_output = gr.Checkbox(
+                                value=config_data["others"]["enable_advance_output"], label="是否开启高级输出"
+                            )
+                        with gr.Row():
+                            enable_kuuki_read = gr.Checkbox(
+                                value=config_data["others"]["enable_kuuki_read"], label="是否启用读空气功能"
+                            )
+                        with gr.Row():
+                            enable_debug_output = gr.Checkbox(
+                                value=config_data["others"]["enable_debug_output"], label="是否开启调试输出"
+                            )
+                        with gr.Row():
+                            enable_friend_chat = gr.Checkbox(
+                                value=config_data["others"]["enable_friend_chat"], label="是否开启好友聊天"
+                            )
+                    elif PARSED_CONFIG_VERSION >= version.parse("0.0.11"):
+                        with gr.Row():
+                            enable_friend_chat = gr.Checkbox(
+                                value=config_data["experimental"]["enable_friend_chat"], label="是否开启好友聊天"
+                            )
+                        enable_advance_output = gr.Checkbox(value=False,visible=False,interactive=False)
+                        enable_kuuki_read = gr.Checkbox(value=False,visible=False,interactive=False)
+                        enable_debug_output = gr.Checkbox(value=False,visible=False,interactive=False)
                     if PARSED_CONFIG_VERSION > HAVE_ONLINE_STATUS_VERSION:
                         with gr.Row():
                             gr.Markdown(
@@ -1736,7 +2116,28 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                             remote_status = gr.Checkbox(
                                 value=config_data["remote"]["enable"], label="是否开启麦麦在线全球统计"
                             )
-
+                    if PARSED_CONFIG_VERSION >= version.parse("0.0.11"):
+                        with gr.Row():
+                            gr.Markdown("""### 回复分割器设置""")
+                        with gr.Row():
+                            enable_response_spliter = gr.Checkbox(
+                                value=config_data["response_spliter"]["enable_response_spliter"],
+                                label="是否启用回复分割器"
+                            )
+                        with gr.Row():
+                            response_max_length = gr.Number(
+                                value=config_data["response_spliter"]["response_max_length"],
+                                label="回复允许的最大长度"
+                                )
+                        with gr.Row():
+                            response_max_sentence_num = gr.Number(
+                                value=config_data["response_spliter"]["response_max_sentence_num"],
+                                label="回复允许的最大句子数"
+                                )
+                    else:
+                        enable_response_spliter = gr.Checkbox(value=False,visible=False,interactive=False)
+                        response_max_length = gr.Number(value=0,visible=False,interactive=False)
+                        response_max_sentence_num = gr.Number(value=0,visible=False,interactive=False)
                     with gr.Row():
                         gr.Markdown("""### 中文错别字设置""")
                     with gr.Row():
@@ -1790,14 +2191,56 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                                 tone_error_rate,
                                 word_replace_rate,
                                 remote_status,
+                                enable_response_spliter,
+                                response_max_length,
+                                response_max_sentence_num
                             ],
                             outputs=[save_other_config_message],
                         )
-    app.queue().launch(  # concurrency_count=511, max_size=1022
-        server_name="0.0.0.0",
-        inbrowser=True,
-        share=is_share,
-        server_port=7000,
-        debug=debug,
-        quiet=True,
-    )
+# 检查端口是否可用
+def is_port_available(port, host='0.0.0.0'):
+    """检查指定的端口是否可用"""
+    try:
+        # 创建一个socket对象
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # 设置socket重用地址选项
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # 尝试绑定端口
+        sock.bind((host, port))
+        # 如果成功绑定，则关闭socket并返回True
+        sock.close()
+        return True
+    except socket.error:
+        # 如果绑定失败，说明端口已被占用
+        return False
+
+
+    # 寻找可用端口
+def find_available_port(start_port=7000, max_port=8000):
+    """
+    从start_port开始，寻找可用的端口
+    如果端口被占用，尝试下一个端口，直到找到可用端口或达到max_port
+    """
+    port = start_port
+    while port <= max_port:
+        if is_port_available(port):
+            logger.info(f"找到可用端口: {port}")
+            return port
+        logger.warning(f"端口 {port} 已被占用，尝试下一个端口")
+        port += 1
+    # 如果所有端口都被占用，返回None
+    logger.error(f"无法找到可用端口 (已尝试 {start_port}-{max_port})")
+    return None
+
+# 寻找可用端口
+launch_port = find_available_port(7000, 8000) or 7000
+
+app.queue().launch(  # concurrency_count=511, max_size=1022
+    server_name="0.0.0.0",
+    inbrowser=True,
+    share=is_share,
+    server_port=launch_port,
+    debug=debug,
+    quiet=True,
+)
+

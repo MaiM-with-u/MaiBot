@@ -1,7 +1,7 @@
 import asyncio
 from typing import Dict
 from ..chat.chat_stream import ChatStream
-from ..chat.config import global_config
+from ..config.config import global_config
 
 
 class WillingManager:

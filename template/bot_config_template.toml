@@ -3,7 +3,7 @@ version = "0.0.11"
 
 [mai_version]
 version = "0.6.0"
-version-fix = "snapshot-1"
+version-fix = "snapshot-2"
 
 #以下是给开发人员阅读的，一般用户不需要阅读
 #如果你想要修改配置文件，请在修改后将version的值进行变更
@@ -43,6 +43,7 @@ personality_3_probability = 0.1 # 第三种人格出现概率，请确保三个�
 [schedule]
 enable_schedule_gen = true # 是否启用日程表(尚未完成)
 prompt_schedule_gen = "用几句话描述描述性格特点或行动规律，这个特征会用来生成日程表"
+schedule_doing_update_interval = 900 # 日程表更新间隔 单位秒
 
 [message]
 max_context_size = 15 # 麦麦获得的上文数量，建议15，太短太长都会导致脑袋尖尖
@@ -85,7 +86,7 @@ check_prompt = "符合公序良俗" # 表情包过滤要求
 
 [memory]
 build_memory_interval = 2000 # 记忆构建间隔 单位秒   间隔越低，麦麦学习越多，但是冗余信息也会增多
-build_memory_distribution = [4,2,0.6,24,8,0.4] # 记忆构建分布，参数：分布1均值，标准差，权重，分布2均值，标准差，权重
+build_memory_distribution = [4.0,2.0,0.6,24.0,8.0,0.4] # 记忆构建分布，参数：分布1均值，标准差，权重，分布2均值，标准差，权重
 build_memory_sample_num = 10 # 采样数量，数值越高记忆采样次数越多
 build_memory_sample_length = 20 # 采样长度，数值越高一段记忆内容越丰富
 memory_compress_rate = 0.1 # 记忆压缩率 控制记忆精简程度 建议保持默认,调高可以获得更多信息，但是冗余信息也会增多
@@ -135,6 +136,7 @@ enable = true
 [experimental]
 enable_friend_chat = false # 是否启用好友聊天
 enable_think_flow = false # 是否启用思维流 注意：可能会消耗大量token，请谨慎开启
+#思维流适合搭配低能耗普通模型使用，例如qwen2.5 32b
 
 #下面的模型若使用硅基流动则不需要更改，使用ds官方则改成.env.prod自定义的宏，使用自定义模型则选择定位相似的模型自己填写
 #推理模型

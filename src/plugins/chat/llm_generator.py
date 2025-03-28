@@ -6,7 +6,7 @@ from nonebot import get_driver
 
 from ...common.database import db
 from ..models.utils_model import LLM_request
-from .config import global_config
+from ..config.config import global_config
 from .message import MessageRecv, MessageThinking, Message
 from .prompt_builder import prompt_builder
 from .utils import process_llm_response
@@ -51,13 +51,13 @@ class ResponseGenerator:
         # 从global_config中获取模型概率值并选择模型
         rand = random.random()
         if rand < global_config.MODEL_R1_PROBABILITY:
-            self.current_model_type = "r1"
+            self.current_model_type = "深深地"
             current_model = self.model_r1
         elif rand < global_config.MODEL_R1_PROBABILITY + global_config.MODEL_V3_PROBABILITY:
-            self.current_model_type = "v3"
+            self.current_model_type = "浅浅的"
             current_model = self.model_v3
         else:
-            self.current_model_type = "r1_distill"
+            self.current_model_type = "又浅又浅的"
             current_model = self.model_r1_distill
 
         logger.info(f"{global_config.BOT_NICKNAME}{self.current_model_type}思考中")
@@ -144,18 +144,25 @@ class ResponseGenerator:
         try:
             # 构建提示词，结合回复内容、被回复的内容以及立场分析
             prompt = f"""
-            请根据以下对话内容，完成以下任务：
-            1. 判断回复者的立场是"supportive"（支持）、"opposed"（反对）还是"neutrality"（中立）。
-            2. 从"happy,angry,sad,surprised,disgusted,fearful,neutral"中选出最匹配的1个情感标签。
-            3. 按照"立场-情绪"的格式输出结果，例如："supportive-happy"。
+            请严格根据以下对话内容，完成以下任务：
+            1. 判断回复者对被回复者观点的直接立场：
+            - "支持"：明确同意或强化被回复者观点
+            - "反对"：明确反驳或否定被回复者观点
+            - "中立"：不表达明确立场或无关回应
+            2. 从"开心,愤怒,悲伤,惊讶,平静,害羞,恐惧,厌恶,困惑"中选出最匹配的1个情感标签
+            3. 按照"立场-情绪"的格式直接输出结果，例如："反对-愤怒"
 
-            被回复的内容：
-            {processed_plain_text}
+            对话示例：
+            被回复：「A就是笨」
+            回复：「A明明很聪明」 → 反对-愤怒
 
-            回复内容：
-            {content}
+            当前对话：
+            被回复：「{processed_plain_text}」
+            回复：「{content}」
 
-            请分析回复者的立场和情感倾向，并输出结果：
+            输出要求：
+            - 只需输出"立场-情绪"结果，不要解释
+            - 严格基于文字直接表达的对立关系判断
             """
 
             # 调用模型生成结果
@@ -165,18 +172,20 @@ class ResponseGenerator:
             # 解析模型输出的结果
             if "-" in result:
                 stance, emotion = result.split("-", 1)
-                valid_stances = ["supportive", "opposed", "neutrality"]
-                valid_emotions = ["happy", "angry", "sad", "surprised", "disgusted", "fearful", "neutral"]
+                valid_stances = ["支持", "反对", "中立"]
+                valid_emotions = ["开心", "愤怒", "悲伤", "惊讶", "害羞", "平静", "恐惧", "厌恶", "困惑"]
                 if stance in valid_stances and emotion in valid_emotions:
                     return stance, emotion  # 返回有效的立场-情绪组合
                 else:
-                    return "neutrality", "neutral"  # 默认返回中立-中性
+                    logger.debug(f"无效立场-情感组合:{result}")
+                    return "中立", "平静"  # 默认返回中立-平静
             else:
-                return "neutrality", "neutral"  # 格式错误时返回默认值
+                logger.debug(f"立场-情感格式错误:{result}")
+                return "中立", "平静"  # 格式错误时返回默认值
 
         except Exception as e:
-            print(f"获取情感标签时出错: {e}")
-            return "neutrality", "neutral"  # 出错时返回默认值
+            logger.debug(f"获取情感标签时出错: {e}")
+            return "中立", "平静"  # 出错时返回默认值
 
     async def _process_response(self, content: str) -> Tuple[List[str], List[str]]:
         """处理响应内容，返回处理后的内容和情感标签"""

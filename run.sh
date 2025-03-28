@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # 麦麦Bot一键安装脚本 by Cookie_987
-# 适用于Debian12
+# 适用于Arch/Ubuntu 24.10/Debian 12/CentOS 9
 # 请小心使用任何一键脚本！
 
+INSTALLER_VERSION="0.0.3"
 LANG=C.UTF-8
 
 # 如无法访问GitHub请修改此处镜像地址
@@ -15,7 +16,14 @@ RED="\e[31m"
 RESET="\e[0m"
 
 # 需要的基本软件包
-REQUIRED_PACKAGES=("git" "sudo" "python3" "python3-venv" "curl" "gnupg" "python3-pip")
+
+declare -A REQUIRED_PACKAGES=(
+    ["common"]="git sudo python3 curl gnupg"
+    ["debian"]="python3-venv python3-pip"
+    ["ubuntu"]="python3-venv python3-pip"
+    ["centos"]="python3-pip"
+    ["arch"]="python-virtualenv python-pip"
+)
 
 # 默认项目目录
 DEFAULT_INSTALL_DIR="/opt/maimbot"
@@ -27,8 +35,6 @@ SERVICE_NAME_WEB="maimbot-web"
 IS_INSTALL_MONGODB=false
 IS_INSTALL_NAPCAT=false
 IS_INSTALL_DEPENDENCIES=false
-
-INSTALLER_VERSION="0.0.1"
 
 # 检查是否已安装
 check_installed() {
@@ -193,6 +199,11 @@ check_eula() {
     # 首先计算当前隐私条款文件的哈希值
     current_md5_privacy=$(md5sum "${INSTALL_DIR}/repo/PRIVACY.md" | awk '{print $1}')
 
+    # 如果当前的md5值为空，则直接返回
+    if [[ -z $current_md5 || -z $current_md5_privacy ]]; then
+        whiptail --msgbox "🚫 未找到使用协议\n 请检查PRIVACY.md和EULA.md是否存在" 10 60
+    fi
+
     # 检查eula.confirmed文件是否存在
     if [[ -f ${INSTALL_DIR}/repo/eula.confirmed ]]; then
         # 如果存在则检查其中包含的md5与current_md5是否一致
@@ -213,8 +224,8 @@ check_eula() {
     if [[ $current_md5 != $confirmed_md5 || $current_md5_privacy != $confirmed_md5_privacy ]]; then
         whiptail --title "📜 使用协议更新" --yesno "检测到麦麦Bot EULA或隐私条款已更新。\nhttps://github.com/SengokuCola/MaiMBot/blob/main/EULA.md\nhttps://github.com/SengokuCola/MaiMBot/blob/main/PRIVACY.md\n\n您是否同意上述协议？ \n\n " 12 70
         if [[ $? -eq 0 ]]; then
-            echo $current_md5 > ${INSTALL_DIR}/repo/eula.confirmed
-            echo $current_md5_privacy > ${INSTALL_DIR}/repo/privacy.confirmed
+            echo -n $current_md5 > ${INSTALL_DIR}/repo/eula.confirmed
+            echo -n $current_md5_privacy > ${INSTALL_DIR}/repo/privacy.confirmed
         else
             exit 1
         fi
@@ -227,7 +238,14 @@ run_installation() {
     # 1/6: 检测是否安装 whiptail
     if ! command -v whiptail &>/dev/null; then
         echo -e "${RED}[1/6] whiptail 未安装，正在安装...${RESET}"
+
+        # 这里的多系统适配很神人，但是能用（）
+
         apt update && apt install -y whiptail
+
+        pacman -S --noconfirm libnewt
+
+        yum install -y newt
     fi
 
     # 协议确认
@@ -247,8 +265,18 @@ run_installation() {
 
         if [[ -f /etc/os-release ]]; then
             source /etc/os-release
-            if [[ "$ID" != "debian" || "$VERSION_ID" != "12" ]]; then
-                whiptail --title "🚫 不支持的系统" --msgbox "此脚本仅支持 Debian 12 (Bookworm)！\n当前系统: $PRETTY_NAME\n安装已终止。" 10 60
+            if [[ "$ID" == "debian" && "$VERSION_ID" == "12" ]]; then
+                return
+            elif [[ "$ID" == "ubuntu" && "$VERSION_ID" == "24.10" ]]; then
+                return
+            elif [[ "$ID" == "centos" && "$VERSION_ID" == "9" ]]; then
+                return
+            elif [[ "$ID" == "arch" ]]; then
+                whiptail --title "⚠️ 兼容性警告" --msgbox "NapCat无可用的 Arch Linux 官方安装方法，将无法自动安装NapCat。\n\n您可尝试在AUR中搜索相关包。" 10 60
+                whiptail --title "⚠️ 兼容性警告" --msgbox "MongoDB无可用的 Arch Linux 官方安装方法，将无法自动安装MongoDB。\n\n您可尝试在AUR中搜索相关包。" 10 60
+                return
+            else
+                whiptail --title "🚫 不支持的系统" --msgbox "此脚本仅支持 Arch/Debian 12 (Bookworm)/Ubuntu 24.10 (Oracular Oriole)/CentOS9！\n当前系统: $PRETTY_NAME\n安装已终止。" 10 60
                 exit 1
             fi
         else
@@ -257,6 +285,20 @@ run_installation() {
         fi
     }
     check_system
+
+    # 设置包管理器
+    case "$ID" in
+        debian|ubuntu)
+            PKG_MANAGER="apt"
+            ;;
+        centos)
+            PKG_MANAGER="yum"
+            ;;
+        arch)  
+            # 添加arch包管理器
+            PKG_MANAGER="pacman"
+            ;;
+    esac
 
     # 检查MongoDB
     check_mongodb() {
@@ -281,18 +323,27 @@ run_installation() {
     # 安装必要软件包
     install_packages() {
         missing_packages=()
-        for package in "${REQUIRED_PACKAGES[@]}"; do
-            if ! dpkg -s "$package" &>/dev/null; then
-                missing_packages+=("$package")
-            fi
+        # 检查 common 及当前系统专属依赖
+        for package in ${REQUIRED_PACKAGES["common"]} ${REQUIRED_PACKAGES["$ID"]}; do
+            case "$PKG_MANAGER" in
+            apt)
+                dpkg -s "$package" &>/dev/null || missing_packages+=("$package")
+                ;;
+            yum)
+                rpm -q "$package" &>/dev/null || missing_packages+=("$package")
+                ;;
+            pacman)
+                pacman -Qi "$package" &>/dev/null || missing_packages+=("$package")
+                ;;
+            esac
         done
 
         if [[ ${#missing_packages[@]} -gt 0 ]]; then
-            whiptail --title "📦 [3/6] 软件包检查" --yesno "检测到以下必须的依赖项目缺失:\n${missing_packages[*]}\n\n是否要自动安装？" 12 60
+            whiptail --title "📦 [3/6] 依赖检查" --yesno "以下软件包缺失:\n${missing_packages[*]}\n\n是否自动安装？" 10 60
             if [[ $? -eq 0 ]]; then
                 IS_INSTALL_DEPENDENCIES=true
             else
-                whiptail --title "⚠️ 注意" --yesno "某些必要的依赖项未安装，可能会影响运行！\n是否继续？" 10 60 || exit 1
+                whiptail --title "⚠️ 注意" --yesno "未安装某些依赖，可能影响运行！\n是否继续？" 10 60 || exit 1
             fi
         fi
     }
@@ -302,27 +353,24 @@ run_installation() {
     install_mongodb() {
         [[ $MONGO_INSTALLED == true ]] && return
         whiptail --title "📦 [3/6] 软件包检查" --yesno "检测到未安装MongoDB，是否安装？\n如果您想使用远程数据库，请跳过此步。" 10 60 && {
-            echo -e "${GREEN}安装 MongoDB...${RESET}"
-            curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
-            echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" | tee /etc/apt/sources.list.d/mongodb-org-8.0.list
-            apt update
-            apt install -y mongodb-org
-            systemctl enable --now mongod
             IS_INSTALL_MONGODB=true
         }
     }
-    install_mongodb
+
+    # 仅在非Arch系统上安装MongoDB
+    [[ "$ID" != "arch" ]] && install_mongodb
+       
 
     # 安装NapCat
     install_napcat() {
         [[ $NAPCAT_INSTALLED == true ]] && return
         whiptail --title "📦 [3/6] 软件包检查" --yesno "检测到未安装NapCat，是否安装？\n如果您想使用远程NapCat，请跳过此步。" 10 60 && {
-            echo -e "${GREEN}安装 NapCat...${RESET}"
-            curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh && bash napcat.sh --cli y --docker n
             IS_INSTALL_NAPCAT=true
         }
     }
-    install_napcat
+
+    # 仅在非Arch系统上安装NapCat
+    [[ "$ID" != "arch" ]] && install_napcat
 
     # Python版本检查
     check_python() {
@@ -332,7 +380,12 @@ run_installation() {
             exit 1
         fi
     }
-    check_python
+
+    # 如果没安装python则不检查python版本
+    if command -v python3 &>/dev/null; then
+        check_python
+    fi
+    
 
     # 选择分支
     choose_branch() {
@@ -358,20 +411,71 @@ run_installation() {
         local confirm_msg="请确认以下信息：\n\n"
         confirm_msg+="📂 安装麦麦Bot到: $INSTALL_DIR\n"
         confirm_msg+="🔀 分支: $BRANCH\n"
-        [[ $IS_INSTALL_DEPENDENCIES == true ]] && confirm_msg+="📦 安装依赖：${missing_packages}\n"
+        [[ $IS_INSTALL_DEPENDENCIES == true ]] && confirm_msg+="📦 安装依赖：${missing_packages[@]}\n"
         [[ $IS_INSTALL_MONGODB == true || $IS_INSTALL_NAPCAT == true ]] && confirm_msg+="📦 安装额外组件：\n"
         
         [[ $IS_INSTALL_MONGODB == true ]] && confirm_msg+="  - MongoDB\n"
         [[ $IS_INSTALL_NAPCAT == true ]] && confirm_msg+="  - NapCat\n"
         confirm_msg+="\n注意：本脚本默认使用ghfast.top为GitHub进行加速，如不想使用请手动修改脚本开头的GITHUB_REPO变量。"
 
-        whiptail --title "🔧 安装确认" --yesno "$confirm_msg" 16 60 || exit 1
+        whiptail --title "🔧 安装确认" --yesno "$confirm_msg" 20 60 || exit 1
     }
     confirm_install
 
     # 开始安装
-    echo -e "${GREEN}安装依赖...${RESET}"
-    [[ $IS_INSTALL_DEPENDENCIES == true ]] && apt update && apt install -y "${missing_packages[@]}"
+    echo -e "${GREEN}安装${missing_packages[@]}...${RESET}"
+    
+    if [[ $IS_INSTALL_DEPENDENCIES == true ]]; then
+        case "$PKG_MANAGER" in
+        apt)
+            apt update && apt install -y "${missing_packages[@]}"
+            ;;
+        yum)
+            yum install -y "${missing_packages[@]}" --nobest
+            ;;
+        pacman)
+            pacman -S --noconfirm "${missing_packages[@]}"
+            ;;
+        esac
+    fi
+
+    if [[ $IS_INSTALL_MONGODB == true ]]; then
+        echo -e "${GREEN}安装 MongoDB...${RESET}"
+        case "$ID" in
+            debian)
+                curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
+                echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" | tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+                apt update
+                apt install -y mongodb-org
+                systemctl enable --now mongod
+                ;;
+            ubuntu)
+                curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
+                echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" | tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+                apt update
+                apt install -y mongodb-org
+                systemctl enable --now mongod
+                ;;
+            centos)
+                cat > /etc/yum.repos.d/mongodb-org-8.0.repo <<EOF
+[mongodb-org-8.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/redhat/9/mongodb-org/8.0/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://pgp.mongodb.com/server-8.0.asc
+EOF
+                yum install -y mongodb-org
+                systemctl enable --now mongod
+                ;;
+        esac
+
+    fi
+
+    if [[ $IS_INSTALL_NAPCAT == true ]]; then
+        echo -e "${GREEN}安装 NapCat...${RESET}"
+        curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh && bash napcat.sh --cli y --docker n
+    fi
 
     echo -e "${GREEN}创建安装目录...${RESET}"
     mkdir -p "$INSTALL_DIR"
@@ -398,8 +502,8 @@ run_installation() {
     # 首先计算当前隐私条款文件的哈希值
     current_md5_privacy=$(md5sum "repo/PRIVACY.md" | awk '{print $1}')
 
-    echo $current_md5 > repo/eula.confirmed
-    echo $current_md5_privacy > repo/privacy.confirmed
+    echo -n $current_md5 > repo/eula.confirmed
+    echo -n $current_md5_privacy > repo/privacy.confirmed
 
     echo -e "${GREEN}创建系统服务...${RESET}"
     cat > /etc/systemd/system/${SERVICE_NAME}.service <<EOF

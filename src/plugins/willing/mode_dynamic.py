@@ -3,7 +3,7 @@ import random
 import time
 from typing import Dict
 from src.common.logger import get_module_logger
-from ..chat.config import global_config
+from ..config.config import global_config
 from ..chat.chat_stream import ChatStream
 
 logger = get_module_logger("mode_dynamic")

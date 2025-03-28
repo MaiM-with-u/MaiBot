@@ -1,4 +1,4 @@
-from .config import global_config
+from ..config.config import global_config
 from .relationship_manager import relationship_manager
 
 

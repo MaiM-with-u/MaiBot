@@ -3,7 +3,7 @@ import threading
 import time
 from dataclasses import dataclass
 
-from ..chat.config import global_config
+from ..config.config import global_config
 from src.common.logger import get_module_logger, LogConfig, MOOD_STYLE_CONFIG
 
 mood_config = LogConfig(
@@ -55,13 +55,15 @@ class MoodManager:
 
         # 情绪词映射表 (valence, arousal)
         self.emotion_map = {
-            "happy": (0.8, 0.6),  # 高愉悦度，中等唤醒度
-            "angry": (-0.7, 0.7),  # 负愉悦度，高唤醒度
-            "sad": (-0.6, 0.3),  # 负愉悦度，低唤醒度
-            "surprised": (0.4, 0.8),  # 中等愉悦度，高唤醒度
-            "disgusted": (-0.8, 0.5),  # 高负愉悦度，中等唤醒度
-            "fearful": (-0.7, 0.6),  # 负愉悦度，高唤醒度
-            "neutral": (0.0, 0.5),  # 中性愉悦度，中等唤醒度
+            "开心": (0.8, 0.6),    # 高愉悦度，中等唤醒度
+            "愤怒": (-0.7, 0.7),    # 负愉悦度，高唤醒度
+            "悲伤": (-0.6, 0.3),   # 负愉悦度，低唤醒度
+            "惊讶": (0.2, 0.8),    # 中等愉悦度，高唤醒度
+            "害羞": (0.5, 0.2),    # 中等愉悦度，低唤醒度
+            "平静": (0.0, 0.5),     # 中性愉悦度，中等唤醒度
+            "恐惧": (-0.7, 0.6),    # 负愉悦度，高唤醒度
+            "厌恶": (-0.4, 0.4),    # 负愉悦度，低唤醒度
+            "困惑": (0.0, 0.6),    # 中性愉悦度，高唤醒度
         }
 
         # 情绪文本映射表

@@ -1,6 +1,6 @@
 import asyncio
 from typing import Optional
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, RELATION_STYLE_CONFIG
 
 from ...common.database import db
 from .message_base import UserInfo
@@ -8,7 +8,12 @@ from .chat_stream import ChatStream
 import math
 from bson.decimal128 import Decimal128
 
-logger = get_module_logger("rel_manager")
+relationship_config = LogConfig(
+    # 使用关系专用样式
+    console_format=RELATION_STYLE_CONFIG["console_format"],
+    file_format=RELATION_STYLE_CONFIG["file_format"],
+)
+logger = get_module_logger("rel_manager", config=relationship_config)
 
 
 class Impression:
@@ -270,19 +275,21 @@ class RelationshipManager:
                 3.人维护关系的精力往往有限，所以当高关系值用户越多，对于中高关系值用户增长越慢
         """
         stancedict = {
-            "supportive": 0,
-            "neutrality": 1,
-            "opposed": 2,
+            "支持": 0,
+            "中立": 1,
+            "反对": 2,
         }
 
         valuedict = {
-            "happy": 1.5,
-            "angry": -3.0,
-            "sad": -1.5,
-            "surprised": 0.6,
-            "disgusted": -4.5,
-            "fearful": -2.1,
-            "neutral": 0.3,
+            "开心": 1.5,
+            "愤怒": -3.5,
+            "悲伤": -1.5,
+            "惊讶": 0.6,
+            "害羞": 2.0,
+            "平静": 0.3,
+            "恐惧": -2,
+            "厌恶": -2.5,
+            "困惑": 0.5,
         }
         if self.get_relationship(chat_stream):
             old_value = self.get_relationship(chat_stream).relationship_value
@@ -301,9 +308,12 @@ class RelationshipManager:
                 if old_value > 500:
                     high_value_count = 0
                     for _, relationship in self.relationships.items():
-                        if relationship.relationship_value >= 850:
+                        if relationship.relationship_value >= 700:
                             high_value_count += 1
-                    value *= 3 / (high_value_count + 3)
+                    if old_value >= 700:
+                        value *= 3 / (high_value_count + 2)  # 排除自己
+                    else:
+                        value *= 3 / (high_value_count + 3)
             elif valuedict[label] < 0 and stancedict[stance] != 0:
                 value = value * math.exp(old_value / 1000)
             else:
@@ -316,27 +326,20 @@ class RelationshipManager:
             else:
                 value = 0
 
-        logger.info(f"[关系变更] 立场：{stance}  标签：{label}  关系值：{value}")
+        level_num = self.calculate_level_num(old_value+value)
+        relationship_level = ["厌恶", "冷漠", "一般", "友好", "喜欢", "暧昧"]
+        logger.info(
+            f"当前关系: {relationship_level[level_num]}, "
+            f"关系值: {old_value:.2f}, "
+            f"当前立场情感: {stance}-{label}, "
+            f"变更: {value:+.5f}"
+        )
 
         await self.update_relationship_value(chat_stream=chat_stream, relationship_value=value)
 
     def build_relationship_info(self, person) -> str:
         relationship_value = relationship_manager.get_relationship(person).relationship_value
-        if -1000 <= relationship_value < -227:
-            level_num = 0
-        elif -227 <= relationship_value < -73:
-            level_num = 1
-        elif -73 <= relationship_value < 227:
-            level_num = 2
-        elif 227 <= relationship_value < 587:
-            level_num = 3
-        elif 587 <= relationship_value < 900:
-            level_num = 4
-        elif 900 <= relationship_value <= 1000:
-            level_num = 5
-        else:
-            level_num = 5 if relationship_value > 1000 else 0
-
+        level_num = self.calculate_level_num(relationship_value)
         relationship_level = ["厌恶", "冷漠", "一般", "友好", "喜欢", "暧昧"]
         relation_prompt2_list = [
             "冷漠回应",
@@ -356,6 +359,24 @@ class RelationshipManager:
                 f"你对昵称为'({person.user_info.user_id}){person.user_info.user_nickname}'的用户的态度为{relationship_level[level_num]}，"
                 f"回复态度为{relation_prompt2_list[level_num]}，关系等级为{level_num}。"
             )
+        
+    def calculate_level_num(self, relationship_value) -> int:
+        """关系等级计算"""
+        if -1000 <= relationship_value < -227:
+            level_num = 0
+        elif -227 <= relationship_value < -73:
+            level_num = 1
+        elif -73 <= relationship_value < 227:
+            level_num = 2
+        elif 227 <= relationship_value < 587:
+            level_num = 3
+        elif 587 <= relationship_value < 900:
+            level_num = 4
+        elif 900 <= relationship_value <= 1000:
+            level_num = 5
+        else:
+            level_num = 5 if relationship_value > 1000 else 0
+        return level_num
 
 
 relationship_manager = RelationshipManager()

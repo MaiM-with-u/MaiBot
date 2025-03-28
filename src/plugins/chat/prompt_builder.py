@@ -3,10 +3,10 @@ import time
 from typing import Optional
 
 from ...common.database import db
-from ..memory_system.memory import hippocampus, memory_graph
+from ..memory_system.Hippocampus import HippocampusManager
 from ..moods.moods import MoodManager
 from ..schedule.schedule_generator import bot_schedule
-from .config import global_config
+from ..config.config import global_config
 from .utils import get_embedding, get_recent_group_detailed_plain_text, get_recent_group_speaker
 from .chat_stream import chat_manager
 from .relationship_manager import relationship_manager
@@ -57,9 +57,7 @@ class PromptBuilder:
         mood_prompt = mood_manager.get_prompt()
 
         # 日程构建
-        # current_date = time.strftime("%Y-%m-%d", time.localtime())
-        # current_time = time.strftime("%H:%M:%S", time.localtime())
-        # bot_schedule_now_time, bot_schedule_now_activity = bot_schedule.get_current_task()
+        # schedule_prompt = f'''你现在正在做的事情是：{bot_schedule.get_current_num_task(num = 1,time_info = False)}'''
 
         # 获取聊天上下文
         chat_in_group = True
@@ -81,19 +79,26 @@ class PromptBuilder:
         start_time = time.time()
 
         # 调用 hippocampus 的 get_relevant_memories 方法
-        relevant_memories = await hippocampus.get_relevant_memories(
-            text=message_txt, max_topics=3, similarity_threshold=0.5, max_memory_num=4
+        relevant_memories = await HippocampusManager.get_instance().get_memory_from_text(
+            text=message_txt,
+            max_memory_num=3,
+            max_memory_length=2,
+            max_depth=3,
+            fast_retrieval=False
         )
+        memory_str = ""
+        for _topic, memories in relevant_memories:
+            memory_str += f"{memories}\n"
+        # print(f"memory_str: {memory_str}")
 
         if relevant_memories:
             # 格式化记忆内容
-            memory_str = "\n".join(m["content"] for m in relevant_memories)
             memory_prompt = f"你回忆起：\n{memory_str}\n"
 
             # 打印调试信息
             logger.debug("[记忆检索]找到以下相关记忆：")
-            for memory in relevant_memories:
-                logger.debug(f"- 主题「{memory['topic']}」[相似度: {memory['similarity']:.2f}]: {memory['content']}")
+            # for topic, memory_items, similarity in relevant_memories:
+            #     logger.debug(f"- 主题「{topic}」[相似度: {similarity:.2f}]: {memory_items}")
 
         end_time = time.time()
         logger.info(f"回忆耗时: {(end_time - start_time):.3f}秒")
@@ -173,8 +178,6 @@ class PromptBuilder:
         prompt_check_if_response = ""
         
         
-        # print(prompt)
-        
         return prompt, prompt_check_if_response
 
     def _build_initiative_prompt_select(self, group_id, probability_1=0.8, probability_2=0.1):
@@ -196,7 +199,7 @@ class PromptBuilder:
         # print(f"\033[1;34m[调试]\033[0m 已从数据库获取群 {group_id} 的消息记录:{chat_talking_prompt}")
 
         # 获取主动发言的话题
-        all_nodes = memory_graph.dots
+        all_nodes = HippocampusManager.get_instance().memory_graph.dots
         all_nodes = filter(lambda dot: len(dot[1]["memory_items"]) > 3, all_nodes)
         nodes_for_select = random.sample(all_nodes, 5)
         topics = [info[0] for info in nodes_for_select]
@@ -249,7 +252,7 @@ class PromptBuilder:
         related_info = ""
         logger.debug(f"获取知识库内容，元消息：{message[:30]}...，消息长度: {len(message)}")
         embedding = await get_embedding(message, request_type="prompt_build")
-        related_info += self.get_info_from_db(embedding, threshold=threshold)
+        related_info += self.get_info_from_db(embedding, limit=1, threshold=threshold)
 
         return related_info
 

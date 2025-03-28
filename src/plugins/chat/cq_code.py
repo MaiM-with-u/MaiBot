@@ -10,7 +10,7 @@ from src.common.logger import get_module_logger
 from nonebot import get_driver
 
 from ..models.utils_model import LLM_request
-from .config import global_config
+from ..config.config import global_config
 from .mapper import emojimapper
 from .message_base import Seg
 from .utils_user import get_user_nickname, get_groupname

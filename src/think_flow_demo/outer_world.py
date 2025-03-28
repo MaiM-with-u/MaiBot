@@ -2,7 +2,7 @@
 import asyncio
 from datetime import datetime
 from src.plugins.models.utils_model import LLM_request
-from src.plugins.chat.config import global_config
+from src.plugins.config.config import global_config
 from src.common.database import db
 
 #存储一段聊天的大致内容
@@ -15,6 +15,10 @@ class Talking_info:
         self.last_observe_time = int(datetime.now().timestamp()) #初始化为当前时间
         self.observe_times = 0
         self.activate = 360
+        
+        self.last_summary_time = int(datetime.now().timestamp())  # 上次更新summary的时间
+        self.summary_count = 0  # 30秒内的更新次数
+        self.max_update_in_30s = 2
         
         self.oberve_interval = 3
         
@@ -60,16 +64,22 @@ class Talking_info:
         if len(self.talking_message) > 20:
             self.talking_message = self.talking_message[-20:]  # 只保留最新的20条
         self.translate_message_list_to_str()
-        # print(self.talking_message_str)
         self.observe_times += 1
         self.last_observe_time = new_messages[-1]["time"]
         
-        if self.observe_times > 3:
+        # 检查是否需要更新summary
+        current_time = int(datetime.now().timestamp())
+        if current_time - self.last_summary_time >= 30:  # 如果超过30秒，重置计数
+            self.summary_count = 0
+            self.last_summary_time = current_time
+            
+        if self.summary_count < self.max_update_in_30s:  # 如果30秒内更新次数小于2次
             await self.update_talking_summary()
-            # print(f"更新了聊天总结：{self.talking_summary}")
+            self.summary_count += 1
     
     async def update_talking_summary(self):
         #基于已经有的talking_summary，和新的talking_message，生成一个summary
+        # print(f"更新聊天总结：{self.talking_summary}")
         prompt = ""
         prompt = f"你正在参与一个qq群聊的讨论，这个群之前在聊的内容是：{self.talking_summary}\n"
         prompt += f"现在群里的群友们产生了新的讨论，有了新的发言，具体内容如下：{self.talking_message_str}\n"
