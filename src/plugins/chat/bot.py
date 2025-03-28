@@ -138,20 +138,19 @@ class ChatBot:
 
         # 处理提及
         reply_probability = 0
-        if groupinfo.group_id in global_config.talk_allowed_groups:
-            if (f"[CQ:at,qq={global_config.BOT_QQ}" in message_cq.raw_message) and global_config.at_bot_inevitable_reply:
-                reply_probability = 1
+        if (f"[CQ:at,qq={global_config.BOT_QQ}" in message_cq.raw_message) and global_config.at_bot_inevitable_reply:
+            reply_probability = 1
+            is_mentioned = True
+            logger.info("被@，回复概率设置为100%")
+        else:
+            is_reply = is_reply_bot_in_message(message_cq.reply_message)
+            if is_reply:
                 is_mentioned = True
-                logger.info("被@，回复概率设置为100%")
             else:
-                is_reply = is_reply_bot_in_message(message_cq.reply_message)
-                if is_reply:
-                    is_mentioned = True
-                else:
-                    is_mentioned = is_mentioned_bot_in_message(message)
-                if is_mentioned and global_config.metioned_bot_inevitable_reply:
-                    reply_probability = 1
-                    logger.info("被提及，回复概率设置为100%")
+                is_mentioned = is_mentioned_bot_in_message(message)
+            if is_mentioned and global_config.metioned_bot_inevitable_reply:
+                reply_probability = 1
+                logger.info("被提及，回复概率设置为100%")
 
         # 计算回复意愿
         if global_config.enable_think_flow:
@@ -173,7 +172,7 @@ class ChatBot:
             sender_id=str(message.message_info.user_info.user_id),
         )
         
-        if reply_probability != 1:
+        if reply_probability != 1 or (groupinfo and (groupinfo.group_id not in global_config.talk_allowed_groups)):
             reply_probability = real_reply_probability
 
         logger.info(
