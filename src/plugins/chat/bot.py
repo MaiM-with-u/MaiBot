@@ -135,6 +135,25 @@ class ChatBot:
         interested_rate = await HippocampusManager.get_instance().get_activate_from_text(
             message.processed_plain_text,fast_retrieval=True)
         
+
+        # 处理提及
+        reply_probability = 0
+        if groupinfo.group_id in global_config.talk_allowed_groups:
+            if (f"[CQ:at,qq={global_config.BOT_QQ}" in message_cq.raw_message) and global_config.at_bot_inevitable_reply:
+                reply_probability = 1
+                is_mentioned = True
+                logger.info("被@，回复概率设置为100%")
+            else:
+                is_reply = is_reply_bot_in_message(message_cq.reply_message)
+                if is_reply:
+                    is_mentioned = True
+                else:
+                    is_mentioned = is_mentioned_bot_in_message(message)
+                if is_mentioned and global_config.metioned_bot_inevitable_reply:
+                    reply_probability = 1
+                    logger.info("被提及，回复概率设置为100%")
+
+        # 计算回复意愿
         if global_config.enable_think_flow:
             current_willing_old = willing_manager.get_willing(chat_stream=chat)
             current_willing_new = (subheartflow_manager.get_subheartflow(chat.stream_id).current_state.willing-5)/4
@@ -145,28 +164,17 @@ class ChatBot:
         
         willing_manager.set_willing(chat.stream_id,current_willing)
         
-        # 处理提及
-        if (f"[CQ:at,qq={global_config.BOT_QQ}" in message_cq.raw_message) and global_config.at_bot_inevitable_reply:
-            reply_probability = 1
-            logger.info("被@，回复概率设置为100%")
-        else:
-            is_reply = is_reply_bot_in_message(message_cq.reply_message)
-            if is_reply:
-                is_mentioned = True
-            else:
-                is_mentioned = is_mentioned_bot_in_message(message)
-            if is_mentioned and global_config.metioned_bot_inevitable_reply:
-                reply_probability = 1
-                logger.info("被提及，回复概率设置为100%")
-            else:
-                reply_probability = await willing_manager.change_reply_willing_received(
-                    chat_stream=chat,
-                    is_mentioned_bot=is_mentioned,
-                    config=global_config,
-                    is_emoji=message.is_emoji,
-                    interested_rate=interested_rate,
-                    sender_id=str(message.message_info.user_info.user_id),
-                )
+        real_reply_probability = await willing_manager.change_reply_willing_received(
+            chat_stream=chat,
+            is_mentioned_bot=is_mentioned,
+            config=global_config,
+            is_emoji=message.is_emoji,
+            interested_rate=interested_rate,
+            sender_id=str(message.message_info.user_info.user_id),
+        )
+        
+        if reply_probability != 1:
+            reply_probability = real_reply_probability
 
         logger.info(
             f"[{current_time}][{chat.group_info.group_name if chat.group_info else '私聊'}]"
