@@ -14,6 +14,7 @@ from .emoji_manager import emoji_manager
 from .relationship_manager import relationship_manager
 from ..willing.willing_manager import willing_manager
 from .chat_stream import chat_manager
+from .auto_speak import auto_speak_manager  # 导入自动发言管理器
 # from ..memory_system.memory import hippocampus
 from src.plugins.memory_system.Hippocampus import HippocampusManager
 from .message_sender import message_manager, message_sender
@@ -93,6 +94,10 @@ async def start_background_tasks():
     if global_config.enable_think_flow:
         logger.success("启动测试功能：心流系统")
         await start_think_flow()
+
+    # 启动自动发言检查任务
+    # await auto_speak_manager.start_auto_speak_check()
+    # logger.success("自动发言检查任务启动成功")
 
     # 只启动表情包管理任务
     asyncio.create_task(emoji_manager.start_periodic_check())

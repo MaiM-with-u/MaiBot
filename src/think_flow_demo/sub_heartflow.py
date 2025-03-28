@@ -48,6 +48,8 @@ class SubHeartflow:
             self.current_mind = "你什么也没想"
             
         self.personality_info = " ".join(global_config.PROMPT_PERSONALITY)
+        
+        self.is_active = False
     
     def assign_observe(self,stream_id):
         self.outer_world = outer_world.get_world_by_stream_id(stream_id)
@@ -58,8 +60,10 @@ class SubHeartflow:
             current_time = time.time()
             if current_time - self.last_reply_time > 180:  # 3分钟 = 180秒
                 # print(f"{self.observe_chat_id}麦麦已经3分钟没有回复了，暂时停止思考")
+                self.is_active = False
                 await asyncio.sleep(60)  # 每30秒检查一次
             else:
+                self.is_active = True
                 await self.do_a_thinking()
                 await self.judge_willing()
                 await asyncio.sleep(60)
@@ -75,7 +79,7 @@ class SubHeartflow:
         
         related_memory = await HippocampusManager.get_instance().get_memory_from_text(
             text=message_stream_info,
-            max_memory_num=3,
+            max_memory_num=2,
             max_memory_length=2,
             max_depth=3,
             fast_retrieval=False
@@ -88,7 +92,7 @@ class SubHeartflow:
         else:
             related_memory_info = ''
             
-        print(f"相关记忆：{related_memory_info}")
+        # print(f"相关记忆：{related_memory_info}")
         
         schedule_info = bot_schedule.get_current_num_task(num = 1,time_info = False)
         
@@ -96,10 +100,12 @@ class SubHeartflow:
         prompt += f"你刚刚在做的事情是：{schedule_info}\n"
         # prompt += f"麦麦的总体想法是：{self.main_heartflow_info}\n\n"
         prompt += f"你{self.personality_info}\n"
-        prompt += f"现在你正在上网，和qq群里的网友们聊天，群里正在聊的话题是：{message_stream_info}\n"
         if related_memory_info:
-            prompt += f"你想起来{related_memory_info}。"
-        prompt += f"刚刚你的想法是{current_thinking_info}。"
+            prompt += f"你想起来你之前见过的回忆：{related_memory_info}。\n以上是你的回忆，不一定是目前聊天里的人说的，也不一定是现在发生的事情，请记住。\n"
+        prompt += f"刚刚你的想法是{current_thinking_info}。\n"
+        prompt += "-----------------------------------\n"
+        if message_stream_info:
+            prompt += f"现在你正在上网，和qq群里的网友们聊天，群里正在聊的话题是：{message_stream_info}\n"
         prompt += f"你现在{mood_info}。\n"
         prompt += "现在你接下去继续思考，产生新的想法，不要分点输出，输出连贯的内心独白，不要太长，"
         prompt += "但是记得结合上述的消息，要记得维持住你的人设，关注聊天和新内容，不要思考太多:"
@@ -108,7 +114,7 @@ class SubHeartflow:
         self.update_current_mind(reponse)
         
         self.current_mind = reponse
-        print(prompt)
+        logger.info(f"prompt:\n{prompt}\n")
         logger.info(f"麦麦的脑内状态：{self.current_mind}")
     
     async def do_after_reply(self,reply_content,chat_talking_prompt):
@@ -117,7 +123,7 @@ class SubHeartflow:
         
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
-        related_memory_info = 'memory'
+        # related_memory_info = 'memory'
         message_stream_info = self.outer_world.talking_summary
         message_new_info = chat_talking_prompt
         reply_info = reply_content
@@ -129,8 +135,8 @@ class SubHeartflow:
         prompt += f"你{self.personality_info}\n"
         
         prompt += f"现在你正在上网，和qq群里的网友们聊天，群里正在聊的话题是：{message_stream_info}\n"
-        if related_memory_info:
-            prompt += f"你想起来{related_memory_info}。"
+        # if related_memory_info:
+            # prompt += f"你想起来{related_memory_info}。"
         prompt += f"刚刚你的想法是{current_thinking_info}。"
         prompt += f"你现在看到了网友们发的新消息:{message_new_info}\n"
         prompt += f"你刚刚回复了群友们:{reply_info}"

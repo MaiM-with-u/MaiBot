@@ -68,7 +68,7 @@ class ScheduleGenerator:
             self.print_schedule()
             
             while True:
-                print(self.get_current_num_task(1, True))
+                # print(self.get_current_num_task(1, True))
                 
                 current_time = datetime.datetime.now()
                 

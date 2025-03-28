@@ -83,7 +83,7 @@ class PromptBuilder:
             text=message_txt,
             max_memory_num=3,
             max_memory_length=2,
-            max_depth=3,
+            max_depth=4,
             fast_retrieval=False
         )
         memory_str = ""
