@@ -8,6 +8,24 @@ from dotenv import load_dotenv
 
 # from ..plugins.chat.config import global_config
 
+# 自定义模块日志配置
+# 每个模块的配置包含三个属性：
+# - tag: 模块的中文显示名称，用于日志输出
+# - color: 模块日志的颜色标记，使用 loguru 支持的颜色名称
+# - message_color: 消息内容的颜色标记，默认为 level
+MODULE_CONFIGS = {
+    "memory": {"tag": "海马体", "color": "light-yellow", "message_color": "light-yellow"},
+    "mood": {"tag": "心情", "color": "light-green"},
+    "relation": {"tag": "关系", "color": "light-magenta"},
+    "sender": {"tag": "消息发送", "color": "light-yellow"},
+    "heartflow": {"tag": "麦麦大脑袋", "color": "light-yellow", "message_color": "light-yellow"},
+    "schedule": {"tag": "在干嘛", "color": "cyan", "message_color": "cyan"},
+    "llm": {"tag": "麦麦组织语言", "color": "light-yellow"},
+    "topic": {"tag": "话题", "color": "light-blue"},
+    "chat": {"tag": "见闻", "color": "light-blue"},
+    "sub_heartflow": {"tag": "麦麦小脑袋", "color": "light-blue", "message_color": "light-blue"},
+}
+
 # 加载 .env.prod 文件
 env_path = Path(__file__).resolve().parent.parent.parent / ".env.prod"
 load_dotenv(dotenv_path=env_path)
@@ -35,232 +53,88 @@ LOG_ROOT = "logs"
 SIMPLE_OUTPUT = os.getenv("SIMPLE_OUTPUT", "false")
 print(f"SIMPLE_OUTPUT: {SIMPLE_OUTPUT}")
 
-if not SIMPLE_OUTPUT:
-    # 默认全局配置
-    DEFAULT_CONFIG = {
-        # 日志级别配置
-        "console_level": "INFO",
-        "file_level": "DEBUG",
-        # 格式配置
+# 默认配置
+DEFAULT_CONFIG = {
+    "console_level": "INFO",
+    "file_level": "DEBUG",
+    "console_format": (
+        "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+        "<level>{level: <8}</level> | "
+        "<cyan>{extra[module]: <12}</cyan> | "
+        "<level>{message}</level>"
+    ) if not SIMPLE_OUTPUT == "true" else "<green>{time:MM-DD HH:mm}</green> | <cyan>{extra[module]}</cyan> | {message}",
+    "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | {message}",
+    "log_dir": LOG_ROOT,
+    "rotation": "00:00",
+    "retention": "3 days",
+    "compression": "zip",
+}
+
+# 样式配置模板
+BASE_STYLE_TEMPLATE = {
+    "advanced": {
         "console_format": (
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
             "<level>{level: <8}</level> | "
             "<cyan>{extra[module]: <12}</cyan> | "
-            "<level>{message}</level>"
+            "<{color}>{module_tag}</{color}> | "
+            "<{message_color}>{message}</{message_color}>"
         ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | {message}",
-        "log_dir": LOG_ROOT,
-        "rotation": "00:00",
-        "retention": "3 days",
-        "compression": "zip",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | {module_tag} | {message}",
+    },
+    "simple": {
+        "console_format": "<green>{time:MM-DD HH:mm}</green> | <{color}>{module_tag}</{color}> | <{message_color}>{"
+                          "message}</{message_color}>",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | {module_tag} | {message}",
+    },
+}
+
+
+# 生成所有模块的样式配置
+def create_style_config(module_config: dict) -> dict:
+    tag = module_config["tag"]
+    color = module_config["color"]
+    message_color = module_config.get("message_color", "level")  # 默认为 level
+
+    advanced_console = (
+        BASE_STYLE_TEMPLATE["advanced"]["console_format"]
+        .replace("{color}", color)
+        .replace("{module_tag}", tag)
+        .replace("{message_color}", message_color)
+    )
+    advanced_file = BASE_STYLE_TEMPLATE["advanced"]["file_format"].replace("{module_tag}", tag)
+    simple_console = (
+        BASE_STYLE_TEMPLATE["simple"]["console_format"]
+        .replace("{color}", color)
+        .replace("{module_tag}", tag)
+        .replace("{message_color}", message_color)
+    )
+    simple_file = BASE_STYLE_TEMPLATE["simple"]["file_format"].replace("{module_tag}", tag)
+
+    return {
+        "advanced": {
+            "console_format": advanced_console,
+            "file_format": advanced_file,
+        },
+        "simple": {
+            "console_format": simple_console,
+            "file_format": simple_file,
+        },
     }
-else:
-    DEFAULT_CONFIG = {
-        # 日志级别配置
-        "console_level": "INFO",
-        "file_level": "DEBUG",
-        # 格式配置
-        "console_format": "<green>{time:MM-DD HH:mm}</green> | <cyan>{extra[module]}</cyan> | {message}",
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | {message}",
-        "log_dir": LOG_ROOT,
-        "rotation": "00:00",
-        "retention": "3 days",
-        "compression": "zip",
-    }
 
-# 海马体日志样式配置
-MEMORY_STYLE_CONFIG = {
-    "advanced": {
-        "console_format": (
-            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-yellow>海马体</light-yellow> | "
-            "<level>{message}</level>"
-        ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 海马体 | {message}",
-    },
-    "simple": {
-        "console_format": "<green>{time:MM-DD HH:mm}</green> | <light-yellow>海马体</light-yellow> | <light-yellow>"
-                          "{message}</light-yellow>",
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 海马体 | {message}",
-    },
-}
 
-# MOOD
-MOOD_STYLE_CONFIG = {
-    "advanced": {
-        "console_format": (
-            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-green>心情</light-green> | "
-            "<level>{message}</level>"
-        ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 心情 | {message}",
-    },
-    "simple": {
-        "console_format": "<green>{time:MM-DD HH:mm}</green> | <light-green>心情</light-green> | {message}",
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 心情 | {message}",
-    },
-}
-
-# relationship
-RELATION_STYLE_CONFIG = {
-    "advanced": {
-        "console_format": (
-            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-magenta>关系</light-magenta> | "
-            "<level>{message}</level>"
-        ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 关系 | {message}",
-    },
-    "simple": {
-        "console_format": "<green>{time:MM-DD HH:mm}</green> | <light-magenta>关系</light-magenta> | {message}",
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 关系 | {message}",
-    },
-}
-
-SENDER_STYLE_CONFIG = {
-    "advanced": {
-        "console_format": (
-            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-yellow>消息发送</light-yellow> | "
-            "<level>{message}</level>"
-        ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 消息发送 | {message}",
-    },
-    "simple": {
-        "console_format": "<green>{time:MM-DD HH:mm}</green> | <green>消息发送</green> | {message}",
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 消息发送 | {message}",
-    },
-}
-
-HEARTFLOW_STYLE_CONFIG = {
-    "advanced": {
-        "console_format": (
-            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-yellow>麦麦大脑袋</light-yellow> | "
-            "<level>{message}</level>"
-        ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦大脑袋 | {message}",
-    },
-    "simple": {
-        "console_format": "<green>{time:MM-DD HH:mm}</green> | <light-green>麦麦大脑袋</light-green> | <light-green>{"
-                          "message}</light-green>",
-        # noqa: E501
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦大脑袋 | {message}",
-    },
-}
-
-SCHEDULE_STYLE_CONFIG = {
-    "advanced": {
-        "console_format": (
-            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-yellow>在干嘛</light-yellow> | "
-            "<level>{message}</level>"
-        ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 在干嘛 | {message}",
-    },
-    "simple": {
-        "console_format": "<green>{time:MM-DD HH:mm}</green> | <cyan>在干嘛</cyan> | <cyan>{message}</cyan>",
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 在干嘛 | {message}",
-    },
-}
-
-LLM_STYLE_CONFIG = {
-    "advanced": {
-        "console_format": (
-            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-yellow>麦麦组织语言</light-yellow> | "
-            "<level>{message}</level>"
-        ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦组织语言 | {message}",
-    },
-    "simple": {
-        "console_format": "<green>{time:MM-DD HH:mm}</green> | <light-green>麦麦组织语言</light-green> | {message}",
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦组织语言 | {message}",
-    },
-}
-
-# Topic日志样式配置
-TOPIC_STYLE_CONFIG = {
-    "advanced": {
-        "console_format": (
-            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-blue>话题</light-blue> | "
-            "<level>{message}</level>"
-        ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 话题 | {message}",
-    },
-    "simple": {
-        "console_format": "<green>{time:MM-DD HH:mm}</green> | <light-blue>主题</light-blue> | {message}",
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 话题 | {message}",
-    },
-}
-
-# Topic日志样式配置
-CHAT_STYLE_CONFIG = {
-    "advanced": {
-        "console_format": (
-            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-blue>见闻</light-blue> | "
-            "<level>{message}</level>"
-        ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 见闻 | {message}",
-    },
-    "simple": {
-        "console_format": "<green>{time:MM-DD HH:mm}</green> | <light-blue>见闻</light-blue> | <green>{message}</green>",
-        # noqa: E501
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 见闻 | {message}",
-    },
-}
-
-SUB_HEARTFLOW_STYLE_CONFIG = {
-    "advanced": {
-        "console_format": (
-            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-blue>麦麦小脑袋</light-blue> | "
-            "<level>{message}</level>"
-        ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦小脑袋 | {message}",
-    },
-    "simple": {
-        "console_format": "<green>{time:MM-DD HH:mm}</green> | <light-blue>麦麦小脑袋</light-blue> | <light-blue>{"
-                          "message}</light-blue>",
-        # noqa: E501
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦小脑袋 | {message}",
-    },
+# 创建所有模块的样式配置
+STYLE_CONFIGS = {
+    name: create_style_config(config)
+    for name, config in MODULE_CONFIGS.items()
 }
 
 # 根据SIMPLE_OUTPUT选择配置
-MEMORY_STYLE_CONFIG = MEMORY_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else MEMORY_STYLE_CONFIG["advanced"]
-TOPIC_STYLE_CONFIG = TOPIC_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else TOPIC_STYLE_CONFIG["advanced"]
-SENDER_STYLE_CONFIG = SENDER_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else SENDER_STYLE_CONFIG["advanced"]
-LLM_STYLE_CONFIG = LLM_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else LLM_STYLE_CONFIG["advanced"]
-CHAT_STYLE_CONFIG = CHAT_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else CHAT_STYLE_CONFIG["advanced"]
-MOOD_STYLE_CONFIG = MOOD_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else MOOD_STYLE_CONFIG["advanced"]
-RELATION_STYLE_CONFIG = RELATION_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else RELATION_STYLE_CONFIG["advanced"]
-SCHEDULE_STYLE_CONFIG = SCHEDULE_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else SCHEDULE_STYLE_CONFIG["advanced"]
-HEARTFLOW_STYLE_CONFIG = HEARTFLOW_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else HEARTFLOW_STYLE_CONFIG["advanced"]
-SUB_HEARTFLOW_STYLE_CONFIG = SUB_HEARTFLOW_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else SUB_HEARTFLOW_STYLE_CONFIG[
-    "advanced"]  # noqa: E501
+for module_name in STYLE_CONFIGS:
+    STYLE_CONFIGS[module_name] = STYLE_CONFIGS[module_name]["simple" if SIMPLE_OUTPUT == "true" else "advanced"]
+
+# 导出所有配置
+globals().update({f"{name.upper()}_STYLE_CONFIG": config for name, config in STYLE_CONFIGS.items()})
 
 
 def is_registered_module(record: dict) -> bool:
