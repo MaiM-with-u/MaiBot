@@ -79,7 +79,10 @@ class MessageRecv(Message):
 
         if message_segment.get("data", "") == "[json]":
             # 提取json消息中的展示信息
-            pattern = r"\[CQ:json,data=(?P<json_data>.+?)\]"
+            pattern = re.compile(
+                r"\[CQ:json,data=(?P<json_data>.+?)\]",
+                re.DOTALL
+            )
             match = re.search(pattern, message_dict.get("raw_message", ""))
             raw_json = html.unescape(match.group("json_data"))
             try:
