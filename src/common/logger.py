@@ -290,6 +290,22 @@ WILLING_STYLE_CONFIG = {
     },
 }
 
+KNOWLEDGE_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{extra[module]: <12}</cyan> | "
+            "<light-blue>知识</light-blue> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 知识 | {message}"),
+    },
+    "simple": {
+        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <light-blue>知识</light-blue> | {message}"),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 知识 | {message}"),
+    },
+}
 
 # 根据SIMPLE_OUTPUT选择配置
 MEMORY_STYLE_CONFIG = MEMORY_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else MEMORY_STYLE_CONFIG["advanced"]
@@ -306,7 +322,7 @@ SUB_HEARTFLOW_STYLE_CONFIG = (
 )  # noqa: E501
 WILLING_STYLE_CONFIG = WILLING_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else WILLING_STYLE_CONFIG["advanced"]
 CONFIG_STYLE_CONFIG = CONFIG_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else CONFIG_STYLE_CONFIG["advanced"]
-
+KNOWLEDGE_STYLE_CONFIG = KNOWLEDGE_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else KNOWLEDGE_STYLE_CONFIG["advanced"]
 
 def is_registered_module(record: dict) -> bool:
     """检查是否为已注册的模块"""
