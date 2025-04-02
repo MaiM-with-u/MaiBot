@@ -10,6 +10,7 @@ from ...config.config import global_config
 from ...chat.utils import get_embedding, get_recent_group_detailed_plain_text
 from ...chat.chat_stream import chat_manager
 from src.common.logger import get_module_logger
+from ...knowledge.knowledge_lib import qa_manager
 
 logger = get_module_logger("prompt")
 
@@ -140,74 +141,9 @@ class PromptBuilder:
     async def get_prompt_info(self, message: str, threshold: float):
         related_info = ""
         logger.debug(f"获取知识库内容，元消息：{message[:30]}...，消息长度: {len(message)}")
-        embedding = await get_embedding(message, request_type="prompt_build")
-        related_info += self.get_info_from_db(embedding, limit=1, threshold=threshold)
+        related_info += qa_manager.get_knowledge(message)
 
         return related_info
-
-    def get_info_from_db(self, query_embedding: list, limit: int = 1, threshold: float = 0.5) -> str:
-        if not query_embedding:
-            return ""
-        # 使用余弦相似度计算
-        pipeline = [
-            {
-                "$addFields": {
-                    "dotProduct": {
-                        "$reduce": {
-                            "input": {"$range": [0, {"$size": "$embedding"}]},
-                            "initialValue": 0,
-                            "in": {
-                                "$add": [
-                                    "$$value",
-                                    {
-                                        "$multiply": [
-                                            {"$arrayElemAt": ["$embedding", "$$this"]},
-                                            {"$arrayElemAt": [query_embedding, "$$this"]},
-                                        ]
-                                    },
-                                ]
-                            },
-                        }
-                    },
-                    "magnitude1": {
-                        "$sqrt": {
-                            "$reduce": {
-                                "input": "$embedding",
-                                "initialValue": 0,
-                                "in": {"$add": ["$$value", {"$multiply": ["$$this", "$$this"]}]},
-                            }
-                        }
-                    },
-                    "magnitude2": {
-                        "$sqrt": {
-                            "$reduce": {
-                                "input": query_embedding,
-                                "initialValue": 0,
-                                "in": {"$add": ["$$value", {"$multiply": ["$$this", "$$this"]}]},
-                            }
-                        }
-                    },
-                }
-            },
-            {"$addFields": {"similarity": {"$divide": ["$dotProduct", {"$multiply": ["$magnitude1", "$magnitude2"]}]}}},
-            {
-                "$match": {
-                    "similarity": {"$gte": threshold}  # 只保留相似度大于等于阈值的结果
-                }
-            },
-            {"$sort": {"similarity": -1}},
-            {"$limit": limit},
-            {"$project": {"content": 1, "similarity": 1}},
-        ]
-
-        results = list(db.knowledges.aggregate(pipeline))
-        # print(f"\033[1;34m[调试]\033[0m获取知识库内容结果: {results}")
-
-        if not results:
-            return ""
-
-        # 返回所有找到的内容，用换行分隔
-        return "\n".join(str(result["content"]) for result in results)
 
 
 prompt_builder = PromptBuilder()
