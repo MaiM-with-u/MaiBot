@@ -144,23 +144,28 @@ class Heartflow:
         添加一个SubHeartflow实例到self._subheartflows字典中
         并根据subheartflow_id为子心流创建一个观察对象
         """
-        if subheartflow_id not in self._subheartflows:
-            logger.debug(f"创建 subheartflow: {subheartflow_id}")
-            subheartflow = SubHeartflow(subheartflow_id)
-            # 创建一个观察对象，目前只可以用chat_id创建观察对象
-            logger.debug(f"创建 observation: {subheartflow_id}")
-            observation = ChattingObservation(subheartflow_id)
+        
+        try:
+            if subheartflow_id not in self._subheartflows:
+                logger.debug(f"创建 subheartflow: {subheartflow_id}")
+                subheartflow = SubHeartflow(subheartflow_id)
+                # 创建一个观察对象，目前只可以用chat_id创建观察对象
+                logger.debug(f"创建 observation: {subheartflow_id}")
+                observation = ChattingObservation(subheartflow_id)
 
-            logger.debug("添加 observation ")
-            subheartflow.add_observation(observation)
-            logger.debug("添加 observation 成功")
-            # 创建异步任务
-            logger.debug("创建异步任务")
-            asyncio.create_task(subheartflow.subheartflow_start_working())
-            logger.debug("创建异步任务 成功")
-            self._subheartflows[subheartflow_id] = subheartflow
-            logger.info("添加 subheartflow 成功")
-        return self._subheartflows[subheartflow_id]
+                logger.debug("添加 observation ")
+                subheartflow.add_observation(observation)
+                logger.debug("添加 observation 成功")
+                # 创建异步任务
+                logger.debug("创建异步任务")
+                asyncio.create_task(subheartflow.subheartflow_start_working())
+                logger.debug("创建异步任务 成功")
+                self._subheartflows[subheartflow_id] = subheartflow
+                logger.info("添加 subheartflow 成功")
+            return self._subheartflows[subheartflow_id]
+        except Exception as e:
+            logger.error(f"创建 subheartflow 失败: {e}")
+            return None
 
     def get_subheartflow(self, observe_chat_id):
         """获取指定ID的SubHeartflow实例"""

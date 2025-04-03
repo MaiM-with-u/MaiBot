@@ -137,36 +137,40 @@ class ChatManager:
             ChatStream: 聊天流对象
         """
         # 生成stream_id
-        stream_id = self._generate_stream_id(platform, user_info, group_info)
+        try:
+            stream_id = self._generate_stream_id(platform, user_info, group_info)
 
-        # 检查内存中是否存在
-        if stream_id in self.streams:
-            stream = self.streams[stream_id]
-            # 更新用户信息和群组信息
-            stream.update_active_time()
-            stream = copy.deepcopy(stream)
-            stream.user_info = user_info
-            if group_info:
-                stream.group_info = group_info
-            return stream
+            # 检查内存中是否存在
+            if stream_id in self.streams:
+                stream = self.streams[stream_id]
+                # 更新用户信息和群组信息
+                stream.update_active_time()
+                stream = copy.deepcopy(stream)
+                stream.user_info = user_info
+                if group_info:
+                    stream.group_info = group_info
+                return stream
 
-        # 检查数据库中是否存在
-        data = db.chat_streams.find_one({"stream_id": stream_id})
-        if data:
-            stream = ChatStream.from_dict(data)
-            # 更新用户信息和群组信息
-            stream.user_info = user_info
-            if group_info:
-                stream.group_info = group_info
-            stream.update_active_time()
-        else:
-            # 创建新的聊天流
-            stream = ChatStream(
-                stream_id=stream_id,
-                platform=platform,
-                user_info=user_info,
-                group_info=group_info,
-            )
+            # 检查数据库中是否存在
+            data = db.chat_streams.find_one({"stream_id": stream_id})
+            if data:
+                stream = ChatStream.from_dict(data)
+                # 更新用户信息和群组信息
+                stream.user_info = user_info
+                if group_info:
+                    stream.group_info = group_info
+                stream.update_active_time()
+            else:
+                # 创建新的聊天流
+                stream = ChatStream(
+                    stream_id=stream_id,
+                    platform=platform,
+                    user_info=user_info,
+                    group_info=group_info,
+                )
+        except Exception as e:
+            logger.error(f"创建聊天流失败: {e}")
+            raise e
 
         # 保存到内存和数据库
         self.streams[stream_id] = stream

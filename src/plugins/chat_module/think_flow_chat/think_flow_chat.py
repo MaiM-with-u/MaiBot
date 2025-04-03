@@ -145,10 +145,6 @@ class ThinkFlowChat:
         userinfo = message.message_info.user_info
         messageinfo = message.message_info
 
-        if groupinfo == None and global_config.enable_friend_chat:#如果是私聊
-            pass
-        elif groupinfo.group_id not in global_config.talk_allowed_groups:
-                return
 
         # 创建聊天流
         chat = await chat_manager.get_or_create_stream(
@@ -178,16 +174,15 @@ class ThinkFlowChat:
         )
         timer2 = time.time()
         timing_results["记忆激活"] = timer2 - timer1
+        logger.debug(f"记忆激活: {interested_rate}")
 
         is_mentioned = is_mentioned_bot_in_message(message)
 
         # 计算回复意愿
-        if global_config.enable_think_flow:
-            current_willing_old = willing_manager.get_willing(chat_stream=chat)
-            current_willing_new = (heartflow.get_subheartflow(chat.stream_id).current_state.willing - 5) / 4
-            current_willing = (current_willing_old + current_willing_new) / 2
-        else:
-            current_willing = willing_manager.get_willing(chat_stream=chat)
+        current_willing_old = willing_manager.get_willing(chat_stream=chat)
+        current_willing_new = (heartflow.get_subheartflow(chat.stream_id).current_state.willing - 5) / 4
+        current_willing = (current_willing_old + current_willing_new) / 2
+
 
         willing_manager.set_willing(chat.stream_id, current_willing)
 
@@ -203,6 +198,7 @@ class ThinkFlowChat:
         )
         timer2 = time.time()
         timing_results["意愿激活"] = timer2 - timer1
+        logger.debug(f"意愿激活: {reply_probability}")
 
         # 打印消息信息
         mes_name = chat.group_info.group_name if chat.group_info else "私聊"
