@@ -11,13 +11,13 @@ api_key = ""
 
 [entity_extract.llm]
 # 设置用于实体提取的LLM模型
-provider = "localhost"                 # 服务提供商
-model = "deepseek-r1-distill-llama-8b" # 模型名称
+provider = "siliconflow"                 # 服务提供商
+model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" # 模型名称
 
 [rdf_build.llm]
 # 设置用于RDF构建的LLM模型
-provider = "localhost"                 # 服务提供商
-model = "deepseek-r1-distill-llama-8b" # 模型名称
+provider = "siliconflow"                 # 服务提供商
+model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" # 模型名称
 
 [embedding]
 # 设置用于文本嵌入的Embedding模型
@@ -32,8 +32,8 @@ synonym_threshold = 0.8   # 同义词阈值（相似度高于此阈值的词语�
 
 [qa.llm]
 # 设置用于QA的LLM模型
-provider = "localhost"     # 服务提供商
-model = "deepseek-r1-distill-llama-8b" # 模型名称
+provider = "siliconflow"                 # 服务提供商
+model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" # 模型名称
 
 [qa.params]
 # QA参数配置
