@@ -1,6 +1,6 @@
 import json
 import datetime
-from typing import Tuple, Dict, Any, List
+from typing import Tuple
 from src.common.logger import get_module_logger
 from ..models.utils_model import LLM_request
 from ..config.config import global_config
@@ -137,5 +137,5 @@ class ReplyChecker:
             logger.error(f"检查回复时出错: {e}")
             # 如果出错且已达到最大重试次数，建议重新规划
             if retry_count >= self.max_retries:
-                return False, f"多次检查失败，建议重新规划", True
+                return False, "多次检查失败，建议重新规划", True
             return False, f"检查过程出错，建议重试: {str(e)}", False 

@@ -1,12 +1,10 @@
 import time
-import datetime
 import asyncio
 from typing import Optional, Dict, Any, List
 from src.common.logger import get_module_logger
 from src.common.database import db
 from ..message.message_base import UserInfo
 from ..config.config import global_config
-from ..chat.message import Message
 
 logger = get_module_logger("chat_observer")
 

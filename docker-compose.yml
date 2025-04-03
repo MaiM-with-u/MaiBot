@@ -1,14 +1,15 @@
 services:
   adapters:
     container_name: maim-bot-adapters
-    image: sengokucola/maimbot-adapter:latest
+    image: maple127667/maimbot-adapter:latest
+    # image: infinitycat/maimbot-adapter:latest
     environment:
       - TZ=Asia/Shanghai
     ports:
       - "18002:18002"
     volumes:
-      - ./adapters/plugins:/adapters/src/plugins # 持久化adapters插件
-      - ./adapters/.env:/adapters/.env # 持久化adapters配置文件
+      - ./docker-config/adapters/plugins:/adapters/src/plugins # 持久化adapters
+      - ./docker-config/adapters/.env:/adapters/.env # 持久化adapters配置文件
       - ./data/qq:/app/.config/QQ # 持久化QQ本体并同步qq表情和图片到adapters
     restart: always
     depends_on:
@@ -18,6 +19,7 @@ services:
   core:
     container_name: maim-bot-core
     image: sengokucola/maimbot:refactor
+    # image: infinitycat/maimbot:refactor
     environment:
       - TZ=Asia/Shanghai
 #      - EULA_AGREE=35362b6ea30f12891d46ef545122e84a  # 同意EULA
@@ -25,9 +27,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./mmc-data:/MaiMBot/data
-      - ./mmc-config/.env:/MaiMBot/.env # 持久化bot配置文件
-      - ./mmc-config/bot_config.toml:/MaiMBot/config/bot_config.toml # 持久化bot配置文件
+      - ./docker-config/mmc/.env:/MaiMBot/.env # 持久化env配置文件
+      - ./docker-config/mmc:/MaiMBot/config # 持久化bot配置文件
       - ./data/MaiMBot:/MaiMBot/data # NapCat 和 NoneBot 共享此卷，否则发送图片会有问题
     restart: always
     depends_on:
@@ -58,7 +59,7 @@ services:
       - "6099:6099"
       - "8095:8095"
     volumes:
-      - ./napcat-config:/app/napcat/config # 持久化napcat配置文件
+      - ./docker-config/napcat:/app/napcat/config # 持久化napcat配置文件
       - ./data/qq:/app/.config/QQ # 持久化QQ本体并同步qq表情和图片到adapters
       - ./data/MaiMBot:/MaiMBot/data # NapCat 和 NoneBot 共享此卷，否则发送图片会有问题
     container_name: maim-bot-napcat

@@ -4,18 +4,14 @@ import datetime
 import asyncio
 from typing import List, Optional, Dict, Any, Tuple, Literal
 from enum import Enum
-from src.common.database import db
 from src.common.logger import get_module_logger
-from src.plugins.memory_system.Hippocampus import HippocampusManager
 from ..chat.chat_stream import ChatStream
 from ..message.message_base import UserInfo, Seg
 from ..chat.message import Message
 from ..models.utils_model import LLM_request
 from ..config.config import global_config
-from src.plugins.chat.message import MessageSending, MessageRecv, MessageThinking, MessageSet
-from src.plugins.chat.message_sender import message_manager
+from src.plugins.chat.message import MessageSending
 from src.plugins.chat.chat_stream import chat_manager
-from src.plugins.willing.willing_manager import willing_manager
 from ..message.api import global_api
 from ..storage.storage import MessageStorage
 from .chat_observer import ChatObserver
@@ -474,7 +470,7 @@ class ReplyGenerator:
         if knowledge_cache:
             knowledge_text = "\n相关知识："
             if isinstance(knowledge_cache, dict):
-                for source, content in knowledge_cache.items():
+                for _source, content in knowledge_cache.items():
                     knowledge_text += f"\n{content}"
             elif isinstance(knowledge_cache, list):
                 for item in knowledge_cache:
@@ -500,7 +496,7 @@ class ReplyGenerator:
 2. 体现你的性格特征
 3. 自然流畅，像正常聊天一样，简短
 4. 适当利用相关知识，但不要生硬引用
-{f'5. 改进上一次回复中的问题' if previous_reply else ''}
+{'5. 改进上一次回复中的问题' if previous_reply else ''}
 
 请注意把握聊天内容，不要回复的太有条理，可以有个性。请分清"你"和对方说的话，不要把"你"说的话当做对方说的话，这是你自己说的话。
 请你回复的平淡一些，简短一些，说中文，不要刻意突出自身学科背景，尽量不要说你说过的话 

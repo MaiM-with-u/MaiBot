@@ -17,4 +17,5 @@ RUN pip install --upgrade -r requirements.txt
 COPY . .
 
 EXPOSE 8000
+
 ENTRYPOINT [ "python","bot.py" ]
