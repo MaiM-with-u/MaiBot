@@ -5,7 +5,6 @@ except ImportError:
     print("请安装quick_algo库 - 在lib.quick_algo中，执行命令：python setup.py build_ext --inplace")
 
 
-import sys
 from typing import Dict, List
 
 from src.plugins.knowledge.src.config import PG_NAMESPACE, global_config
