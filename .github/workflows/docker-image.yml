@@ -13,6 +13,9 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+      DATE_TAG: $(date -u +'%Y-%m-%dT%H-%M-%S')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,7 +43,7 @@ jobs:
           elif [ "${{ github.ref }}" == "refs/heads/main-fix" ]; then
             echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:main-fix" >> $GITHUB_OUTPUT
           elif [ "${{ github.ref }}" == "refs/heads/refactor" ]; then  # 新增 refactor 分支处理
-            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:refactor" >> $GITHUB_OUTPUT
+            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:refactor,${{ secrets.DOCKERHUB_USERNAME }}/maimbot:refactor$(date -u +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
           fi
 
       - name: Build and Push Docker Image
@@ -53,3 +56,6 @@ jobs:
           push: true
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:buildcache,mode=max
+          labels: |
+            org.opencontainers.image.created=${{ steps.tags.outputs.date_tag }}
+            org.opencontainers.image.revision=${{ github.sha }}

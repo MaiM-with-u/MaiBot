@@ -1,5 +1,5 @@
 [inner]
-version = "1.1.0"
+version = "1.1.1"
 
 
 #以下是给开发人员阅读的，一般用户不需要阅读
@@ -93,8 +93,10 @@ emoji_response_penalty = 0.1 # 表情包回复惩罚系数，设为0为不回复
 
 
 [emoji]
-check_interval = 15 # 检查破损表情包的时间间隔(分钟)
-register_interval = 60 # 注册表情包的时间间隔(分钟)
+max_emoji_num = 120 # 表情包最大数量
+max_reach_deletion = true # 开启则在达到最大数量时删除表情包，关闭则不会继续收集表情包
+check_interval = 30 # 检查破损表情包的时间间隔(分钟)
+register_interval = 30 # 注册表情包的时间间隔(分钟)
 auto_save = true  # 是否保存表情包和图片
 enable_check = false  # 是否启用表情包过滤
 check_prompt = "符合公序良俗" # 表情包过滤要求

@@ -7,10 +7,11 @@ from ...memory_system.Hippocampus import HippocampusManager
 from ...moods.moods import MoodManager
 from ...schedule.schedule_generator import bot_schedule
 from ...config.config import global_config
-from ...chat.utils import get_embedding, get_recent_group_detailed_plain_text
+from ...chat.utils import get_embedding, get_recent_group_detailed_plain_text, get_recent_group_speaker
 from ...chat.chat_stream import chat_manager
 from src.common.logger import get_module_logger
 from ...knowledge.knowledge_lib import qa_manager
+from ...person_info.relationship_manager import relationship_manager
 
 logger = get_module_logger("prompt")
 
@@ -25,6 +26,25 @@ class PromptBuilder:
     ) -> tuple[str, str]:
     
         # 开始构建prompt
+
+        # 关系
+        who_chat_in_group = [(chat_stream.user_info.platform, 
+                              chat_stream.user_info.user_id, 
+                              chat_stream.user_info.user_nickname)]
+        who_chat_in_group += get_recent_group_speaker(
+            stream_id,
+            (chat_stream.user_info.platform, chat_stream.user_info.user_id),
+            limit=global_config.MAX_CONTEXT_SIZE,
+        )
+        
+        relation_prompt = ""
+        for person in who_chat_in_group:
+            relation_prompt += await relationship_manager.build_relationship_info(person)
+
+        relation_prompt_all = (
+            f"{relation_prompt}关系等级越大，关系越好，请分析聊天记录，"
+            f"根据你和说话者{sender_name}的关系和态度进行回复，明确你的立场和情感。"
+        )
 
         # 心情
         mood_manager = MoodManager.get_instance()
@@ -128,7 +148,7 @@ class PromptBuilder:
 {schedule_prompt}
 {chat_target}
 {chat_talking_prompt}
-现在"{sender_name}"说的:{message_txt}。引起了你的注意，你想要在群里发言发言或者回复这条消息。\n
+现在"{sender_name}"说的:{message_txt}。引起了你的注意，你想要在群里发言发言或者回复这条消息。{relation_prompt_all}\n
 你的网名叫{global_config.BOT_NICKNAME}，有人也叫你{"/".join(global_config.BOT_ALIAS_NAMES)}，{prompt_personality}。
 你正在{chat_target_2},现在请你读读之前的聊天记录，{mood_prompt}，然后给出日常且口语化的回复，平淡一些，
 尽量简短一些。{keywords_reaction_prompt}请注意把握聊天内容，不要回复的太有条理，可以有个性。{prompt_ger}

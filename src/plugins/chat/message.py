@@ -31,7 +31,7 @@ class Message(MessageBase):
     def __init__(
         self,
         message_id: str,
-        time: int,
+        time: float,
         chat_stream: ChatStream,
         user_info: UserInfo,
         message_segment: Optional[Seg] = None,

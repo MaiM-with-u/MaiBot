@@ -149,7 +149,6 @@ def get_recent_group_speaker(chat_stream_id: int, sender, limit: int = 12) -> li
         db.messages.find(
             {"chat_id": chat_stream_id},
             {
-                "chat_info": 1,
                 "user_info": 1,
             },
         )
@@ -160,20 +159,17 @@ def get_recent_group_speaker(chat_stream_id: int, sender, limit: int = 12) -> li
     if not recent_messages:
         return []
 
-    who_chat_in_group = []  # ChatStream列表
-
-    duplicate_removal = []
+    who_chat_in_group = []
     for msg_db_data in recent_messages:
         user_info = UserInfo.from_dict(msg_db_data["user_info"])
         if (
-            (user_info.user_id, user_info.platform) != sender
-            and (user_info.user_id, user_info.platform) != (global_config.BOT_QQ, "qq")
-            and (user_info.user_id, user_info.platform) not in duplicate_removal
-            and len(duplicate_removal) < 5
-        ):  # 排除重复，排除消息发送者，排除bot(此处bot的平台强制为了qq，可能需要更改)，限制加载的关系数目
-            duplicate_removal.append((user_info.user_id, user_info.platform))
-            chat_info = msg_db_data.get("chat_info", {})
-            who_chat_in_group.append(ChatStream.from_dict(chat_info))
+            (user_info.platform, user_info.user_id) != sender
+            and user_info.user_id != global_config.BOT_QQ
+            and (user_info.platform, user_info.user_id, user_info.user_nickname) not in who_chat_in_group
+            and len(who_chat_in_group) < 5
+        ):  # 排除重复，排除消息发送者，排除bot，限制加载的关系数目
+            who_chat_in_group.append((user_info.platform, user_info.user_id, user_info.user_nickname))
+
     return who_chat_in_group
 
 
@@ -349,6 +345,15 @@ def calculate_typing_time(input_string: str, chinese_time: float = 0.2, english_
     - 如果只有一个中文字符，将使用3倍的中文输入时间
     - 在所有输入结束后，额外加上回车时间0.3秒
     """
+
+    # 如果输入是列表，将其连接成字符串
+    if isinstance(input_string, list):
+        input_string = ''.join(input_string)
+    
+    # 确保现在是字符串类型
+    if not isinstance(input_string, str):
+        input_string = str(input_string)
+
     mood_manager = MoodManager.get_instance()
     # 将0-1的唤醒度映射到-1到1
     mood_arousal = mood_manager.current_mood.arousal
@@ -482,3 +487,108 @@ def is_western_char(char):
 def is_western_paragraph(paragraph):
     """检测是否为西文字符段落"""
     return all(is_western_char(char) for char in paragraph if char.isalnum())
+
+
+def count_messages_between(start_time: float, end_time: float, stream_id: str) -> tuple[int, int]:
+    """计算两个时间点之间的消息数量和文本总长度
+
+    Args:
+        start_time (float): 起始时间戳
+        end_time (float): 结束时间戳
+        stream_id (str): 聊天流ID
+
+    Returns:
+        tuple[int, int]: (消息数量, 文本总长度)
+        - 消息数量：包含起始时间的消息，不包含结束时间的消息
+        - 文本总长度：所有消息的processed_plain_text长度之和
+    """
+    try:
+        # 获取开始时间之前最新的一条消息
+        start_message = db.messages.find_one(
+            {
+                "chat_id": stream_id,
+                "time": {"$lte": start_time}
+            },
+            sort=[("time", -1), ("_id", -1)]  # 按时间倒序，_id倒序（最后插入的在前）
+        )
+        
+        # 获取结束时间最近的一条消息
+        # 先找到结束时间点的所有消息
+        end_time_messages = list(db.messages.find(
+            {
+                "chat_id": stream_id,
+                "time": {"$lte": end_time}
+            },
+            sort=[("time", -1)]  # 先按时间倒序
+        ).limit(10))  # 限制查询数量，避免性能问题
+        
+        if not end_time_messages:
+            logger.warning(f"未找到结束时间 {end_time} 之前的消息")
+            return 0, 0
+            
+        # 找到最大时间
+        max_time = end_time_messages[0]["time"]
+        # 在最大时间的消息中找最后插入的（_id最大的）
+        end_message = max(
+            [msg for msg in end_time_messages if msg["time"] == max_time],
+            key=lambda x: x["_id"]
+        )
+            
+        if not start_message:
+            logger.warning(f"未找到开始时间 {start_time} 之前的消息")
+            return 0, 0
+        
+        # 调试输出
+        # print("\n=== 消息范围信息 ===")
+        # print("Start message:", {
+        #     "message_id": start_message.get("message_id"),
+        #     "time": start_message.get("time"),
+        #     "text": start_message.get("processed_plain_text", ""),
+        #     "_id": str(start_message.get("_id"))
+        # })
+        # print("End message:", {
+        #     "message_id": end_message.get("message_id"),
+        #     "time": end_message.get("time"),
+        #     "text": end_message.get("processed_plain_text", ""),
+        #     "_id": str(end_message.get("_id"))
+        # })
+        # print("Stream ID:", stream_id)
+
+        # 如果结束消息的时间等于开始时间，返回0
+        if end_message["time"] == start_message["time"]:
+            return 0, 0
+            
+        # 获取并打印这个时间范围内的所有消息
+        # print("\n=== 时间范围内的所有消息 ===")
+        all_messages = list(db.messages.find(
+            {
+                "chat_id": stream_id,
+                "time": {
+                    "$gte": start_message["time"],
+                    "$lte": end_message["time"]
+                }
+            },
+            sort=[("time", 1), ("_id", 1)]  # 按时间正序，_id正序
+        ))
+        
+        count = 0
+        total_length = 0
+        for msg in all_messages:
+            count += 1
+            text_length = len(msg.get("processed_plain_text", ""))
+            total_length += text_length
+            # print(f"\n消息 {count}:")
+            # print({
+            #     "message_id": msg.get("message_id"),
+            #     "time": msg.get("time"),
+            #     "text": msg.get("processed_plain_text", ""),
+            #     "text_length": text_length,
+            #     "_id": str(msg.get("_id"))
+            # })
+        
+        # 如果时间不同，需要把end_message本身也计入
+        return count - 1, total_length
+        
+    except Exception as e:
+        logger.error(f"计算消息数量时出错: {str(e)}")
+        return 0, 0
