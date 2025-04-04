@@ -285,9 +285,9 @@ def random_remove_punctuation(text: str) -> str:
                 continue
         elif char == "，":
             rand = random.random()
-            if rand < 0.25:  # 5%概率删除逗号
+            if rand < 0.05:  # 5%概率删除逗号
                 continue
-            elif rand < 0.25:  # 20%概率把逗号变成空格
+            elif rand > 0.8:  # 20%概率把逗号变成空格
                 result += " "
                 continue
         result += char
@@ -302,7 +302,7 @@ def process_llm_response(text: str) -> List[str]:
     if len(text) > max_length and not is_western_paragraph(text):
         logger.warning(f"回复过长 ({len(text)} 字符)，返回默认回复")
         return ["懒得说"]
-    elif len(text) > 200:
+    elif len(text) > max_length * 2:
         logger.warning(f"回复过长 ({len(text)} 字符)，返回默认回复")
         return ["懒得说"]
     # 处理长消息
