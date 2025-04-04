@@ -4,7 +4,7 @@ from .plugins.utils.statistic import LLMStatistics
 from .plugins.moods.moods import MoodManager
 from .plugins.schedule.schedule_generator import bot_schedule
 from .plugins.chat.emoji_manager import emoji_manager
-from .plugins.relationship.relationship_manager import relationship_manager
+from .plugins.person_info.person_info import person_info_manager
 from .plugins.willing.willing_manager import willing_manager
 from .plugins.chat.chat_stream import chat_manager
 from .heart_flow.heartflow import heartflow
@@ -50,14 +50,14 @@ class MainSystem:
 
         # 初始化表情管理器
         emoji_manager.initialize()
+        logger.success("表情包管理器初始化成功")
 
         # 启动情绪管理器
         self.mood_manager.start_mood_update(update_interval=global_config.mood_update_interval)
         logger.success("情绪管理器启动成功")
 
-        # 加载用户关系
-        await relationship_manager.load_all_relationships()
-        asyncio.create_task(relationship_manager._start_relationship_manager())
+        # 检查并清除person_info冗余字段
+        await person_info_manager.del_all_undefined_field()
 
         # 启动愿望管理器
         await willing_manager.ensure_started()
@@ -107,6 +107,7 @@ class MainSystem:
                 self.print_mood_task(),
                 self.remove_recalled_message_task(),
                 emoji_manager.start_periodic_check(),
+                emoji_manager.start_periodic_register(),
                 self.app.run(),
             ]
             await asyncio.gather(*tasks)

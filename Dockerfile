@@ -1,4 +1,5 @@
 FROM python:3.13.2-slim-bookworm
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # 工作目录
 WORKDIR /MaiMBot
@@ -9,9 +10,9 @@ COPY requirements.txt .
 COPY maim_message /maim_message
 
 # 安装依赖
-RUN pip install --upgrade pip
-RUN pip install -e /maim_message
-RUN pip install --upgrade -r requirements.txt
+RUN uv pip install --system --upgrade pip
+RUN uv pip install --system -e /maim_message
+RUN uv pip install --system -r requirements.txt
 
 # 复制项目代码
 COPY . .

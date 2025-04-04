@@ -166,7 +166,7 @@ class BaseMessageInfo:
 
     platform: Optional[str] = None
     message_id: Union[str, int, None] = None
-    time: Optional[int] = None
+    time: Optional[float] = None
     group_info: Optional[GroupInfo] = None
     user_info: Optional[UserInfo] = None
     format_info: Optional[FormatInfo] = None

@@ -16,6 +16,7 @@ from ...willing.willing_manager import willing_manager
 from ...message import UserInfo, Seg
 from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
 from ...chat.chat_stream import chat_manager
+from ...person_info.relationship_manager import relationship_manager
 
 # 定义日志配置
 chat_config = LogConfig(
@@ -123,6 +124,15 @@ class ReasoningChat:
                 )
                 message_manager.add_message(bot_message)
 
+    async def _update_relationship(self, message, response_set):
+        """更新关系情绪"""
+        ori_response = ",".join(response_set)
+        stance, emotion = await self.gpt._get_emotion_tags(ori_response, message.processed_plain_text)
+        await relationship_manager.calculate_update_relationship_value(
+            chat_stream=message.chat_stream, label=emotion, stance=stance
+        )
+        self.mood_manager.update_mood_from_emotion(emotion, global_config.mood_intensity_factor)
+
     async def process_message(self, message_data: str) -> None:
         """处理消息并生成回复"""
         timing_results = {}
@@ -225,6 +235,12 @@ class ReasoningChat:
             await self._handle_emoji(message, chat, response_set)
             timer2 = time.time()
             timing_results["处理表情包"] = timer2 - timer1
+
+            # 更新关系情绪
+            timer1 = time.time()
+            await self._update_relationship(message, response_set)
+            timer2 = time.time()
+            timing_results["更新关系情绪"] = timer2 - timer1
 
         # 输出性能计时结果
         if do_reply:

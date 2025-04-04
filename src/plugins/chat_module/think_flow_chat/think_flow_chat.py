@@ -17,6 +17,7 @@ from ...message import UserInfo, Seg
 from src.heart_flow.heartflow import heartflow
 from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
 from ...chat.chat_stream import chat_manager
+from ...person_info.relationship_manager import relationship_manager
 
 # 定义日志配置
 chat_config = LogConfig(
@@ -101,9 +102,13 @@ class ThinkFlowChat:
         """处理表情包"""
         if random() < global_config.emoji_chance:
             emoji_raw = await emoji_manager.get_emoji_for_text(response)
+            # print("11111111111111")
+            # logger.info(emoji_raw)
             if emoji_raw:
                 emoji_path, description = emoji_raw
                 emoji_cq = image_path_to_base64(emoji_path)
+                
+                # logger.info(emoji_cq)
 
                 thinking_time_point = round(message.message_info.time, 2)
 
@@ -122,6 +127,8 @@ class ThinkFlowChat:
                     is_head=False,
                     is_emoji=True,
                 )
+                
+                # logger.info("22222222222222")
                 message_manager.add_message(bot_message)
 
     async def _update_using_response(self, message, response_set):
@@ -134,6 +141,15 @@ class ThinkFlowChat:
             )
 
         await heartflow.get_subheartflow(stream_id).do_thinking_after_reply(response_set, chat_talking_prompt)
+
+    async def _update_relationship(self, message, response_set):
+        """更新关系情绪"""
+        ori_response = ",".join(response_set)
+        stance, emotion = await self.gpt._get_emotion_tags(ori_response, message.processed_plain_text)
+        await relationship_manager.calculate_update_relationship_value(
+            chat_stream=message.chat_stream, label=emotion, stance=stance
+        )
+        self.mood_manager.update_mood_from_emotion(emotion, global_config.mood_intensity_factor)
 
     async def process_message(self, message_data: str) -> None:
         """处理消息并生成回复"""
@@ -158,15 +174,18 @@ class ThinkFlowChat:
         heartflow.create_subheartflow(chat.stream_id)
 
         await message.process()
-
+        logger.debug(f"消息处理成功{message.processed_plain_text}")
+        
         # 过滤词/正则表达式过滤
         if self._check_ban_words(message.processed_plain_text, chat, userinfo) or self._check_ban_regex(
             message.raw_message, chat, userinfo
         ):
             return
+        logger.debug(f"过滤词/正则表达式过滤成功{message.processed_plain_text}")
 
         await self.storage.store_message(message, chat)
-
+        logger.debug(f"存储成功{message.processed_plain_text}")
+        
         # 记忆激活
         timer1 = time.time()
         interested_rate = await HippocampusManager.get_instance().get_activate_from_text(
@@ -180,8 +199,10 @@ class ThinkFlowChat:
 
         # 计算回复意愿
         current_willing_old = willing_manager.get_willing(chat_stream=chat)
-        current_willing_new = (heartflow.get_subheartflow(chat.stream_id).current_state.willing - 5) / 4
-        current_willing = (current_willing_old + current_willing_new) / 2
+        # current_willing_new = (heartflow.get_subheartflow(chat.stream_id).current_state.willing - 5) / 4
+        # current_willing = (current_willing_old + current_willing_new) / 2 
+        # 有点bug
+        current_willing = current_willing_old
 
 
         willing_manager.set_willing(chat.stream_id, current_willing)
@@ -262,6 +283,12 @@ class ThinkFlowChat:
             await self._update_using_response(message, response_set)
             timer2 = time.time()
             timing_results["更新心流"] = timer2 - timer1
+
+            # 更新关系情绪
+            timer1 = time.time()
+            await self._update_relationship(message, response_set)
+            timer2 = time.time()
+            timing_results["更新关系情绪"] = timer2 - timer1
 
         # 输出性能计时结果
         if do_reply:

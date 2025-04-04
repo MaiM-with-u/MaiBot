@@ -182,6 +182,8 @@ class BotConfig:
     # MODEL_R1_DISTILL_PROBABILITY: float = 0.1  # R1蒸馏模型概率
 
     # emoji
+    max_emoji_num: int = 200  # 表情包最大数量
+    max_reach_deletion: bool = True  # 开启则在达到最大数量时删除表情包，关闭则不会继续收集表情包
     EMOJI_CHECK_INTERVAL: int = 120  # 表情包检查间隔（分钟）
     EMOJI_REGISTER_INTERVAL: int = 10  # 表情包注册间隔（分钟）
     EMOJI_SAVE: bool = True  # 偷表情包
@@ -361,6 +363,9 @@ class BotConfig:
             config.EMOJI_CHECK_PROMPT = emoji_config.get("check_prompt", config.EMOJI_CHECK_PROMPT)
             config.EMOJI_SAVE = emoji_config.get("auto_save", config.EMOJI_SAVE)
             config.EMOJI_CHECK = emoji_config.get("enable_check", config.EMOJI_CHECK)
+            if config.INNER_VERSION in SpecifierSet(">=1.1.1"):
+                config.max_emoji_num = emoji_config.get("max_emoji_num", config.max_emoji_num)
+                config.max_reach_deletion = emoji_config.get("max_reach_deletion", config.max_reach_deletion)
 
         def bot(parent: dict):
             # 机器人基础配置

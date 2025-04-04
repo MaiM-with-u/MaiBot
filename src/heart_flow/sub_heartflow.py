@@ -192,7 +192,7 @@ class SubHeartflow:
         logger.info(f"麦麦的思考前脑内状态：{self.current_mind}")
 
     async def do_thinking_after_reply(self, reply_content, chat_talking_prompt):
-        print("麦麦回复之后脑袋转起来了")
+        # print("麦麦回复之后脑袋转起来了")
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
 
