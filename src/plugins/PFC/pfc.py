@@ -821,7 +821,7 @@ class DirectMessageSender:
             if not end_point:
                 raise ValueError(f"未找到平台：{chat_stream.platform} 的url配置")
                 
-            await global_api.send_message(end_point, message_json)
+            await global_api.send_message_REST(end_point, message_json)
             
             # 存储消息
             await self.storage.store_message(message, message.chat_stream)
