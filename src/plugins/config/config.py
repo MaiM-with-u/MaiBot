@@ -145,6 +145,7 @@ class BotConfig:
     # group
     talk_allowed_groups = set()
     talk_frequency_down_groups = set()
+    talk_read_only = set()  # 只读取消息但不回复的群组
     ban_user_id = set()
 
     # personality
@@ -578,6 +579,8 @@ class BotConfig:
             groups_config = parent["groups"]
             config.talk_allowed_groups = set(groups_config.get("talk_allowed", []))
             config.talk_frequency_down_groups = set(groups_config.get("talk_frequency_down", []))
+            if config.INNER_VERSION in SpecifierSet(">=1.2.5"):
+                config.talk_read_only = set(groups_config.get("talk_read_only", []))
             config.ban_user_id = set(groups_config.get("ban_user_id", []))
 
         def platforms(parent: dict):
