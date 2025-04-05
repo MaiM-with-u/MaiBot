@@ -138,14 +138,27 @@ class ChatBot:
 
         # 处理提及
         reply_probability = 0
-        if (f"[@{global_config.BOT_NICKNAME}(自己)]" in message.processed_plain_text) and global_config.at_bot_inevitable_reply:
+        is_at = False
+        is_mentioned = False
+        if message.message_segment.type == "seglist":
+            for seg in message.message_segment.data:
+                if seg.type == 'mention_at':
+                    is_at = True
+                    is_mentioned = True
+                elif seg.type == 'seglist':
+                    for s in seg.data:
+                        if s.type == 'mention_reply':
+                            is_mentioned = True
+        else:
+            if message.message_segment.type == 'mention_at':
+                is_at = True
+                is_mentioned = True
+
+        if is_at and global_config.at_bot_inevitable_reply:
             reply_probability = 1
-            is_mentioned = True
             logger.info("被@，回复概率设置为100%")
         else:
-            if f"[回复 {global_config.BOT_NICKNAME}(自己) 的消息: " in message.processed_plain_text:
-                is_mentioned = True
-            else:
+            if is_mentioned != True:
                 is_mentioned = is_mentioned_bot_in_message(message)
             if is_mentioned and global_config.metioned_bot_inevitable_reply:
                 reply_probability = 1

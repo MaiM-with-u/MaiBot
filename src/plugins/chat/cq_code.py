@@ -69,7 +69,7 @@ class CQCode:
                 self.translated_segments = Seg(type="text", data="@[全体成员]")
             elif int(self.params.get("qq")) == global_config.BOT_QQ :
                 user_nickname = get_user_nickname(self.params.get("qq", ""))
-                self.translated_segments = Seg(type="text", data=f"[@{global_config.BOT_NICKNAME}(自己)]")
+                self.translated_segments = Seg(type="mention_at", data=f"[@{global_config.BOT_NICKNAME}]")
             else:
                 user_nickname = get_user_nickname(self.params.get("qq", ""))
                 self.translated_segments = Seg(type="text", data=f"[@{user_nickname or '某人'}]")
@@ -271,7 +271,7 @@ class CQCode:
 
             segments = []
             if message_obj.message_info.user_info.user_id == global_config.BOT_QQ:
-                segments.append(Seg(type="text", data=f"[回复 {global_config.BOT_NICKNAME}(自己) 的消息: "))
+                segments.append(Seg(type="mention_reply", data=f"[回复 {global_config.BOT_NICKNAME} 的消息: "))
             else:
                 segments.append(
                     Seg(
