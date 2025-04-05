@@ -1,5 +1,5 @@
 [inner]
-version = "1.2.4"
+version = "1.2.5"
 
 
 #以下是给开发人员阅读的，一般用户不需要阅读
@@ -31,6 +31,7 @@ talk_allowed = [
     123,
 ]  #可以回复消息的群号码
 talk_frequency_down = []  #降低回复频率的群号码
+talk_read_only = []  #只读取消息但不回复的群号码（心流）
 ban_user_id = []  #禁止回复和读取消息的QQ号
 
 [personality]

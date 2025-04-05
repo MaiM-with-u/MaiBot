@@ -176,7 +176,16 @@ class ThinkFlowChat:
         message.update_chat_stream(chat)
 
         # 创建心流与chat的观察
-        heartflow.create_subheartflow(chat.stream_id)
+        sub_heartflow = heartflow.create_subheartflow(chat.stream_id)
+        
+        # 如果创建子心流返回None，表示这是只读群组，只读取消息但不回复
+        # 正常情况下，只读群组在bot.py中已被过滤，不会执行到这里
+        # 此检查防止由于代码路径变更或其他异常情况导致只读群组消息进入思维流处理流程
+        if sub_heartflow is None:
+            logger.info(f"群组 {groupinfo.group_id}({groupinfo.group_name}) 在只读模式中，只读取不回复消息")
+            await message.process()
+            await self.storage.store_message(message, chat)
+            return
 
         await message.process()
         logger.debug(f"消息处理成功{message.processed_plain_text}")

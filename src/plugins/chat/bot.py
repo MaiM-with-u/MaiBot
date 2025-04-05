@@ -136,12 +136,25 @@ class ChatBot:
                         logger.error(f"未知的回复模式，请检查配置文件！！: {global_config.response_mode}")
                 else:  # 群聊处理
                     if groupinfo.group_id in global_config.talk_allowed_groups:
-                        if global_config.response_mode == "heart_flow":
-                            await self.think_flow_chat.process_message(message_data)
-                        elif global_config.response_mode == "reasoning":
-                            await self.reasoning_chat.process_message(message_data)
+                        # 检查是否在只读取不回复的群组列表中
+                        if groupinfo.group_id in global_config.talk_read_only:
+                            # 只读取消息，不回复
+                            logger.info(f"群组 {groupinfo.group_id}({groupinfo.group_name}) 在只读模式中，只读取不回复消息")
+                            # 创建聊天流
+                            chat = await chat_manager.get_or_create_stream(
+                                platform=message.message_info.platform,
+                                user_info=userinfo,
+                                group_info=groupinfo,
+                            )
+                            message.update_chat_stream(chat)
+                            await self.only_process_chat.process_message(message)
                         else:
-                            logger.error(f"未知的回复模式，请检查配置文件！！: {global_config.response_mode}")
+                            if global_config.response_mode == "heart_flow":
+                                await self.think_flow_chat.process_message(message_data)
+                            elif global_config.response_mode == "reasoning":
+                                await self.reasoning_chat.process_message(message_data)
+                            else:
+                                logger.error(f"未知的回复模式，请检查配置文件！！: {global_config.response_mode}")
         except Exception as e:
             logger.error(f"预处理消息失败: {e}")
 

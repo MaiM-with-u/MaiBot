@@ -4,6 +4,7 @@ from src.plugins.moods.moods import MoodManager
 from src.plugins.models.utils_model import LLM_request
 from src.plugins.config.config import global_config
 from src.plugins.schedule.schedule_generator import bot_schedule
+from src.plugins.chat.chat_stream import chat_manager
 import asyncio
 from src.common.logger import get_module_logger, LogConfig, HEARTFLOW_STYLE_CONFIG  # noqa: E402
 import time
@@ -146,6 +147,16 @@ class Heartflow:
         """
         
         try:
+            # 检查是否是只读群组的ID
+            # 正常情况下，只读群组在bot.py中已被过滤，不会执行到heartflow的相关方法
+            # 此检查确保即使有代码变更或异常路径，只读群组也不会创建子心流
+            chat_stream = chat_manager.get_stream(subheartflow_id)
+            if chat_stream and chat_stream.group_info and chat_stream.group_info.group_id:
+                group_id = chat_stream.group_info.group_id
+                if group_id in global_config.talk_read_only:
+                    logger.info(f"群组 {group_id} 在只读模式中，跳过创建子心流")
+                    return None
+                
             if subheartflow_id not in self._subheartflows:
                 logger.debug(f"创建 subheartflow: {subheartflow_id}")
                 subheartflow = SubHeartflow(subheartflow_id)
@@ -169,6 +180,17 @@ class Heartflow:
 
     def get_subheartflow(self, observe_chat_id):
         """获取指定ID的SubHeartflow实例"""
+        # 检查是否是只读群组的ID
+        # 正常情况下，只读群组在bot.py中已被过滤，不会调用此方法
+        # 此检查防止系统在代码变更或异常情况下意外为只读群组创建或获取子心流
+        chat_stream = chat_manager.get_stream(observe_chat_id)
+        if chat_stream and chat_stream.group_info and chat_stream.group_info.group_id:
+            group_id = chat_stream.group_info.group_id
+            if group_id in global_config.talk_read_only:
+                logger.debug(f"群组 {group_id} 在只读模式中，跳过获取子心流")
+                # 返回None表示这是只读群组
+                return None
+            
         return self._subheartflows.get(observe_chat_id)
 
 
