@@ -45,14 +45,15 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
     """检查消息是否提到了机器人"""
     keywords = [global_config.BOT_NICKNAME]
     nicknames = global_config.BOT_ALIAS_NAMES
+    message_content = re.sub(r'\[@[\s\S]*?\]','', message.processed_plain_text)
+    message_content = re.sub(r'\[回复[\s\S]*?： ','', message_content)
     for keyword in keywords:
-        if keyword in message.processed_plain_text:
+        if keyword in message_content:
             return True
     for nickname in nicknames:
-        if nickname in message.processed_plain_text:
+        if nickname in message_content:
             return True
     return False
-
 
 async def get_embedding(text, request_type="embedding"):
     """获取文本的embedding向量"""
@@ -497,6 +498,7 @@ def is_western_char(char):
 def is_western_paragraph(paragraph):
     """检测是否为西文字符段落"""
     return all(is_western_char(char) for char in paragraph if char.isalnum())
+  
 
 def should_split(text, index):
     """检测空格两边的字符是否为西文字符"""

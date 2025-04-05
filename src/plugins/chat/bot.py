@@ -134,8 +134,37 @@ class ChatBot:
         interested_rate = 0
         interested_rate = await HippocampusManager.get_instance().get_activate_from_text(
             message.processed_plain_text,fast_retrieval=True)
-        is_mentioned = is_mentioned_bot_in_message(message)
         
+
+        # 处理提及
+        reply_probability = 0
+        is_at = False
+        is_mentioned = False
+        if message.message_segment.type == "seglist":
+            for seg in message.message_segment.data:
+                if seg.type == 'mention_at':
+                    is_at = True
+                    is_mentioned = True
+                elif seg.type == 'seglist':
+                    for s in seg.data:
+                        if s.type == 'mention_reply':
+                            is_mentioned = True
+        else:
+            if message.message_segment.type == 'mention_at':
+                is_at = True
+                is_mentioned = True
+
+        if is_at and global_config.at_bot_inevitable_reply:
+            reply_probability = 1
+            logger.info("被@，回复概率设置为100%")
+        else:
+            if is_mentioned != True:
+                is_mentioned = is_mentioned_bot_in_message(message)
+            if is_mentioned and global_config.metioned_bot_inevitable_reply:
+                reply_probability = 1
+                logger.info("被提及，回复概率设置为100%")
+
+        # 计算回复意愿
         if global_config.enable_think_flow:
             current_willing_old = willing_manager.get_willing(chat_stream=chat)
             current_willing_new = (subheartflow_manager.get_subheartflow(chat.stream_id).current_state.willing-5)/4
@@ -146,7 +175,7 @@ class ChatBot:
         
         willing_manager.set_willing(chat.stream_id,current_willing)
         
-        reply_probability = await willing_manager.change_reply_willing_received(
+        real_reply_probability = await willing_manager.change_reply_willing_received(
             chat_stream=chat,
             is_mentioned_bot=is_mentioned,
             config=global_config,
@@ -154,6 +183,9 @@ class ChatBot:
             interested_rate=interested_rate,
             sender_id=str(message.message_info.user_info.user_id),
         )
+        
+        if reply_probability != 1 or (groupinfo and (groupinfo.group_id not in global_config.talk_allowed_groups)):
+            reply_probability = real_reply_probability
 
         logger.info(
             f"[{current_time}][{chat.group_info.group_name if chat.group_info else '私聊'}]"

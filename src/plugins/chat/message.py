@@ -153,6 +153,10 @@ class MessageRecv(Message):
                 if isinstance(seg.data, str):
                     return await image_manager.get_emoji_description(seg.data)
                 return "[表情]"
+            elif seg.type == "mention_at":
+                return seg.data
+            elif seg.type == "mention_reply":
+                return seg.data
             else:
                 return f"[{seg.type}:{str(seg.data)}]"
         except Exception as e:
