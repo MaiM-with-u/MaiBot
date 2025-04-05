@@ -18,6 +18,7 @@ config/bot_config_dev.toml
 config/bot_config.toml
 config/bot_config.toml.bak
 src/plugins/remote/client_uuid.json
+src/plugins/action_executer/actions.py
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
