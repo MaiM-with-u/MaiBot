@@ -26,7 +26,7 @@ from .chat_stream import chat_manager
 from .message_sender import message_manager  # 导入新的消息管理器
 from .relationship_manager import relationship_manager
 from .storage import MessageStorage
-from .utils import is_mentioned_bot_in_message, get_recent_group_detailed_plain_text, is_reply_bot_in_message
+from .utils import is_mentioned_bot_in_message, get_recent_group_detailed_plain_text
 from .utils_image import image_path_to_base64
 from .utils_user import get_user_nickname, get_user_cardname
 from ..willing.willing_manager import willing_manager  # 导入意愿管理器
@@ -138,13 +138,12 @@ class ChatBot:
 
         # 处理提及
         reply_probability = 0
-        if (f"[CQ:at,qq={global_config.BOT_QQ}" in message_cq.raw_message) and global_config.at_bot_inevitable_reply:
+        if (f"[@{global_config.BOT_NICKNAME}(自己)]" in message.processed_plain_text) and global_config.at_bot_inevitable_reply:
             reply_probability = 1
             is_mentioned = True
             logger.info("被@，回复概率设置为100%")
         else:
-            is_reply = is_reply_bot_in_message(message_cq.reply_message)
-            if is_reply:
+            if f"[回复 {global_config.BOT_QQ}(自己)  的消息: ]" in message.processed_plain_text:
                 is_mentioned = True
             else:
                 is_mentioned = is_mentioned_bot_in_message(message)

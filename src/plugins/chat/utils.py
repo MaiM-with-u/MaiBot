@@ -45,11 +45,10 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
     """检查消息是否提到了机器人"""
     keywords = [global_config.BOT_NICKNAME]
     nicknames = global_config.BOT_ALIAS_NAMES
-    at_qq_list = re.findall(r"\[CQ:at,qq=([0-9]*),name", message.raw_message)
-    if int(at_qq_list[0] if len(at_qq_list) != 0 else "0") == global_config.BOT_QQ:
+    if f"[@{global_config.BOT_NICKNAME}(自己)]" in message.processed_plain_text:
         return True
-    message_content = re.sub(r'\[CQ:reply,[\s\S]*?\]','', message.raw_message)
-    message_content = re.sub(r'\[CQ:cq,[\s\S]*?\]','', message_content)
+    message_content = re.sub(r'\[@[\s\S]*?\]','', message.processed_plain_text)
+    message_content = re.sub(r'\[回复[\s\S]*?\]','', message_content)
     for keyword in keywords:
         if keyword in message_content:
             return True
@@ -496,13 +495,6 @@ def is_western_paragraph(paragraph):
     """检测是否为西文字符段落"""
     return all(is_western_char(char) for char in paragraph if char.isalnum())
   
-def is_reply_bot_in_message(reply_message) -> bool:
-    """判断回复对象是否为bot"""
-    if reply_message != None:
-        reply_user_id = reply_message.sender.user_id
-        if reply_user_id == global_config.BOT_QQ:
-            return True
-    return False
 
 def should_split(text, index):
     """检测空格两边的字符是否为西文字符"""
