@@ -8,9 +8,10 @@ services:
     ports:
       - "18002:18002"
     volumes:
-      - ./docker-config/adapters/plugins:/adapters/src/plugins # 持久化adapters
+      - ./docker-config/adapters/config.py:/adapters/src/plugins/nonebot_plugin_maibot_adapters/config.py # 持久化adapters配置文件
       - ./docker-config/adapters/.env:/adapters/.env # 持久化adapters配置文件
       - ./data/qq:/app/.config/QQ # 持久化QQ本体并同步qq表情和图片到adapters
+      - ./data/MaiMBot:/adapters/data
     restart: always
     depends_on:
       - mongodb
@@ -18,8 +19,8 @@ services:
       - maim_bot
   core:
     container_name: maim-bot-core
-    image: sengokucola/maimbot:refactor
-    # image: infinitycat/maimbot:refactor
+    image: sengokucola/maimbot:main
+    # image: infinitycat/maimbot:main
     environment:
       - TZ=Asia/Shanghai
 #      - EULA_AGREE=35362b6ea30f12891d46ef545122e84a  # 同意EULA
@@ -61,7 +62,7 @@ services:
     volumes:
       - ./docker-config/napcat:/app/napcat/config # 持久化napcat配置文件
       - ./data/qq:/app/.config/QQ # 持久化QQ本体并同步qq表情和图片到adapters
-      - ./data/MaiMBot:/MaiMBot/data # NapCat 和 NoneBot 共享此卷，否则发送图片会有问题
+      - ./data/MaiMBot:/adapters/data # NapCat 和 NoneBot 共享此卷，否则发送图片会有问题
     container_name: maim-bot-napcat
     restart: always
     image: mlikiowa/napcat-docker:latest

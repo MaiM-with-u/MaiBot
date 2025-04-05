@@ -4,8 +4,9 @@ on:
   push:
     branches:
       - main
-      - main-fix
-      - refactor  # 新增 refactor 分支触发
+      - classical
+      - dev
+      - new_knowledge
     tags:
       - 'v*'
   workflow_dispatch:
@@ -20,8 +21,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Clone maim_message (refactor branch only)
-        if: github.ref == 'refs/heads/refactor'  # 仅 refactor 分支执行
+      - name: Clone maim_message
         run: git clone https://github.com/MaiM-with-u/maim_message maim_message
 
       - name: Set up Docker Buildx
@@ -39,11 +39,13 @@ jobs:
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:${{ github.ref_name }},${{ secrets.DOCKERHUB_USERNAME }}/maimbot:latest" >> $GITHUB_OUTPUT
           elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:main,${{ secrets.DOCKERHUB_USERNAME }}/maimbot:latest" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/main-fix" ]; then
-            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:main-fix" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/refactor" ]; then  # 新增 refactor 分支处理
-            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:refactor,${{ secrets.DOCKERHUB_USERNAME }}/maimbot:refactor$(date -u +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:main,${{ secrets.DOCKERHUB_USERNAME }}/maimbot:main-$(date -u +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/classical" ]; then
+            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:classical,${{ secrets.DOCKERHUB_USERNAME }}/maimbot:classical-$(date -u +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/dev" ]; then
+            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:dev,${{ secrets.DOCKERHUB_USERNAME }}/maimbot:dev-$(date -u +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/new_knowledge" ]; then 
+            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:knowledge,${{ secrets.DOCKERHUB_USERNAME }}/maimbot:knowledge-$(date -u +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
           fi
 
       - name: Build and Push Docker Image

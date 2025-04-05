@@ -168,7 +168,7 @@ class MessageProcessBase(Message):
         # 调用父类初始化
         super().__init__(
             message_id=message_id,
-            time=int(time.time()),
+            time=round(time.time(), 3),  # 保留3位小数
             chat_stream=chat_stream,
             user_info=bot_user_info,
             message_segment=message_segment,

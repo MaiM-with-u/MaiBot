@@ -106,8 +106,8 @@ class MainSystem:
                 self.forget_memory_task(),
                 self.print_mood_task(),
                 self.remove_recalled_message_task(),
-                emoji_manager.start_periodic_check(),
-                emoji_manager.start_periodic_register(),
+                emoji_manager.start_periodic_check_register(),
+                # emoji_manager.start_periodic_register(),
                 self.app.run(),
             ]
             await asyncio.gather(*tasks)

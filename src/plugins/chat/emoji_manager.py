@@ -357,23 +357,6 @@ class EmojiManager:
 
         except Exception:
             logger.exception("[错误] 扫描表情包失败")
-
-    async def start_periodic_register(self):
-        """定期扫描新表情包"""
-        while True:
-            logger.info("[扫描] 开始扫描新表情包...")
-            if (self.emoji_num > self.emoji_num_max):
-                logger.warning(f"[警告] 表情包数量超过最大限制: {self.emoji_num} > {self.emoji_num_max},跳过注册")
-                if not global_config.max_reach_deletion:
-                    logger.warning("表情包数量超过最大限制，终止注册")
-                    break
-                else:
-                    logger.warning("表情包数量超过最大限制，开始删除表情包")
-                    self.check_emoji_file_full()
-            else:
-                await self.scan_new_emojis()
-                await asyncio.sleep(global_config.EMOJI_CHECK_INTERVAL * 60)
-                
             
 
     def check_emoji_file_integrity(self):
@@ -530,12 +513,24 @@ class EmojiManager:
         except Exception as e:
             logger.error(f"[错误] 检查表情包数量失败: {str(e)}")
             
-    async def start_periodic_check(self):
+    async def start_periodic_check_register(self):
         """定期检查表情包完整性和数量"""
         while True:
-            self.check_emoji_file_full()
+            logger.info("[扫描] 开始检查表情包完整性...")
             self.check_emoji_file_integrity()
+            logger.info("[扫描] 开始删除所有图片缓存...")
             await self.delete_all_images()
+            logger.info("[扫描] 开始扫描新表情包...")
+            if self.emoji_num < self.emoji_num_max:
+                await self.scan_new_emojis()
+            if (self.emoji_num > self.emoji_num_max):
+                logger.warning(f"[警告] 表情包数量超过最大限制: {self.emoji_num} > {self.emoji_num_max},跳过注册")
+                if not global_config.max_reach_deletion:
+                    logger.warning("表情包数量超过最大限制，终止注册")
+                    break
+                else:
+                    logger.warning("表情包数量超过最大限制，开始删除表情包")
+                    self.check_emoji_file_full()
             await asyncio.sleep(global_config.EMOJI_CHECK_INTERVAL * 60)
     
     async def delete_all_images(self):

@@ -42,11 +42,24 @@ class ChatBot:
             
             if global_config.enable_pfc_chatting:
                 # 获取或创建对话实例
-                conversation = Conversation.get_instance(chat_id)
+                conversation = await Conversation.get_instance(chat_id)
+                if conversation is None:
+                    logger.error(f"创建或获取对话实例失败: {chat_id}")
+                    return
+                    
                 # 如果是新创建的实例，启动对话系统
                 if conversation.state == ConversationState.INIT:
                     asyncio.create_task(conversation.start())
                     logger.info(f"为聊天 {chat_id} 创建新的对话实例")
+                elif conversation.state == ConversationState.ENDED:
+                    # 如果实例已经结束，重新创建
+                    await Conversation.remove_instance(chat_id)
+                    conversation = await Conversation.get_instance(chat_id)
+                    if conversation is None:
+                        logger.error(f"重新创建对话实例失败: {chat_id}")
+                        return
+                    asyncio.create_task(conversation.start())
+                    logger.info(f"为聊天 {chat_id} 重新创建对话实例")
         except Exception as e:
             logger.error(f"创建PFC聊天流失败: {e}")
 
@@ -96,11 +109,11 @@ class ChatBot:
                         await self._create_PFC_chat(message)
                     else:
                         if groupinfo.group_id in global_config.talk_allowed_groups:
-                            logger.debug(f"开始群聊模式{message_data}")
+                            logger.debug(f"开始群聊模式{str(message_data)[:50]}...")
                             if global_config.response_mode == "heart_flow":
                                 await self.think_flow_chat.process_message(message_data)
                             elif global_config.response_mode == "reasoning":
-                                logger.debug(f"开始推理模式{message_data}")
+                                logger.debug(f"开始推理模式{str(message_data)[:50]}...")
                                 await self.reasoning_chat.process_message(message_data)
                             else:
                                 logger.error(f"未知的回复模式，请检查配置文件！！: {global_config.response_mode}")

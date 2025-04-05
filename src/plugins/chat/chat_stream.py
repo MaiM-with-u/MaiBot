@@ -28,7 +28,7 @@ class ChatStream:
         self.platform = platform
         self.user_info = user_info
         self.group_info = group_info
-        self.create_time = data.get("create_time", int(time.time())) if data else int(time.time())
+        self.create_time = data.get("create_time", time.time()) if data else time.time()
         self.last_active_time = data.get("last_active_time", self.create_time) if data else self.create_time
         self.saved = False
 
@@ -60,7 +60,7 @@ class ChatStream:
 
     def update_active_time(self):
         """更新最后活跃时间"""
-        self.last_active_time = int(time.time())
+        self.last_active_time = time.time()
         self.saved = False
 
 

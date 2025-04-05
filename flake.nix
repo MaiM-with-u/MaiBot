@@ -18,10 +18,11 @@
       devShells.default = pkgs.mkShell {
         name = "python-venv";
         venvDir = "./.venv";
-        buildInputs = [
-          pythonPackages.python
-          pythonPackages.venvShellHook
-          pythonPackages.numpy
+        buildInputs = with pythonPackages; [
+          python
+          venvShellHook
+          scipy
+          numpy
         ];
 
         postVenvCreation = ''

@@ -139,13 +139,13 @@ class LLMStatistics:
             user_info = doc.get("user_info", {})
             group_info = chat_info.get("group_info") if chat_info else {}
             # print(f"group_info: {group_info}")
-            group_name = "unknown"
+            group_name = None
             if group_info:
-                group_name = group_info["group_name"]
-            if user_info and group_name == "unknown":
+                group_name = group_info.get("group_name", f"群{group_info.get('group_id')}")
+            if user_info and not group_name:
                 group_name = user_info["user_nickname"]
             # print(f"group_name: {group_name}")
-            stats["messages_by_user"][user_id] += 1 
+            stats["messages_by_user"][user_id] += 1
             stats["messages_by_chat"][group_name] += 1
 
         return stats
@@ -225,7 +225,7 @@ class LLMStatistics:
                 output.append(f"{group_name[:32]:<32}  {count:>10}")
 
         return "\n".join(output)
-    
+
     def _format_stats_section_lite(self, stats: Dict[str, Any], title: str) -> str:
         """格式化统计部分的输出"""
         output = []
@@ -314,7 +314,7 @@ class LLMStatistics:
     def _console_output_loop(self):
         """控制台输出循环，每5分钟输出一次最近1小时的统计"""
         while self.running:
-                        # 等待5分钟
+            # 等待5分钟
             for _ in range(300):  # 5分钟 = 300秒
                 if not self.running:
                     break
@@ -323,15 +323,15 @@ class LLMStatistics:
                 # 收集最近1小时的统计数据
                 now = datetime.now()
                 hour_stats = self._collect_statistics_for_period(now - timedelta(hours=1))
-                
+
                 # 使用logger输出
-                stats_output = self._format_stats_section_lite(hour_stats, "最近1小时统计：详细信息见根目录文件：llm_statistics.txt")
+                stats_output = self._format_stats_section_lite(
+                    hour_stats, "最近1小时统计：详细信息见根目录文件：llm_statistics.txt"
+                )
                 logger.info("\n" + stats_output + "\n" + "=" * 50)
-                
+
             except Exception:
                 logger.exception("控制台统计数据输出失败")
-
-
 
     def _stats_loop(self):
         """统计循环，每5分钟运行一次"""

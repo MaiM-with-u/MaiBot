@@ -1,6 +1,6 @@
 import time
 import asyncio
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple 
 from src.common.logger import get_module_logger
 from src.common.database import db
 from ..message.message_base import UserInfo
@@ -57,6 +57,35 @@ class ChatObserver:
         self._update_event = asyncio.Event()  # 触发更新的事件
         self._update_complete = asyncio.Event()  # 更新完成的事件
     
+    def check(self) -> bool:
+        """检查距离上一次观察之后是否有了新消息
+        
+        Returns:
+            bool: 是否有新消息
+        """
+        logger.debug(f"检查距离上一次观察之后是否有了新消息: {self.last_check_time}")
+        
+        query = {
+            "chat_id": self.stream_id,
+            "time": {"$gt": self.last_check_time}
+        }
+        
+        # 只需要查询是否存在，不需要获取具体消息
+        new_message_exists = db.messages.find_one(query) is not None
+        
+        if new_message_exists:
+            logger.debug("发现新消息")
+            self.last_check_time = time.time()
+        
+        return new_message_exists
+    
+    def get_new_message(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """获取上一次观察的时间点后的新消息，插入到历史记录中，并返回新消息和历史记录两个对象"""
+        messages = self.get_message_history(self.last_check_time)
+        for message in messages:
+            self._add_message_to_history(message)
+        return messages, self.message_history
+    
     def new_message_after(self, time_point: float) -> bool:
         """判断是否在指定时间点后有新消息
         
@@ -66,6 +95,7 @@ class ChatObserver:
         Returns:
             bool: 是否有新消息
         """
+        logger.debug(f"判断是否在指定时间点后有新消息: {self.last_message_time} > {time_point}")
         return self.last_message_time is None or self.last_message_time > time_point
      
     def _add_message_to_history(self, message: Dict[str, Any]):

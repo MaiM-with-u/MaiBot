@@ -112,8 +112,13 @@ class ImageManager:
                 return f"[表情包：{cached_description}]"
 
             # 调用AI获取描述
-            prompt = "这是一个表情包，使用中文简洁的描述一下表情包的内容和表情包所表达的情感"
-            description, _ = await self._llm.generate_response_for_image(prompt, image_base64, image_format)
+            if image_format == "gif" or image_format == "GIF":
+                image_base64 = self.transform_gif(image_base64)
+                prompt = "这是一个动态图表情包，每一张图代表了动态图的某一帧，黑色背景代表透明，使用中文简洁的描述一下表情包的内容和表达的情感，简短一些"
+                description, _ = await self._llm.generate_response_for_image(prompt, image_base64, "jpg")
+            else:
+                prompt = "这是一个表情包，使用中文简洁的描述一下表情包的内容和表情包所表达的情感"
+                description, _ = await self._llm.generate_response_for_image(prompt, image_base64, image_format)
 
             cached_description = self._get_description_from_db(image_hash, "emoji")
             if cached_description:
@@ -220,6 +225,72 @@ class ImageManager:
         except Exception as e:
             logger.error(f"获取图片描述失败: {str(e)}")
             return "[图片]"
+
+    def transform_gif(self, gif_base64: str) -> str:
+        """将GIF转换为水平拼接的静态图像
+
+        Args:
+            gif_base64: GIF的base64编码字符串
+
+        Returns:
+            str: 拼接后的JPG图像的base64编码字符串
+        """
+        try:
+            # 解码base64
+            gif_data = base64.b64decode(gif_base64)
+            gif = Image.open(io.BytesIO(gif_data))
+            
+            # 收集所有帧
+            frames = []
+            try:
+                while True:
+                    gif.seek(len(frames))
+                    frame = gif.convert('RGB')
+                    frames.append(frame.copy())
+            except EOFError:
+                pass
+
+            if not frames:
+                raise ValueError("No frames found in GIF")
+
+            # 计算需要抽取的帧的索引
+            total_frames = len(frames)
+            if total_frames <= 15:
+                selected_frames = frames
+            else:
+                # 均匀抽取10帧
+                indices = [int(i * (total_frames - 1) / 14) for i in range(15)]
+                selected_frames = [frames[i] for i in indices]
+
+            # 获取单帧的尺寸
+            frame_width, frame_height = selected_frames[0].size
+            
+            # 计算目标尺寸，保持宽高比
+            target_height = 200  # 固定高度
+            target_width = int((target_height / frame_height) * frame_width)
+            
+            # 调整所有帧的大小
+            resized_frames = [frame.resize((target_width, target_height), Image.Resampling.LANCZOS) 
+                             for frame in selected_frames]
+
+            # 创建拼接图像
+            total_width = target_width * len(resized_frames)
+            combined_image = Image.new('RGB', (total_width, target_height))
+
+            # 水平拼接图像
+            for idx, frame in enumerate(resized_frames):
+                combined_image.paste(frame, (idx * target_width, 0))
+
+            # 转换为base64
+            buffer = io.BytesIO()
+            combined_image.save(buffer, format='JPEG', quality=85)
+            result_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            
+            return result_base64
+            
+        except Exception as e:
+            logger.error(f"GIF转换失败: {str(e)}")
+            return None
 
 
 # 创建全局单例

@@ -18,15 +18,14 @@ body:
     description: "请选择您正在使用的版本分支"
     options:
       - main
-      - main-fix
-      - refactor
+      - dev
   validations:
     required: true
 - type: input
   attributes:
     label: "具体版本号"
     description: "请输入您使用的具体版本号"
-    placeholder: "例如：0.5.11、0.5.8"
+    placeholder: "例如：0.5.11、0.5.8、0.6.0"
   validations:
     required: true
 - type: textarea

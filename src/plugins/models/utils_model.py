@@ -154,7 +154,7 @@ class LLM_request:
         # 合并重试策略
         default_retry = {
             "max_retries": 3,
-            "base_wait": 15,
+            "base_wait": 10,
             "retry_codes": [429, 413, 500, 503],
             "abort_codes": [400, 401, 402, 403],
         }
@@ -179,15 +179,17 @@ class LLM_request:
         # logger.debug(f"{logger_msg}发送请求到URL: {api_url}")
         # logger.info(f"使用模型: {self.model_name}")
 
-        # 流式输出标志
-        if stream_mode:
-            payload["stream"] = stream_mode
 
         # 构建请求体
         if image_base64:
             payload = await self._build_payload(prompt, image_base64, image_format)
         elif payload is None:
             payload = await self._build_payload(prompt)
+
+        # 流式输出标志
+        # 先构建payload，再添加流式输出标志
+        if stream_mode:
+            payload["stream"] = stream_mode
 
         for retry in range(policy["max_retries"]):
             try:
@@ -203,21 +205,21 @@ class LLM_request:
                             # 处理需要重试的状态码
                             if response.status in policy["retry_codes"]:
                                 wait_time = policy["base_wait"] * (2**retry)
-                                logger.warning(f"错误码: {response.status}, 等待 {wait_time}秒后重试")
+                                logger.warning(f"模型 {self.model_name} 错误码: {response.status}, 等待 {wait_time}秒后重试")
                                 if response.status == 413:
                                     logger.warning("请求体过大，尝试压缩...")
                                     image_base64 = compress_base64_image_by_scale(image_base64)
                                     payload = await self._build_payload(prompt, image_base64, image_format)
                                 elif response.status in [500, 503]:
-                                    logger.error(f"错误码: {response.status} - {error_code_mapping.get(response.status)}")
+                                    logger.error(f"模型 {self.model_name} 错误码: {response.status} - {error_code_mapping.get(response.status)}")
                                     raise RuntimeError("服务器负载过高，模型恢复失败QAQ")
                                 else:
-                                    logger.warning(f"请求限制(429)，等待{wait_time}秒后重试...")
+                                    logger.warning(f"模型 {self.model_name} 请求限制(429)，等待{wait_time}秒后重试...")
 
                                 await asyncio.sleep(wait_time)
                                 continue
                             elif response.status in policy["abort_codes"]:
-                                logger.error(f"错误码: {response.status} - {error_code_mapping.get(response.status)}")
+                                logger.error(f"模型 {self.model_name} 错误码: {response.status} - {error_code_mapping.get(response.status)}")
                                 # 尝试获取并记录服务器返回的详细错误信息
                                 try:
                                     error_json = await response.json()
@@ -319,9 +321,9 @@ class LLM_request:
                                                         flag_delta_content_finished = True
 
                                             except Exception as e:
-                                                logger.exception(f"解析流式输出错误: {str(e)}")
+                                                logger.exception(f"模型 {self.model_name} 解析流式输出错误: {str(e)}")
                                     except GeneratorExit:
-                                        logger.warning("流式输出被中断，正在清理资源...")
+                                        logger.warning("模型 {self.model_name} 流式输出被中断，正在清理资源...")
                                         # 确保资源被正确清理
                                         await response.release()
                                         # 返回已经累积的内容
@@ -335,7 +337,7 @@ class LLM_request:
                                             else self._default_response_handler(result, user_id, request_type, endpoint)
                                         )
                                     except Exception as e:
-                                        logger.error(f"处理流式输出时发生错误: {str(e)}")
+                                        logger.error(f"模型 {self.model_name} 处理流式输出时发生错误: {str(e)}")
                                         # 确保在发生错误时也能正确清理资源
                                         try:
                                             await response.release()
@@ -378,21 +380,21 @@ class LLM_request:
                     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                         if retry < policy["max_retries"] - 1:
                             wait_time = policy["base_wait"] * (2**retry)
-                            logger.error(f"网络错误，等待{wait_time}秒后重试... 错误: {str(e)}")
+                            logger.error(f"模型 {self.model_name} 网络错误，等待{wait_time}秒后重试... 错误: {str(e)}")
                             await asyncio.sleep(wait_time)
                             continue
                         else:
-                            logger.critical(f"网络错误达到最大重试次数: {str(e)}")
+                            logger.critical(f"模型 {self.model_name} 网络错误达到最大重试次数: {str(e)}")
                             raise RuntimeError(f"网络请求失败: {str(e)}") from e
                     except Exception as e:
-                        logger.critical(f"未预期的错误: {str(e)}")
+                        logger.critical(f"模型 {self.model_name} 未预期的错误: {str(e)}")
                         raise RuntimeError(f"请求过程中发生错误: {str(e)}") from e
 
             except aiohttp.ClientResponseError as e:
                 # 处理aiohttp抛出的响应错误
                 if retry < policy["max_retries"] - 1:
                     wait_time = policy["base_wait"] * (2**retry)
-                    logger.error(f"HTTP响应错误，等待{wait_time}秒后重试... 状态码: {e.status}, 错误: {e.message}")
+                    logger.error(f"模型 {self.model_name} HTTP响应错误，等待{wait_time}秒后重试... 状态码: {e.status}, 错误: {e.message}")
                     try:
                         if hasattr(e, "response") and e.response and hasattr(e.response, "text"):
                             error_text = await e.response.text()
@@ -403,27 +405,27 @@ class LLM_request:
                                         if "error" in error_item and isinstance(error_item["error"], dict):
                                             error_obj = error_item["error"]
                                             logger.error(
-                                                f"服务器错误详情: 代码={error_obj.get('code')}, "
+                                                f"模型 {self.model_name} 服务器错误详情: 代码={error_obj.get('code')}, "
                                                 f"状态={error_obj.get('status')}, "
                                                 f"消息={error_obj.get('message')}"
                                             )
                                 elif isinstance(error_json, dict) and "error" in error_json:
                                     error_obj = error_json.get("error", {})
                                     logger.error(
-                                        f"服务器错误详情: 代码={error_obj.get('code')}, "
+                                        f"模型 {self.model_name} 服务器错误详情: 代码={error_obj.get('code')}, "
                                         f"状态={error_obj.get('status')}, "
                                         f"消息={error_obj.get('message')}"
                                     )
                                 else:
-                                    logger.error(f"服务器错误响应: {error_json}")
+                                    logger.error(f"模型 {self.model_name} 服务器错误响应: {error_json}")
                             except (json.JSONDecodeError, TypeError) as json_err:
-                                logger.warning(f"响应不是有效的JSON: {str(json_err)}, 原始内容: {error_text[:200]}")
+                                logger.warning(f"模型 {self.model_name} 响应不是有效的JSON: {str(json_err)}, 原始内容: {error_text[:200]}")
                     except (AttributeError, TypeError, ValueError) as parse_err:
-                        logger.warning(f"无法解析响应错误内容: {str(parse_err)}")
+                        logger.warning(f"模型 {self.model_name} 无法解析响应错误内容: {str(parse_err)}")
 
                     await asyncio.sleep(wait_time)
                 else:
-                    logger.critical(f"HTTP响应错误达到最大重试次数: 状态码: {e.status}, 错误: {e.message}")
+                    logger.critical(f"模型 {self.model_name} HTTP响应错误达到最大重试次数: 状态码: {e.status}, 错误: {e.message}")
                     # 安全地检查和记录请求详情
                     if (
                         image_base64
@@ -440,14 +442,14 @@ class LLM_request:
                                     f"{image_base64[:10]}...{image_base64[-10:]}"
                                 )
                     logger.critical(f"请求头: {await self._build_headers(no_key=True)} 请求体: {payload}")
-                    raise RuntimeError(f"API请求失败: 状态码 {e.status}, {e.message}") from e
+                    raise RuntimeError(f"模型 {self.model_name} API请求失败: 状态码 {e.status}, {e.message}") from e
             except Exception as e:
                 if retry < policy["max_retries"] - 1:
                     wait_time = policy["base_wait"] * (2**retry)
-                    logger.error(f"请求失败，等待{wait_time}秒后重试... 错误: {str(e)}")
+                    logger.error(f"模型 {self.model_name} 请求失败，等待{wait_time}秒后重试... 错误: {str(e)}")
                     await asyncio.sleep(wait_time)
                 else:
-                    logger.critical(f"请求失败: {str(e)}")
+                    logger.critical(f"模型 {self.model_name} 请求失败: {str(e)}")
                     # 安全地检查和记录请求详情
                     if (
                         image_base64
@@ -464,10 +466,10 @@ class LLM_request:
                                     f"{image_base64[:10]}...{image_base64[-10:]}"
                                 )
                     logger.critical(f"请求头: {await self._build_headers(no_key=True)} 请求体: {payload}")
-                    raise RuntimeError(f"API请求失败: {str(e)}") from e
+                    raise RuntimeError(f"模型 {self.model_name} API请求失败: {str(e)}") from e
 
-        logger.error("达到最大重试次数，请求仍然失败")
-        raise RuntimeError("达到最大重试次数，API请求仍然失败")
+        logger.error(f"模型 {self.model_name} 达到最大重试次数，请求仍然失败")
+        raise RuntimeError(f"模型 {self.model_name} 达到最大重试次数，API请求仍然失败")
 
     async def _transform_parameters(self, params: dict) -> dict:
         """

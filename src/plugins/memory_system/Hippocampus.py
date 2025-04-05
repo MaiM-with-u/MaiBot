@@ -14,7 +14,6 @@ from src.common.logger import get_module_logger, LogConfig, MEMORY_STYLE_CONFIG
 from src.plugins.memory_system.sample_distribution import MemoryBuildScheduler  # 分布生成器
 from .memory_config import MemoryConfig
 
-
 def get_closest_chat_from_db(length: int, timestamp: str):
     # print(f"获取最接近指定时间戳的聊天记录，长度: {length}, 时间戳: {timestamp}")
     # print(f"当前时间: {timestamp},转换后时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))}")

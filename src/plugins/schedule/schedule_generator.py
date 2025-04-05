@@ -3,6 +3,7 @@ import os
 import sys
 from typing import Dict
 import asyncio
+from dateutil import tz
 
 # 添加项目根目录到 Python 路径
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
@@ -12,6 +13,8 @@ from src.common.database import db  # noqa: E402
 from src.common.logger import get_module_logger, SCHEDULE_STYLE_CONFIG, LogConfig  # noqa: E402
 from src.plugins.models.utils_model import LLM_request  # noqa: E402
 from src.plugins.config.config import global_config  # noqa: E402
+
+TIME_ZONE = tz.gettz(global_config.TIME_ZONE) # 设置时区
 
 
 schedule_config = LogConfig(
@@ -44,7 +47,7 @@ class ScheduleGenerator:
         self.personality = ""
         self.behavior = ""
 
-        self.start_time = datetime.datetime.now()
+        self.start_time = datetime.datetime.now(TIME_ZONE)
 
         self.schedule_doing_update_interval = 300  # 最好大于60
 
@@ -74,7 +77,7 @@ class ScheduleGenerator:
             while True:
                 # print(self.get_current_num_task(1, True))
 
-                current_time = datetime.datetime.now()
+                current_time = datetime.datetime.now(TIME_ZONE)
 
                 # 检查是否需要重新生成日程（日期变化）
                 if current_time.date() != self.start_time.date():
@@ -100,7 +103,7 @@ class ScheduleGenerator:
         Returns:
             tuple: (today_schedule_text, today_schedule) 今天的日程文本和解析后的日程字典
         """
-        today = datetime.datetime.now()
+        today = datetime.datetime.now(TIME_ZONE)
         yesterday = today - datetime.timedelta(days=1)
 
         # 先检查昨天的日程
@@ -156,7 +159,7 @@ class ScheduleGenerator:
         """打印完整的日程安排"""
         if not self.today_schedule_text:
             logger.warning("今日日程有误，将在下次运行时重新生成")
-            db.schedule.delete_one({"date": datetime.datetime.now().strftime("%Y-%m-%d")})
+            db.schedule.delete_one({"date": datetime.datetime.now(TIME_ZONE).strftime("%Y-%m-%d")})
         else:
             logger.info("=== 今日日程安排 ===")
             logger.info(self.today_schedule_text)
@@ -165,7 +168,7 @@ class ScheduleGenerator:
 
     async def update_today_done_list(self):
         # 更新数据库中的 today_done_list
-        today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        today_str = datetime.datetime.now(TIME_ZONE).strftime("%Y-%m-%d")
         existing_schedule = db.schedule.find_one({"date": today_str})
 
         if existing_schedule:
@@ -177,7 +180,7 @@ class ScheduleGenerator:
 
     async def move_doing(self, mind_thinking: str = ""):
         try:
-            current_time = datetime.datetime.now()
+            current_time = datetime.datetime.now(TIME_ZONE)
             if mind_thinking:
                 doing_prompt = self.construct_doing_prompt(current_time, mind_thinking)
             else:
@@ -246,7 +249,7 @@ class ScheduleGenerator:
 
     def save_today_schedule_to_db(self):
         """保存日程到数据库，同时初始化 today_done_list"""
-        date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        date_str = datetime.datetime.now(TIME_ZONE).strftime("%Y-%m-%d")
         schedule_data = {
             "date": date_str,
             "schedule": self.today_schedule_text,

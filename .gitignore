@@ -6,6 +6,10 @@ log/
 logs/
 /test
 /src/test
+nonebot-maibot-adapter/
+*.zip
+run.bat
+run.py
 message_queue_content.txt
 message_queue_content.bat
 message_queue_window.bat

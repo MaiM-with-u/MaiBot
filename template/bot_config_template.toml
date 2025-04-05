@@ -1,5 +1,5 @@
 [inner]
-version = "1.1.1"
+version = "1.1.3"
 
 
 #以下是给开发人员阅读的，一般用户不需要阅读
@@ -48,6 +48,7 @@ enable_schedule_gen = true # 是否启用日程表(尚未完成)
 prompt_schedule_gen = "用几句话描述描述性格特点或行动规律，这个特征会用来生成日程表"
 schedule_doing_update_interval = 900 # 日程表更新间隔 单位秒
 schedule_temperature = 0.3 # 日程表温度，建议0.3-0.6
+time_zone = "Asia/Shanghai" # 给你的机器人设置时区，可以解决运行电脑时区和国内时区不同的情况，或者模拟国外留学生日程
 
 [platforms] # 必填项目，填写每个平台适配器提供的链接
 nonebot-qq="http://127.0.0.1:18002/api/message"
@@ -94,9 +95,8 @@ emoji_response_penalty = 0.1 # 表情包回复惩罚系数，设为0为不回复
 
 [emoji]
 max_emoji_num = 120 # 表情包最大数量
-max_reach_deletion = true # 开启则在达到最大数量时删除表情包，关闭则不会继续收集表情包
-check_interval = 30 # 检查破损表情包的时间间隔(分钟)
-register_interval = 30 # 注册表情包的时间间隔(分钟)
+max_reach_deletion = true # 开启则在达到最大数量时删除表情包，关闭则达到最大数量时不删除，只是不会继续收集表情包
+check_interval = 30 # 检查表情包（注册，破损，删除）的时间间隔(分钟)
 auto_save = true  # 是否保存表情包和图片
 enable_check = false  # 是否启用表情包过滤
 check_prompt = "符合公序良俗" # 表情包过滤要求
