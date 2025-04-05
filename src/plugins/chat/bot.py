@@ -143,8 +143,9 @@ class ChatBot:
             is_mentioned = True
             logger.info("被@，回复概率设置为100%")
         else:
-            if f"[回复 {global_config.BOT_QQ}(自己)  的消息: ]" in message.processed_plain_text:
+            if f"[回复 {global_config.BOT_NICKNAME}(自己) 的消息: " in message.processed_plain_text:
                 is_mentioned = True
+                print("被回复")
             else:
                 is_mentioned = is_mentioned_bot_in_message(message)
             if is_mentioned and global_config.metioned_bot_inevitable_reply:
