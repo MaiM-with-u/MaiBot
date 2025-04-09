@@ -1,6 +1,5 @@
 import time
 from random import random
-import re
 import traceback
 from typing import List
 from ...memory_system.Hippocampus import HippocampusManager
@@ -61,10 +60,10 @@ class ThinkFlowChat:
 
         return thinking_id
 
-    async def _send_response_messages(self, 
-                                      message, 
-                                      chat, 
-                                      response_set:List[str], 
+    async def _send_response_messages(self,
+                                      message,
+                                      chat,
+                                      response_set:List[str],
                                       thinking_id) -> MessageSending:
         """发送回复消息"""
         container = message_manager.get_container(chat.stream_id)
@@ -266,8 +265,8 @@ class ThinkFlowChat:
         if random() < reply_probability:
             try:
                 do_reply = True
-                
-                
+
+
 
                 # 创建思考消息
                 try:
@@ -277,9 +276,9 @@ class ThinkFlowChat:
                     timing_results["创建思考消息"] = timer2 - timer1
                 except Exception as e:
                     logger.error(f"心流创建思考消息失败: {e}")
-                    
+
                 logger.debug(f"创建捕捉器，thinking_id:{thinking_id}")
-                
+
                 info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
                 info_catcher.catch_decide_to_response(message)
 
@@ -291,7 +290,7 @@ class ThinkFlowChat:
                     timing_results["观察"] = timer2 - timer1
                 except Exception as e:
                     logger.error(f"心流观察失败: {e}")
-                    
+
                 info_catcher.catch_after_observe(timing_results["观察"])
 
                 # 思考前脑内状态
@@ -306,7 +305,7 @@ class ThinkFlowChat:
                     timing_results["思考前脑内状态"] = timer2 - timer1
                 except Exception as e:
                     logger.error(f"心流思考前脑内状态失败: {e}")
-                    
+
                 info_catcher.catch_afer_shf_step(timing_results["思考前脑内状态"],past_mind,current_mind)
 
                 # 生成回复
@@ -316,7 +315,7 @@ class ThinkFlowChat:
                 timing_results["生成回复"] = timer2 - timer1
 
                 info_catcher.catch_after_generate_response(timing_results["生成回复"])
-                
+
                 if not response_set:
                     logger.info("回复生成失败，返回为空")
                     return
@@ -329,11 +328,11 @@ class ThinkFlowChat:
                     timing_results["发送消息"] = timer2 - timer1
                 except Exception as e:
                     logger.error(f"心流发送消息失败: {e}")
-                
-                
+
+
                 info_catcher.catch_after_response(timing_results["发送消息"],response_set,first_bot_msg)
-                
-                
+
+
                 info_catcher.done_catch()
 
                 # 处理表情包
