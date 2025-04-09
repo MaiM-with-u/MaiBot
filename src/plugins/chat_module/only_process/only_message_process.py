@@ -2,7 +2,6 @@ from src.common.logger import get_module_logger
 from src.plugins.chat.message import MessageRecv
 from src.plugins.storage.storage import MessageStorage
 from src.plugins.config.config import global_config
-import re
 from datetime import datetime
 
 logger = get_module_logger("pfc_message_processor")
