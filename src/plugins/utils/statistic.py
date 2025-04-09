@@ -142,12 +142,23 @@ class LLMStatistics:
             group_info = chat_info.get("group_info") if chat_info else {}
             # print(f"group_info: {group_info}")
             group_name = None
+            group_id = None
             if group_info:
                 group_id = f"g{group_info.get('group_id')}"
-                group_name = group_info.get("group_name", f"群{group_info.get('group_id')}")
+                group_name = group_info.get("group_name", f"群{group_id}")
             if user_info and not group_name:
                 group_id = f"u{user_info['user_id']}"
                 group_name = user_info["user_nickname"]
+            # 添加对远古版本格式的支持，防止炸飞
+            if group_id is None:
+                if "group_id" in doc:
+                    group_id = f"g{doc.get('group_id')}"
+                    group_name = doc.get("group_name", f"群{group_id}")
+                elif "user_id" in doc:
+                    group_id = f"g{doc.get('user_id')}"
+                    group_name = doc.get("user_nickname", "")
+                else:
+                    continue
             if self.name_dict.get(group_id):
                 if message_time > self.name_dict.get(group_id)[1]:
                     self.name_dict[group_id] = [group_name, message_time]
