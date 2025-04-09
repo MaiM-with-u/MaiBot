@@ -281,7 +281,7 @@ class ReasoningChat:
     def _check_ban_regex(self, text: str, chat, userinfo) -> bool:
         """检查消息是否匹配过滤正则表达式"""
         for pattern in global_config.ban_msgs_regex:
-            if re.search(pattern, text):
+            if pattern.search(text):
                 logger.info(
                     f"[{chat.group_info.group_name if chat.group_info else '私聊'}]{userinfo.user_nickname}:{text}"
                 )

@@ -149,6 +149,11 @@ enable = false # 仅作示例，不会触发
 keywords = ["测试关键词回复","test",""]
 reaction = "回答“测试成功”"
 
+[[keywords_reaction.rules]] # 使用正则表达式匹配句式
+enable = false # 仅作示例，不会触发
+regex = ["^(?P<n>\\S{1,20})是这样的$"] # 将匹配到的词汇命名为n，反应中对应的[n]会被替换为匹配到的内容，若不了解正则表达式请勿编写
+reaction = "请按照以下模板造句：[n]是这样的，xx只要xx就可以，可是[n]要考虑的事情就很多了，比如什么时候xx，什么时候xx，什么时候xx。（请自由发挥替换xx部分，只需保持句式结构，同时表达一种将[n]过度重视的反讽意味）"
+
 [chinese_typo]
 enable = true # 是否启用中文错别字生成器
 error_rate=0.001 # 单字替换概率
