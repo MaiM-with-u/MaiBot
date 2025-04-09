@@ -61,6 +61,17 @@ class PromptBuilder:
                         f"检测到以下关键词之一：{rule.get('keywords', [])}，触发反应：{rule.get('reaction', '')}"
                     )
                     keywords_reaction_prompt += rule.get("reaction", "") + "，"
+                for pattern in rule.get("regex", []):
+                    result = pattern.search(message_txt)
+                    if result:
+                        reaction = rule.get('reaction', '')
+                        for name, content in result.groupdict().items():
+                            reaction = reaction.replace(f'[{name}]', content)
+                        logger.info(
+                            f"匹配到以下正则表达式：{pattern}，触发反应：{reaction}"
+                        )
+                        keywords_reaction_prompt += reaction + "，"
+                        break
 
         # 中文高手(新加的好玩功能)
         prompt_ger = ""
