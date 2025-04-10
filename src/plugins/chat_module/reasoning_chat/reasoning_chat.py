@@ -1,5 +1,6 @@
 import time
 from random import random
+
 from typing import List
 from ...memory_system.Hippocampus import HippocampusManager
 from ...moods.moods import MoodManager
