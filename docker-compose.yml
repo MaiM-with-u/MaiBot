@@ -1,17 +1,14 @@
 services:
   adapters:
     container_name: maim-bot-adapters
-    image: maple127667/maimbot-adapter:latest
+    image: unclas/maimbot-adapter:latest
     # image: infinitycat/maimbot-adapter:latest
     environment:
       - TZ=Asia/Shanghai
-    ports:
-      - "18002:18002"
+#    ports:
+#      - "8095:8095"
     volumes:
-      - ./docker-config/adapters/config.py:/adapters/src/plugins/nonebot_plugin_maibot_adapters/config.py # 持久化adapters配置文件
-      - ./docker-config/adapters/.env:/adapters/.env # 持久化adapters配置文件
-      - ./data/qq:/app/.config/QQ # 持久化QQ本体并同步qq表情和图片到adapters
-      - ./data/MaiMBot:/adapters/data
+      - ./docker-config/adapters/config.toml:/adapters/config.toml
     restart: always
     depends_on:
       - mongodb
@@ -25,8 +22,8 @@ services:
       - TZ=Asia/Shanghai
 #      - EULA_AGREE=35362b6ea30f12891d46ef545122e84a  # 同意EULA
 #      - PRIVACY_AGREE=2402af06e133d2d10d9c6c643fdc9333 # 同意EULA
-    ports:
-      - "8000:8000"
+#    ports:
+#      - "8000:8000"
     volumes:
       - ./docker-config/mmc/.env:/MaiMBot/.env # 持久化env配置文件
       - ./docker-config/mmc:/MaiMBot/config # 持久化bot配置文件
@@ -42,8 +39,8 @@ services:
       - TZ=Asia/Shanghai
 #      - MONGO_INITDB_ROOT_USERNAME=your_username # 此处配置mongo用户
 #      - MONGO_INITDB_ROOT_PASSWORD=your_password # 此处配置mongo密码
-    ports:
-      - "27017:27017"
+#    ports:
+#      - "27017:27017"
     restart: always
     volumes:
       - mongodb:/data/db #  持久化mongodb数据
@@ -58,11 +55,10 @@ services:
       - TZ=Asia/Shanghai
     ports:
       - "6099:6099"
-      - "8095:8095"
     volumes:
       - ./docker-config/napcat:/app/napcat/config # 持久化napcat配置文件
       - ./data/qq:/app/.config/QQ # 持久化QQ本体并同步qq表情和图片到adapters
-      - ./data/MaiMBot:/adapters/data # NapCat 和 NoneBot 共享此卷，否则发送图片会有问题
+      - ./data/MaiMBot:/MaiMBot/data # NapCat 和 NoneBot 共享此卷，否则发送图片会有问题
     container_name: maim-bot-napcat
     restart: always
     image: mlikiowa/napcat-docker:latest

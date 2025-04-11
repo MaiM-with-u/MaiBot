@@ -717,6 +717,11 @@ class BotConfig:
                         logger.error(f"配置文件中缺少必需的字段: '{key}'")
                         raise KeyError(f"配置文件中缺少必需的字段: '{key}'")
 
+                # identity_detail字段非空检查
+                if not config.identity_detail:
+                    logger.error("配置文件错误：[identity] 部分的 identity_detail 不能为空字符串")
+                    raise ValueError("配置文件错误：[identity] 部分的 identity_detail 不能为空字符串")
+
                 logger.success(f"成功加载配置文件: {config_path}")
 
         return config
