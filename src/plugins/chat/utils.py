@@ -815,7 +815,7 @@ def parse_text_timestamps(text: str, mode: str = "normal") -> str:
 
         # 从后向前替换，避免位置改变
         converted_timestamps.reverse()
-        for match, readable_time in converted_timestamps:
+        for timestamps, match, readable_time in converted_timestamps:
             pattern_instance = re.escape(match.group(0))
             if readable_time in readable_time_used:
                 # 如果相同格式的时间已存在，替换为空字符串
