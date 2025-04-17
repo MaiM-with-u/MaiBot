@@ -47,9 +47,7 @@ class EmbeddingStore:
         self.idx2hash = None
 
     def _get_embedding(self, s: str) -> List[float]:
-        return self.llm_client.send_embedding_request(
-            global_config["embedding"]["model"], s
-        )
+        return self.llm_client.send_embedding_request(global_config["embedding"]["model"], s)
 
     def batch_insert_strs(self, strs: List[str]) -> None:
         """向库中存入字符串"""
@@ -83,14 +81,10 @@ class EmbeddingStore:
         logger.info(f"{self.namespace}嵌入库保存成功")
 
         if self.faiss_index is not None and self.idx2hash is not None:
-            logger.info(
-                f"正在保存{self.namespace}嵌入库的FaissIndex到文件{self.index_file_path}"
-            )
+            logger.info(f"正在保存{self.namespace}嵌入库的FaissIndex到文件{self.index_file_path}")
             faiss.write_index(self.faiss_index, self.index_file_path)
             logger.info(f"{self.namespace}嵌入库的FaissIndex保存成功")
-            logger.info(
-                f"正在保存{self.namespace}嵌入库的idx2hash映射到文件{self.idx2hash_file_path}"
-            )
+            logger.info(f"正在保存{self.namespace}嵌入库的idx2hash映射到文件{self.idx2hash_file_path}")
             with open(self.idx2hash_file_path, "w", encoding="utf-8") as f:
                 f.write(json.dumps(self.idx2hash, ensure_ascii=False, indent=4))
             logger.info(f"{self.namespace}嵌入库的idx2hash映射保存成功")
@@ -103,24 +97,18 @@ class EmbeddingStore:
         logger.info(f"正在从文件{self.embedding_file_path}中加载{self.namespace}嵌入库")
         data_frame = pd.read_parquet(self.embedding_file_path, engine="pyarrow")
         for _, row in tqdm.tqdm(data_frame.iterrows(), total=len(data_frame)):
-            self.store[row["hash"]] = EmbeddingStoreItem(
-                row["hash"], row["embedding"], row["str"]
-            )
+            self.store[row["hash"]] = EmbeddingStoreItem(row["hash"], row["embedding"], row["str"])
         logger.info(f"{self.namespace}嵌入库加载成功")
 
         try:
             if os.path.exists(self.index_file_path):
-                logger.info(
-                    f"正在从文件{self.index_file_path}中加载{self.namespace}嵌入库的FaissIndex"
-                )
+                logger.info(f"正在从文件{self.index_file_path}中加载{self.namespace}嵌入库的FaissIndex")
                 self.faiss_index = faiss.read_index(self.index_file_path)
                 logger.info(f"{self.namespace}嵌入库的FaissIndex加载成功")
             else:
                 raise Exception(f"文件{self.index_file_path}不存在")
             if os.path.exists(self.idx2hash_file_path):
-                logger.info(
-                    f"正在从文件{self.idx2hash_file_path}中加载{self.namespace}嵌入库的idx2hash映射"
-                )
+                logger.info(f"正在从文件{self.idx2hash_file_path}中加载{self.namespace}嵌入库的idx2hash映射")
                 with open(self.idx2hash_file_path, "r") as f:
                     self.idx2hash = json.load(f)
                 logger.info(f"{self.namespace}嵌入库的idx2hash映射加载成功")
@@ -215,9 +203,7 @@ class EmbeddingManager:
         for triples in triple_list_data.values():
             graph_triples.extend([tuple(t) for t in triples])
         graph_triples = list(set(graph_triples))
-        self.relation_embedding_store.batch_insert_strs(
-            [str(triple) for triple in graph_triples]
-        )
+        self.relation_embedding_store.batch_insert_strs([str(triple) for triple in graph_triples])
 
     def load_from_file(self):
         """从文件加载"""

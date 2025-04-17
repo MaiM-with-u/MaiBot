@@ -364,7 +364,7 @@ class PromptBuilder:
         #             grouped_results[topic] = []
         #         grouped_results[topic].append(result)
 
-            # 按主题组织输出
+        # 按主题组织输出
         #     for topic, results in grouped_results.items():
         #         related_info += f"【主题: {topic}】\n"
         #         for _i, result in enumerate(results, 1):

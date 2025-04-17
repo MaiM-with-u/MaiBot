@@ -38,16 +38,12 @@ def _entity_extract(llm_client: LLMClient, paragraph: str) -> List[str]:
     return entity_extract_result
 
 
-def _rdf_triple_extract(
-    llm_client: LLMClient, paragraph: str, entities: list
-) -> List[List[str]]:
+def _rdf_triple_extract(llm_client: LLMClient, paragraph: str, entities: list) -> List[List[str]]:
     """对段落进行实体提取，返回提取出的实体列表（JSON格式）"""
     entity_extract_context = prompt_template.build_rdf_triple_extract_context(
         paragraph, entities=json.dumps(entities, ensure_ascii=False)
     )
-    _, request_result = llm_client.send_chat_request(
-        global_config["rdf_build"]["llm"]["model"], entity_extract_context
-    )
+    _, request_result = llm_client.send_chat_request(global_config["rdf_build"]["llm"]["model"], entity_extract_context)
 
     # 去除‘{’前的内容（结果中可能有多个‘{’）
     if "[" in request_result:
@@ -60,11 +56,7 @@ def _rdf_triple_extract(
     entity_extract_result = json.loads(fix_broken_generated_json(request_result))
 
     for triple in entity_extract_result:
-        if (
-            len(triple) != 3
-            or (triple[0] is None or triple[1] is None or triple[2] is None)
-            or "" in triple
-        ):
+        if len(triple) != 3 or (triple[0] is None or triple[1] is None or triple[2] is None) or "" in triple:
             raise Exception("RDF提取结果格式错误")
 
     return entity_extract_result
@@ -91,9 +83,7 @@ def info_extract_from_str(
     try_count = 0
     while True:
         try:
-            rdf_triple_extract_result = _rdf_triple_extract(
-                llm_client_for_rdf, paragraph, entity_extract_result
-            )
+            rdf_triple_extract_result = _rdf_triple_extract(llm_client_for_rdf, paragraph, entity_extract_result)
             break
         except Exception as e:
             logger.warning(f"实体提取失败，错误信息：{e}")

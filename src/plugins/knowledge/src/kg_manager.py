@@ -22,6 +22,7 @@ from .config import (
 
 from .global_logger import logger
 
+
 class KGManager:
     def __init__(self):
         # 会被保存的字段
@@ -35,9 +36,7 @@ class KGManager:
         # 持久化相关
         self.dir_path = global_config["persistence"]["rag_data_dir"]
         self.graph_data_path = self.dir_path + "/" + RAG_GRAPH_NAMESPACE + ".graphmlz"
-        self.ent_cnt_data_path = (
-            self.dir_path + "/" + RAG_ENT_CNT_NAMESPACE + ".parquet"
-        )
+        self.ent_cnt_data_path = self.dir_path + "/" + RAG_ENT_CNT_NAMESPACE + ".parquet"
         self.pg_hash_file_path = self.dir_path + "/" + RAG_PG_HASH_NAMESPACE + ".json"
 
     def save_to_file(self):
@@ -50,9 +49,7 @@ class KGManager:
         nx.write_graphml(self.graph, path=self.graph_data_path, encoding="utf-8")
 
         # 保存实体计数到文件
-        ent_cnt_df = pd.DataFrame(
-            [{"hash_key": k, "appear_cnt": v} for k, v in self.ent_appear_cnt.items()]
-        )
+        ent_cnt_df = pd.DataFrame([{"hash_key": k, "appear_cnt": v} for k, v in self.ent_appear_cnt.items()])
         ent_cnt_df.to_parquet(self.ent_cnt_data_path, engine="pyarrow", index=False)
 
         # 保存段落hash到文件
@@ -77,9 +74,7 @@ class KGManager:
 
         # 加载实体计数
         ent_cnt_df = pd.read_parquet(self.ent_cnt_data_path, engine="pyarrow")
-        self.ent_appear_cnt = dict(
-            {row["hash_key"]: row["appear_cnt"] for _, row in ent_cnt_df.iterrows()}
-        )
+        self.ent_appear_cnt = dict({row["hash_key"]: row["appear_cnt"] for _, row in ent_cnt_df.iterrows()})
 
         # 加载KG
         self.graph = nx.read_graphml(self.graph_data_path)
@@ -101,20 +96,14 @@ class KGManager:
                 # 一个triple就是一条边（同时构建双向联系）
                 hash_key1 = ENT_NAMESPACE + "-" + get_sha256(triple[0])
                 hash_key2 = ENT_NAMESPACE + "-" + get_sha256(triple[2])
-                node_to_node[(hash_key1, hash_key2)] = (
-                    node_to_node.get((hash_key1, hash_key2), 0) + 1.0
-                )
-                node_to_node[(hash_key2, hash_key1)] = (
-                    node_to_node.get((hash_key2, hash_key1), 0) + 1.0
-                )
+                node_to_node[(hash_key1, hash_key2)] = node_to_node.get((hash_key1, hash_key2), 0) + 1.0
+                node_to_node[(hash_key2, hash_key1)] = node_to_node.get((hash_key2, hash_key1), 0) + 1.0
                 entity_set.add(hash_key1)
                 entity_set.add(hash_key2)
 
             # 实体出现次数统计
             for hash_key in entity_set:
-                self.ent_appear_cnt[hash_key] = (
-                    self.ent_appear_cnt.get(hash_key, 0) + 1.0
-                )
+                self.ent_appear_cnt[hash_key] = self.ent_appear_cnt.get(hash_key, 0) + 1.0
 
     @staticmethod
     def _build_edges_between_ent_pg(
@@ -126,9 +115,7 @@ class KGManager:
             for triple in triple_list_data[idx]:
                 ent_hash_key = ENT_NAMESPACE + "-" + get_sha256(triple[0])
                 pg_hash_key = PG_NAMESPACE + "-" + str(idx)
-                node_to_node[(ent_hash_key, pg_hash_key)] = (
-                    node_to_node.get((ent_hash_key, pg_hash_key), 0) + 1.0
-                )
+                node_to_node[(ent_hash_key, pg_hash_key)] = node_to_node.get((ent_hash_key, pg_hash_key), 0) + 1.0
 
     @staticmethod
     def _synonym_connect(
@@ -177,9 +164,7 @@ class KGManager:
                 new_edge_cnt += 1
                 res_ent.append(
                     (
-                        embedding_manager.entities_embedding_store.store[
-                            res_ent_hash
-                        ].str,
+                        embedding_manager.entities_embedding_store.store[res_ent_hash].str,
                         similarity,
                     )
                 )  # Debug
@@ -236,22 +221,16 @@ class KGManager:
                 if node_hash not in existed_nodes:
                     if node_hash.startswith(ENT_NAMESPACE):
                         # 新增实体节点
-                        node = embedding_manager.entities_embedding_store.store[
-                            node_hash
-                        ]
+                        node = embedding_manager.entities_embedding_store.store[node_hash]
                         assert isinstance(node, EmbeddingStoreItem)
                         self.graph.nodes[node_hash]["content"] = node.str
                         self.graph.nodes[node_hash]["type"] = "ent"
                     elif node_hash.startswith(PG_NAMESPACE):
                         # 新增文段节点
-                        node = embedding_manager.paragraphs_embedding_store.store[
-                            node_hash
-                        ]
+                        node = embedding_manager.paragraphs_embedding_store.store[node_hash]
                         assert isinstance(node, EmbeddingStoreItem)
                         content = node.str.replace("\n", " ")
-                        self.graph.nodes[node_hash]["content"] = (
-                            content if len(content) < 8 else content[:8] + "..."
-                        )
+                        self.graph.nodes[node_hash]["content"] = content if len(content) < 8 else content[:8] + "..."
                         self.graph.nodes[node_hash]["type"] = "pg"
 
     def build_kg(
@@ -319,9 +298,7 @@ class KGManager:
         ent_sim_scores = {}
         for relation_hash, similarity, _ in relation_search_result:
             # 提取主宾短语
-            relation = embed_manager.relation_embedding_store.store.get(
-                relation_hash
-            ).str
+            relation = embed_manager.relation_embedding_store.store.get(relation_hash).str
             assert relation is not None  # 断言：relation不为空
             # 关系三元组
             triple = relation[2:-2].split("', '")
@@ -335,9 +312,7 @@ class KGManager:
         ent_mean_scores = {}  # 记录实体的平均相似度
         for ent_hash, scores in ent_sim_scores.items():
             # 先对相似度进行累加，然后与实体计数相除获取最终权重
-            ent_weights[ent_hash] = (
-                float(np.sum(scores)) / self.ent_appear_cnt[ent_hash]
-            )
+            ent_weights[ent_hash] = float(np.sum(scores)) / self.ent_appear_cnt[ent_hash]
             # 记录实体的平均相似度，用于后续的top_k筛选
             ent_mean_scores[ent_hash] = float(np.mean(scores))
         del ent_sim_scores
@@ -354,21 +329,14 @@ class KGManager:
             for ent_hash, score in ent_weights.items():
                 # 缩放相似度
                 ent_weights[ent_hash] = (
-                    (score - ent_weights_min)
-                    * (1 - down_edge)
-                    / (ent_weights_max - ent_weights_min)
+                    (score - ent_weights_min) * (1 - down_edge) / (ent_weights_max - ent_weights_min)
                 ) + down_edge
 
         # 取平均相似度的top_k实体
         top_k = global_config["qa"]["params"]["ent_filter_top_k"]
         if len(ent_mean_scores) > top_k:
             # 从大到小排序，取后len - k个
-            ent_mean_scores = {
-                k: v
-                for k, v in sorted(
-                    ent_mean_scores.items(), key=lambda item: item[1], reverse=True
-                )
-            }
+            ent_mean_scores = {k: v for k, v in sorted(ent_mean_scores.items(), key=lambda item: item[1], reverse=True)}
             for ent_hash, _ in ent_mean_scores.items():
                 # 删除被淘汰的实体节点权重设置
                 del ent_weights[ent_hash]
@@ -389,9 +357,7 @@ class KGManager:
         # 归一化
         for pg_hash, similarity in pg_sim_scores.items():
             # 归一化相似度
-            pg_sim_scores[pg_hash] = (similarity - pg_sim_score_min) / (
-                pg_sim_score_max - pg_sim_score_min
-            )
+            pg_sim_scores[pg_hash] = (similarity - pg_sim_score_min) / (pg_sim_score_max - pg_sim_score_min)
         del pg_sim_score_max, pg_sim_score_min
 
         for pg_hash, score in pg_sim_scores.items():
@@ -401,9 +367,7 @@ class KGManager:
         del pg_sim_scores
 
         # 最终权重数据 = 实体权重 + 文段权重
-        ppr_node_weights = {
-            k: v for d in [ent_weights, pg_weights] for k, v in d.items()
-        }
+        ppr_node_weights = {k: v for d in [ent_weights, pg_weights] for k, v in d.items()}
         del ent_weights, pg_weights
 
         # PersonalizedPageRank
@@ -418,14 +382,12 @@ class KGManager:
         # 从搜索结果中提取文段节点的结果
         passage_node_res = [
             (node_key, score)
-            for node_key, score in ppr_res.items() # Iterate over dictionary items
+            for node_key, score in ppr_res.items()  # Iterate over dictionary items
             if node_key.startswith(PG_NAMESPACE)
         ]
         del ppr_res
 
         # 排序：按照分数从大到小
-        passage_node_res = sorted(
-            passage_node_res, key=lambda item: item[1], reverse=True
-        )
+        passage_node_res = sorted(passage_node_res, key=lambda item: item[1], reverse=True)
 
         return passage_node_res, ppr_node_weights

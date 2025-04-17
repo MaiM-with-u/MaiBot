@@ -23,9 +23,7 @@ def _nx_graph_to_lists(
         A tuple containing the list of edges and the list of nodes.
     """
     nodes = [node for node in graph.nodes()]
-    edges = [
-        (u, v, graph.get_edge_data(u, v).get("weight", 0.0)) for u, v in graph.edges()
-    ]
+    edges = [(u, v, graph.get_edge_data(u, v).get("weight", 0.0)) for u, v in graph.edges()]
 
     return edges, nodes
 

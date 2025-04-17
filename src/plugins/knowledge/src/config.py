@@ -1,6 +1,7 @@
 import os
 import toml
 from .global_logger import logger
+
 PG_NAMESPACE = "paragraph"
 ENT_NAMESPACE = "entity"
 REL_NAMESPACE = "relation"
@@ -57,6 +58,7 @@ def _load_config(config, config_file_path):
         config["persistence"] = file_config["persistence"]
 
     logger.info(f"Configurations loaded from file: {config_file_path}")
+
 
 global_config = dict(
     {

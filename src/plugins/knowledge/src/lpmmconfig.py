@@ -58,7 +58,6 @@ def _load_config(config, config_file_path):
         config["persistence"] = file_config["persistence"]
     print(config)
     print("Configurations loaded from file: ", config_file_path)
-    
 
 
 parser = argparse.ArgumentParser(description="Configurations for the pipeline")
@@ -122,9 +121,9 @@ global_config = dict(
             "embedding_data_dir": "data/embedding",
             "rag_data_dir": "data/rag",
         },
-        "info_extraction":{
+        "info_extraction": {
             "workers": 10,
-        }
+        },
     }
 )
 
