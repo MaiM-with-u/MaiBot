@@ -4,6 +4,7 @@ mongodb/
 NapCat.Framework.Windows.Once/
 log/
 logs/
+temp/
 run_ad.bat
 MaiBot-Napcat-Adapter-main
 MaiBot-Napcat-Adapter
@@ -29,6 +30,7 @@ config/bot_config_dev.toml
 config/bot_config.toml
 config/bot_config.toml.bak
 src/plugins/remote/client_uuid.json
+run_none.bat
 （测试版）麦麦生成人格.bat
 （临时版）麦麦开始学习.bat
 src/plugins/utils/statistic.py
@@ -53,7 +55,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/
 lib64/
 parts/
 sdist/
@@ -239,5 +241,6 @@ logs
 .vscode
 
 /config/*
+run_none.bat
 config/old/bot_config_20250405_212257.toml
 

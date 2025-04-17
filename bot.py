@@ -51,6 +51,10 @@ def init_config():
 
         shutil.copy("template/bot_config_template.toml", "config/bot_config.toml")
         logger.info("复制完成，请修改config/bot_config.toml和.env中的配置后重新启动")
+    if not os.path.exists("config/lpmm_config.toml"):
+        logger.warning("检测到lpmm_config.toml不存在，正在从模板复制")
+        shutil.copy("template/lpmm_config_template.toml", "config/lpmm_config.toml")
+        logger.info("复制完成，请修改config/lpmm_config.toml中的配置后重新启动")
 
 
 def init_env():
