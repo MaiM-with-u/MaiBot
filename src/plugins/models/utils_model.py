@@ -32,7 +32,7 @@ class LLMRequest:
         "o3-mini",
         "o3-mini-2025-01-31",
         "o4-mini",
-        "o4-mini-2025-04-16"
+        "o4-mini-2025-04-16",
     ]
 
     def __init__(self, model, **kwargs):
@@ -551,9 +551,7 @@ class LLMRequest:
                         {"type": "text", "text": prompt},
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/{image_format.lower()};base64,{image_base64}"
-                            },
+                            "image_url": {"url": f"data:image/{image_format.lower()};base64,{image_base64}"},
                         },
                     ],
                 }
@@ -669,9 +667,7 @@ class LLMRequest:
         if "max_tokens" not in data and "max_completion_tokens" not in data:
             data["max_tokens"] = global_config.max_response_length
         # 发请求
-        response = await self._execute_request(
-            endpoint="/chat/completions", payload=data, prompt=prompt
-        )
+        response = await self._execute_request(endpoint="/chat/completions", payload=data, prompt=prompt)
         # 原样返回响应，不做处理
         return response
 
