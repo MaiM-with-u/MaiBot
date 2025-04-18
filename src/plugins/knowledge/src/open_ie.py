@@ -2,7 +2,7 @@ import json
 from typing import Any, Dict, List
 
 
-from .config import INVALID_ENTITY, global_config
+from .lpmmconfig import INVALID_ENTITY, global_config
 
 
 def _filter_invalid_entities(entities: List[str]) -> List[str]:

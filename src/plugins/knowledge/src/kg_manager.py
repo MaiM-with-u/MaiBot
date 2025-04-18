@@ -11,7 +11,7 @@ import tqdm
 from ..lib import quick_algo
 from .utils.hash import get_sha256
 from .embedding_store import EmbeddingManager, EmbeddingStoreItem
-from .config import (
+from .lpmmconfig import (
     ENT_NAMESPACE,
     PG_NAMESPACE,
     RAG_ENT_CNT_NAMESPACE,

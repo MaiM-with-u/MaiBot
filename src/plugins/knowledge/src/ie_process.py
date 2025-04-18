@@ -4,7 +4,7 @@ from typing import List
 
 from .global_logger import logger
 from . import prompt_template
-from .config import global_config, INVALID_ENTITY
+from .lpmmconfig import global_config, INVALID_ENTITY
 from .llm_client import LLMClient
 from .utils.json_fix import fix_broken_generated_json
 
