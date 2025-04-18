@@ -1,18 +1,19 @@
 import random
 import time
-from typing import Optional, Union
+from typing import Optional
 
-from ....common.database import db
-from ...chat.utils import get_embedding, get_recent_group_detailed_plain_text, get_recent_group_speaker
+# from ....common.database import db
+from ...chat.utils import get_recent_group_detailed_plain_text, get_recent_group_speaker
 from ...chat.chat_stream import chat_manager
 from ...moods.moods import MoodManager
 from ....individuality.individuality import Individuality
 from ...memory_system.Hippocampus import HippocampusManager
 from ...schedule.schedule_generator import bot_schedule
-from ....config.config import global_config
+from ...config.config import global_config
 from ...person_info.relationship_manager import relationship_manager
 from src.common.logger import get_module_logger
 from src.plugins.utils.prompt_builder import Prompt, global_prompt_manager
+from src.plugins.knowledge.src.qa_manager import qa_manager
 
 logger = get_module_logger("prompt")
 
@@ -101,14 +102,16 @@ class PromptBuilder:
         related_memory = await HippocampusManager.get_instance().get_memory_from_text(
             text=message_txt, max_memory_num=2, max_memory_length=2, max_depth=3, fast_retrieval=False
         )
-        related_memory_info = ""
         if related_memory:
+            related_memory_info = ""
             for memory in related_memory:
                 related_memory_info += memory[1]
             # memory_prompt = f"你想起你之前见过的事情：{related_memory_info}。\n以上是你的回忆，不一定是目前聊天里的人说的，也不一定是现在发生的事情，请记住。\n"
             memory_prompt = await global_prompt_manager.format_prompt(
                 "memory_prompt", related_memory_info=related_memory_info
             )
+        else:
+            related_memory_info = ""
 
         # print(f"相关记忆：{related_memory_info}")
 
@@ -160,6 +163,7 @@ class PromptBuilder:
 
         # 知识构建
         start_time = time.time()
+        prompt_info = ""
         prompt_info = await self.get_prompt_info(message_txt, threshold=0.38)
         if prompt_info:
             # prompt_info = f"""\n你有以下这些**知识**：\n{prompt_info}\n请你**记住上面的知识**，之后可能会用到。\n"""
@@ -221,12 +225,17 @@ class PromptBuilder:
         return prompt
 
     async def get_prompt_info(self, message: str, threshold: float):
-        start_time = time.time()
         related_info = ""
         logger.debug(f"获取知识库内容，元消息：{message[:30]}...，消息长度: {len(message)}")
+        related_info += qa_manager.get_knowledge(message)
 
-        # 1. 先从LLM获取主题，类似于记忆系统的做法
-        topics = []
+        return related_info
+        # start_time = time.time()
+        # related_info = ""
+        # logger.debug(f"获取知识库内容，元消息：{message[:30]}...，消息长度: {len(message)}")
+
+        # # 1. 先从LLM获取主题，类似于记忆系统的做法
+        # topics = []
         # try:
         #     # 先尝试使用记忆系统的方法获取主题
         #     hippocampus = HippocampusManager.get_instance()._hippocampus
@@ -253,192 +262,192 @@ class PromptBuilder:
         #     logger.info(f"使用jieba提取的主题: {', '.join(topics)}")
 
         # 如果无法提取到主题，直接使用整个消息
-        if not topics:
-            logger.info("未能提取到任何主题，使用整个消息进行查询")
-            embedding = await get_embedding(message, request_type="prompt_build")
-            if not embedding:
-                logger.error("获取消息嵌入向量失败")
-                return ""
+        # if not topics:
+        #     logger.info("未能提取到任何主题，使用整个消息进行查询")
+        #     embedding = await get_embedding(message, request_type="prompt_build")
+        #     if not embedding:
+        #         logger.error("获取消息嵌入向量失败")
+        #         return ""
 
-            related_info = self.get_info_from_db(embedding, limit=3, threshold=threshold)
-            logger.info(f"知识库检索完成，总耗时: {time.time() - start_time:.3f}秒")
-            return related_info
+        #     related_info = self.get_info_from_db(embedding, limit=3, threshold=threshold)
+        #     logger.info(f"知识库检索完成，总耗时: {time.time() - start_time:.3f}秒")
+        #     return related_info
 
-        # 2. 对每个主题进行知识库查询
-        logger.info(f"开始处理{len(topics)}个主题的知识库查询")
+        # # 2. 对每个主题进行知识库查询
+        # logger.info(f"开始处理{len(topics)}个主题的知识库查询")
 
-        # 优化：批量获取嵌入向量，减少API调用
-        embeddings = {}
-        topics_batch = [topic for topic in topics if len(topic) > 0]
-        if message:  # 确保消息非空
-            topics_batch.append(message)
+        # # 优化：批量获取嵌入向量，减少API调用
+        # embeddings = {}
+        # topics_batch = [topic for topic in topics if len(topic) > 0]
+        # if message:  # 确保消息非空
+        #     topics_batch.append(message)
 
         # 批量获取嵌入向量
-        embed_start_time = time.time()
-        for text in topics_batch:
-            if not text or len(text.strip()) == 0:
-                continue
+        # embed_start_time = time.time()
+        # for text in topics_batch:
+        #     if not text or len(text.strip()) == 0:
+        #         continue
 
-            try:
-                embedding = await get_embedding(text, request_type="prompt_build")
-                if embedding:
-                    embeddings[text] = embedding
-                else:
-                    logger.warning(f"获取'{text}'的嵌入向量失败")
-            except Exception as e:
-                logger.error(f"获取'{text}'的嵌入向量时发生错误: {str(e)}")
+        #     try:
+        #         embedding = await get_embedding(text, request_type="prompt_build")
+        #         if embedding:
+        #             embeddings[text] = embedding
+        #         else:
+        #             logger.warning(f"获取'{text}'的嵌入向量失败")
+        #     except Exception as e:
+        #         logger.error(f"获取'{text}'的嵌入向量时发生错误: {str(e)}")
 
-        logger.info(f"批量获取嵌入向量完成，耗时: {time.time() - embed_start_time:.3f}秒")
+        # logger.info(f"批量获取嵌入向量完成，耗时: {time.time() - embed_start_time:.3f}秒")
 
-        if not embeddings:
-            logger.error("所有嵌入向量获取失败")
-            return ""
+        # if not embeddings:
+        #     logger.error("所有嵌入向量获取失败")
+        #     return ""
 
-        # 3. 对每个主题进行知识库查询
-        all_results = []
-        query_start_time = time.time()
+        # # 3. 对每个主题进行知识库查询
+        # all_results = []
+        # query_start_time = time.time()
 
-        # 首先添加原始消息的查询结果
-        if message in embeddings:
-            original_results = self.get_info_from_db(embeddings[message], limit=3, threshold=threshold, return_raw=True)
-            if original_results:
-                for result in original_results:
-                    result["topic"] = "原始消息"
-                all_results.extend(original_results)
-                logger.info(f"原始消息查询到{len(original_results)}条结果")
+        # # 首先添加原始消息的查询结果
+        # if message in embeddings:
+        #     original_results = self.get_info_from_db(embeddings[message], limit=3, threshold=threshold, return_raw=True)
+        #     if original_results:
+        #         for result in original_results:
+        #             result["topic"] = "原始消息"
+        #         all_results.extend(original_results)
+        #         logger.info(f"原始消息查询到{len(original_results)}条结果")
 
-        # 然后添加每个主题的查询结果
-        for topic in topics:
-            if not topic or topic not in embeddings:
-                continue
+        # # 然后添加每个主题的查询结果
+        # for topic in topics:
+        #     if not topic or topic not in embeddings:
+        #         continue
 
-            try:
-                topic_results = self.get_info_from_db(embeddings[topic], limit=3, threshold=threshold, return_raw=True)
-                if topic_results:
-                    # 添加主题标记
-                    for result in topic_results:
-                        result["topic"] = topic
-                    all_results.extend(topic_results)
-                    logger.info(f"主题'{topic}'查询到{len(topic_results)}条结果")
-            except Exception as e:
-                logger.error(f"查询主题'{topic}'时发生错误: {str(e)}")
+        #     try:
 
-        logger.info(f"知识库查询完成，耗时: {time.time() - query_start_time:.3f}秒，共获取{len(all_results)}条结果")
+        #         # topic_results = self.get_info_from_db(embeddings[topic], limit=3, threshold=threshold, return_raw=True)
+        #         # if topic_results:
+        #         #     # 添加主题标记
+        #         #     for result in topic_results:
+        #         #         result["topic"] = topic
+        #         #     all_results.extend(topic_results)
+        #         #     logger.info(f"主题'{topic}'查询到{len(topic_results)}条结果")
+        #     except Exception as e:
+        #         logger.error(f"查询主题'{topic}'时发生错误: {str(e)}")
 
-        # 4. 去重和过滤
-        process_start_time = time.time()
-        unique_contents = set()
-        filtered_results = []
-        for result in all_results:
-            content = result["content"]
-            if content not in unique_contents:
-                unique_contents.add(content)
-                filtered_results.append(result)
+        # logger.info(f"知识库查询完成，耗时: {time.time() - query_start_time:.3f}秒，共获取{len(all_results)}条结果")
 
-        # 5. 按相似度排序
-        filtered_results.sort(key=lambda x: x["similarity"], reverse=True)
+        # # 4. 去重和过滤
+        # process_start_time = time.time()
+        # unique_contents = set()
+        # filtered_results = []
+        # for result in all_results:
+        #     content = result["content"]
+        #     if content not in unique_contents:
+        #         unique_contents.add(content)
+        #         filtered_results.append(result)
 
-        # 6. 限制总数量（最多10条）
-        filtered_results = filtered_results[:10]
-        logger.info(
-            f"结果处理完成，耗时: {time.time() - process_start_time:.3f}秒，过滤后剩余{len(filtered_results)}条结果"
-        )
+        # # 5. 按相似度排序
+        # filtered_results.sort(key=lambda x: x["similarity"], reverse=True)
 
-        # 7. 格式化输出
-        if filtered_results:
-            format_start_time = time.time()
-            grouped_results = {}
-            for result in filtered_results:
-                topic = result["topic"]
-                if topic not in grouped_results:
-                    grouped_results[topic] = []
-                grouped_results[topic].append(result)
+        # # 6. 限制总数量（最多10条）
+        # filtered_results = filtered_results[:10]
+        # logger.info(
+        #     f"结果处理完成，耗时: {time.time() - process_start_time:.3f}秒，过滤后剩余{len(filtered_results)}条结果"
+        # )
+
+        # # 7. 格式化输出
+        # if filtered_results:
+        #     format_start_time = time.time()
+        #     grouped_results = {}
+        #     for result in filtered_results:
+        #         topic = result["topic"]
+        #         if topic not in grouped_results:
+        #             grouped_results[topic] = []
+        #         grouped_results[topic].append(result)
 
             # 按主题组织输出
-            for topic, results in grouped_results.items():
-                related_info += f"【主题: {topic}】\n"
-                for _i, result in enumerate(results, 1):
-                    _similarity = result["similarity"]
-                    content = result["content"].strip()
-                    # 调试：为内容添加序号和相似度信息
-                    # related_info += f"{i}. [{similarity:.2f}] {content}\n"
-                    related_info += f"{content}\n"
-                related_info += "\n"
+        #     for topic, results in grouped_results.items():
+        #         related_info += f"【主题: {topic}】\n"
+        #         for _i, result in enumerate(results, 1):
+        #             _similarity = result["similarity"]
+        #             content = result["content"].strip()
+        #             # 调试：为内容添加序号和相似度信息
+        #             # related_info += f"{i}. [{similarity:.2f}] {content}\n"
+        #             related_info += f"{content}\n"
+        #         related_info += "\n"
 
-            logger.info(f"格式化输出完成，耗时: {time.time() - format_start_time:.3f}秒")
+        #     # logger.info(f"格式化输出完成，耗时: {time.time() - format_start_time:.3f}秒")
 
-        logger.info(f"知识库检索总耗时: {time.time() - start_time:.3f}秒")
-        return related_info
+        # logger.info(f"知识库检索总耗时: {time.time() - start_time:.3f}秒")
+        # return related_info
 
-    @staticmethod
-    def get_info_from_db(
-        query_embedding: list, limit: int = 1, threshold: float = 0.5, return_raw: bool = False
-    ) -> Union[str, list]:
-        if not query_embedding:
-            return "" if not return_raw else []
-        # 使用余弦相似度计算
-        pipeline = [
-            {
-                "$addFields": {
-                    "dotProduct": {
-                        "$reduce": {
-                            "input": {"$range": [0, {"$size": "$embedding"}]},
-                            "initialValue": 0,
-                            "in": {
-                                "$add": [
-                                    "$$value",
-                                    {
-                                        "$multiply": [
-                                            {"$arrayElemAt": ["$embedding", "$$this"]},
-                                            {"$arrayElemAt": [query_embedding, "$$this"]},
-                                        ]
-                                    },
-                                ]
-                            },
-                        }
-                    },
-                    "magnitude1": {
-                        "$sqrt": {
-                            "$reduce": {
-                                "input": "$embedding",
-                                "initialValue": 0,
-                                "in": {"$add": ["$$value", {"$multiply": ["$$this", "$$this"]}]},
-                            }
-                        }
-                    },
-                    "magnitude2": {
-                        "$sqrt": {
-                            "$reduce": {
-                                "input": query_embedding,
-                                "initialValue": 0,
-                                "in": {"$add": ["$$value", {"$multiply": ["$$this", "$$this"]}]},
-                            }
-                        }
-                    },
-                }
-            },
-            {"$addFields": {"similarity": {"$divide": ["$dotProduct", {"$multiply": ["$magnitude1", "$magnitude2"]}]}}},
-            {
-                "$match": {
-                    "similarity": {"$gte": threshold}  # 只保留相似度大于等于阈值的结果
-                }
-            },
-            {"$sort": {"similarity": -1}},
-            {"$limit": limit},
-            {"$project": {"content": 1, "similarity": 1}},
-        ]
+    # def get_info_from_db(
+    #     self, query_embedding: list, limit: int = 1, threshold: float = 0.5, return_raw: bool = False
+    # ) -> Union[str, list]:
+    #     if not query_embedding:
+    #         return "" if not return_raw else []
+    #     # 使用余弦相似度计算
+    #     pipeline = [
+    #         {
+    #             "$addFields": {
+    #                 "dotProduct": {
+    #                     "$reduce": {
+    #                         "input": {"$range": [0, {"$size": "$embedding"}]},
+    #                         "initialValue": 0,
+    #                         "in": {
+    #                             "$add": [
+    #                                 "$$value",
+    #                                 {
+    #                                     "$multiply": [
+    #                                         {"$arrayElemAt": ["$embedding", "$$this"]},
+    #                                         {"$arrayElemAt": [query_embedding, "$$this"]},
+    #                                     ]
+    #                                 },
+    #                             ]
+    #                         },
+    #                     }
+    #                 },
+    #                 "magnitude1": {
+    #                     "$sqrt": {
+    #                         "$reduce": {
+    #                             "input": "$embedding",
+    #                             "initialValue": 0,
+    #                             "in": {"$add": ["$$value", {"$multiply": ["$$this", "$$this"]}]},
+    #                         }
+    #                     }
+    #                 },
+    #                 "magnitude2": {
+    #                     "$sqrt": {
+    #                         "$reduce": {
+    #                             "input": query_embedding,
+    #                             "initialValue": 0,
+    #                             "in": {"$add": ["$$value", {"$multiply": ["$$this", "$$this"]}]},
+    #                         }
+    #                     }
+    #                 },
+    #             }
+    #         },
+    #         {"$addFields": {"similarity": {"$divide": ["$dotProduct", {"$multiply": ["$magnitude1", "$magnitude2"]}]}}},
+    #         {
+    #             "$match": {
+    #                 "similarity": {"$gte": threshold}  # 只保留相似度大于等于阈值的结果
+    #             }
+    #         },
+    #         {"$sort": {"similarity": -1}},
+    #         {"$limit": limit},
+    #         {"$project": {"content": 1, "similarity": 1}},
+    #     ]
 
-        results = list(db.knowledges.aggregate(pipeline))
-        logger.debug(f"知识库查询结果数量: {len(results)}")
+    #     results = list(db.knowledges.aggregate(pipeline))
+    #     logger.debug(f"知识库查询结果数量: {len(results)}")
 
-        if not results:
-            return "" if not return_raw else []
+    #     if not results:
+    #         return "" if not return_raw else []
 
-        if return_raw:
-            return results
-        else:
-            # 返回所有找到的内容，用换行分隔
-            return "\n".join(str(result["content"]) for result in results)
+    #     if return_raw:
+    #         return results
+    #     else:
+    #         # 返回所有找到的内容，用换行分隔
+    #         return "\n".join(str(result["content"]) for result in results)
 
 
 init_prompt()
