@@ -22,9 +22,7 @@ for key in global_config["llm_providers"]:
     )
 
 # 初始化Embedding库
-embed_manager = EmbeddingManager(
-    llm_client_list[global_config["embedding"]["provider"]]
-)
+embed_manager = EmbeddingManager(llm_client_list[global_config["embedding"]["provider"]])
 logger.info("正在从文件加载Embedding库")
 try:
     embed_manager.load_from_file()
@@ -63,4 +61,3 @@ inspire_manager = MemoryActiveManager(
     embed_manager,
     llm_client_list[global_config["embedding"]["provider"]],
 )
-

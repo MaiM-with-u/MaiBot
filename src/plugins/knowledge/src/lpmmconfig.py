@@ -1,6 +1,6 @@
 import os
 import toml
-import argparse
+from .global_logger import logger
 
 PG_NAMESPACE = "paragraph"
 ENT_NAMESPACE = "entity"
@@ -56,42 +56,33 @@ def _load_config(config, config_file_path):
 
     if "persistence" in file_config:
         config["persistence"] = file_config["persistence"]
-    print(config)
-    print("Configurations loaded from file: ", config_file_path)
-    
 
+    logger.debug("Configurations loaded from file: ", config_file_path)
 
-parser = argparse.ArgumentParser(description="Configurations for the pipeline")
-parser.add_argument(
-    "--config_path",
-    type=str,
-    default="lpmm_config.toml",
-    help="Path to the configuration file",
-)
 
 global_config = dict(
     {
         "llm_providers": {
             "localhost": {
-                "base_url": "https://api.siliconflow.cn/v1",
-                "api_key": "sk-ospynxadyorf",
+                "base_url": "",
+                "api_key": "",
             }
         },
         "entity_extract": {
             "llm": {
-                "provider": "localhost",
-                "model": "Pro/deepseek-ai/DeepSeek-V3",
+                "provider": "",
+                "model": "",
             }
         },
         "rdf_build": {
             "llm": {
-                "provider": "localhost",
-                "model": "Pro/deepseek-ai/DeepSeek-V3",
+                "provider": "",
+                "model": "",
             }
         },
         "embedding": {
-            "provider": "localhost",
-            "model": "Pro/BAAI/bge-m3",
+            "provider": "",
+            "model": "",
             "dimension": 1024,
         },
         "rag": {
@@ -111,24 +102,23 @@ global_config = dict(
                 "res_top_k": 10,
             },
             "llm": {
-                "provider": "localhost",
-                "model": "qa",
+                "provider": "",
+                "model": "",
             },
         },
         "persistence": {
-            "data_root_path": "data",
-            "raw_data_path": "data/raw.json",
-            "openie_data_path": "data/openie.json",
-            "embedding_data_dir": "data/embedding",
-            "rag_data_dir": "data/rag",
+            "data_root_path": "",
+            "raw_data_path": "",
+            "openie_data_path": "",
+            "embedding_data_dir": "",
+            "rag_data_dir": "",
         },
-        "info_extraction":{
+        "info_extraction": {
             "workers": 10,
-        }
+        },
     }
 )
 
-# _load_config(global_config, parser.parse_args().config_path)
 file_path = os.path.abspath(__file__)
 dir_path = os.path.dirname(file_path)
 root_path = os.path.join(dir_path, os.pardir, os.pardir, os.pardir, os.pardir)

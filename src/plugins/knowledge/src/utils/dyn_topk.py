@@ -36,14 +36,10 @@ def dyn_select_top_k(
     # 计算均值
     mean_score = sum([s[2] for s in normalized_score]) / len(normalized_score)
     # 计算方差
-    var_score = sum([(s[2] - mean_score) ** 2 for s in normalized_score]) / len(
-        normalized_score
-    )
+    var_score = sum([(s[2] - mean_score) ** 2 for s in normalized_score]) / len(normalized_score)
 
     # 动态阈值
-    threshold = jmp_factor * jump_threshold + (1 - jmp_factor) * (
-        mean_score + var_factor * var_score
-    )
+    threshold = jmp_factor * jump_threshold + (1 - jmp_factor) * (mean_score + var_factor * var_score)
 
     # 重新过滤
     res = [s for s in normalized_score if s[2] > threshold]

@@ -20,6 +20,7 @@ import sys
 
 logger = get_module_logger("LPMM知识库-OpenIE导入")
 
+
 def hash_deduplicate(
     raw_paragraphs: Dict[str, str],
     triple_list_data: Dict[str, List[List[str]]],
@@ -43,14 +44,10 @@ def hash_deduplicate(
     # 保存去重后的三元组
     new_triple_list_data = dict()
 
-    for _, (raw_paragraph, triple_list) in enumerate(
-        zip(raw_paragraphs.values(), triple_list_data.values())
-    ):
+    for _, (raw_paragraph, triple_list) in enumerate(zip(raw_paragraphs.values(), triple_list_data.values())):
         # 段落hash
         paragraph_hash = get_sha256(raw_paragraph)
-        if ((PG_NAMESPACE + "-" + paragraph_hash) in stored_pg_hashes) and (
-            paragraph_hash in stored_paragraph_hashes
-        ):
+        if ((PG_NAMESPACE + "-" + paragraph_hash) in stored_pg_hashes) and (paragraph_hash in stored_paragraph_hashes):
             continue
         new_raw_paragraphs[paragraph_hash] = raw_paragraph
         new_triple_list_data[paragraph_hash] = triple_list
@@ -58,9 +55,7 @@ def hash_deduplicate(
     return new_raw_paragraphs, new_triple_list_data
 
 
-def handle_import_openie(
-    openie_data: OpenIE, embed_manager: EmbeddingManager, kg_manager: KGManager
-) -> bool:
+def handle_import_openie(openie_data: OpenIE, embed_manager: EmbeddingManager, kg_manager: KGManager) -> bool:
     # 从OpenIE数据中提取段落原文与三元组列表
     # 索引的段落原文
     raw_paragraphs = openie_data.extract_raw_paragraph_dict()
@@ -68,9 +63,7 @@ def handle_import_openie(
     entity_list_data = openie_data.extract_entity_dict()
     # 索引的三元组列表
     triple_list_data = openie_data.extract_triple_dict()
-    if len(raw_paragraphs) != len(entity_list_data) or len(raw_paragraphs) != len(
-        triple_list_data
-    ):
+    if len(raw_paragraphs) != len(entity_list_data) or len(raw_paragraphs) != len(triple_list_data):
         logger.error("OpenIE数据存在异常")
         return False
     # 将索引换为对应段落的hash值
@@ -112,11 +105,11 @@ def main():
     print("知识导入时，会消耗大量系统资源，建议在较好配置电脑上运行")
     print("同上样例，导入时10700K几乎跑满，14900HX占用80%，峰值内存占用约3G")
     confirm = input("确认继续执行？(y/n): ").strip().lower()
-    if confirm != 'y':
+    if confirm != "y":
         logger.info("用户取消操作")
         print("操作已取消")
         sys.exit(1)
-    print("\n" + "="*40 + "\n")
+    print("\n" + "=" * 40 + "\n")
 
     logger.info("----开始导入openie数据----\n")
 
@@ -129,9 +122,7 @@ def main():
         )
 
     # 初始化Embedding库
-    embed_manager = embed_manager = EmbeddingManager(
-        llm_client_list[global_config["embedding"]["provider"]]
-    )
+    embed_manager = embed_manager = EmbeddingManager(llm_client_list[global_config["embedding"]["provider"]])
     logger.info("正在从文件加载Embedding库")
     try:
         embed_manager.load_from_file()

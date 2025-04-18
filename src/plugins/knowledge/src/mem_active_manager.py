@@ -16,13 +16,9 @@ class MemoryActiveManager:
     def get_activation(self, question: str) -> float:
         """获取记忆激活度"""
         # 生成问题的Embedding
-        question_embedding = self.embedding_client.send_embedding_request(
-            "text-embedding", question
-        )
+        question_embedding = self.embedding_client.send_embedding_request("text-embedding", question)
         # 查询关系库中的相似度
-        rel_search_res = self.embed_manager.relation_embedding_store.search_top_k(
-            question_embedding, 10
-        )
+        rel_search_res = self.embed_manager.relation_embedding_store.search_top_k(question_embedding, 10)
 
         # 动态过滤阈值
         rel_scores = dyn_select_top_k(rel_search_res, 0.5, 1.0)
