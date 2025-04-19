@@ -113,3 +113,19 @@ def get_tool_instance(tool_name: str) -> Optional[BaseTool]:
     if not tool_class:
         return None
     return tool_class()
+
+
+def run_lua_code(lua_code: str):
+    """兼容Lua代码运行（小工具）
+
+    Args:
+        lua_code (str): Lua代码
+
+    Returns:
+        _LuaTable: Lua运行时的全局变量
+    """
+    from lupa import LuaRuntime
+
+    lua = LuaRuntime(unpack_returned_tuples=True)
+    lua.execute(lua_code)
+    return lua.globals()
