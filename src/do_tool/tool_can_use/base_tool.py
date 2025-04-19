@@ -1,4 +1,5 @@
 from typing import Dict, List, Any, Optional, Type
+from abc import ABC, abstractmethod
 import inspect
 import importlib
 import pkgutil
@@ -11,7 +12,7 @@ logger = get_module_logger("base_tool")
 TOOL_REGISTRY = {}
 
 
-class BaseTool:
+class BaseTool(ABC):
     """所有工具的基类"""
 
     # 工具名称，子类必须重写
@@ -36,6 +37,7 @@ class BaseTool:
             "function": {"name": cls.name, "description": cls.description, "parameters": cls.parameters},
         }
 
+    @abstractmethod
     async def execute(self, function_args: Dict[str, Any], message_txt: str = "") -> Dict[str, Any]:
         """执行工具函数
 
@@ -111,3 +113,31 @@ def get_tool_instance(tool_name: str) -> Optional[BaseTool]:
     if not tool_class:
         return None
     return tool_class()
+
+
+def run_lua_code(lua_code: str):
+    """兼容Lua代码运行（小工具）
+
+    Args:
+        lua_code (str): Lua代码
+
+    Returns:
+        _LuaTable: Lua运行时的全局变量
+    """
+    try:
+        from lupa import LuaRuntime
+    except ImportError as e:
+        raise ImportError("无法导入lupa模块，请确保已安装lupa库（可通过pip安装）") from e
+
+    lua = LuaRuntime(unpack_returned_tuples=True)
+    try:
+        lua.execute(lua_code)
+        return lua.globals()
+    except Exception as e:
+        # 返回包含错误信息的字典而不是直接抛出异常，保持函数接口的稳定性
+        return {
+            "__error__": True,
+            "type": type(e).__name__,
+            "message": "Lua 代码执行出错，请检查代码是否正确。",
+            "lua_code": lua_code,  # 可选：返回出错的代码片段便于调试
+        }

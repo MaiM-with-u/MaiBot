@@ -1,4 +1,4 @@
-from src.do_tool.tool_can_use.base_tool import BaseTool
+from src.do_tool.tool_can_use.base_tool import BaseTool, run_lua_code
 from src.common.logger import get_module_logger
 from typing import Dict, Any
 
@@ -32,13 +32,15 @@ class CompareNumbersTool(BaseTool):
         try:
             num1 = function_args.get("num1")
             num2 = function_args.get("num2")
-
-            if num1 > num2:
-                result = f"{num1} 大于 {num2}"
-            elif num1 < num2:
-                result = f"{num1} 小于 {num2}"
-            else:
-                result = f"{num1} 等于 {num2}"
+            if not (isinstance(num1, (int, float)) and isinstance(num2, (int, float))):
+                raise ValueError("参数'num1'和'num2'必须为数字")
+            lua_code = """
+                function CompareNumbers(a, b)
+                    return a .. (a > b and " 大于 " or a < b and " 小于 " or " 等于 ") .. b
+                end
+            """
+            CompareNumbers = run_lua_code(lua_code).CompareNumbers
+            result = CompareNumbers(num1, num2)
 
             return {"name": self.name, "content": result}
         except Exception as e:

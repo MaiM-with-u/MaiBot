@@ -1,7 +1,6 @@
-from src.do_tool.tool_can_use.base_tool import BaseTool
+from src.do_tool.tool_can_use.base_tool import BaseTool, run_lua_code
 from src.common.logger import get_module_logger
 from typing import Dict, Any
-from datetime import datetime
 
 logger = get_module_logger("get_time_date")
 
@@ -27,12 +26,13 @@ class GetCurrentDateTimeTool(BaseTool):
         Returns:
             Dict: 工具执行结果
         """
-        current_time = datetime.now().strftime("%H:%M:%S")
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        current_year = datetime.now().strftime("%Y")
-        current_weekday = datetime.now().strftime("%A")
-
+        lua_code = """
+            GetCurrentDateTime = function()
+                return ("当前时间: %s, 日期: %s, 年份: %s, 星期: %s"):format(os.date("%H:%M:%S"), os.date("%Y-%m-%d"), os.date("%Y"), os.date("%A"))
+            end
+        """
+        GetCurrentDateTime = run_lua_code(lua_code).GetCurrentDateTime
         return {
             "name": "get_current_date_time",
-            "content": f"当前时间: {current_time}, 日期: {current_date}, 年份: {current_year}, 星期: {current_weekday}",
+            "content": GetCurrentDateTime(),
         }
