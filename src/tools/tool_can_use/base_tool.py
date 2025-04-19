@@ -124,8 +124,20 @@ def run_lua_code(lua_code: str):
     Returns:
         _LuaTable: Lua运行时的全局变量
     """
-    from lupa import LuaRuntime
+    try:
+        from lupa import LuaRuntime
+    except ImportError as e:
+        raise ImportError("无法导入lupa模块，请确保已安装lupa库（可通过pip安装）") from e
 
     lua = LuaRuntime(unpack_returned_tuples=True)
-    lua.execute(lua_code)
-    return lua.globals()
+    try:
+        lua.execute(lua_code)
+        return lua.globals()
+    except Exception as e:
+        # 返回包含错误信息的字典而不是直接抛出异常，保持函数接口的稳定性
+        return {
+            "__error__": True,
+            "type": type(e).__name__,
+            "message": "Lua 代码执行出错，请检查代码是否正确。",
+            "lua_code": lua_code  # 可选：返回出错的代码片段便于调试
+        }
