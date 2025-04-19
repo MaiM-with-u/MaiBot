@@ -151,7 +151,7 @@ class ReplyGenerator:
             return content
 
         except Exception as e:
-            logger.error(f"生成回复时出错: {e}")
+            logger.error(f"生成回复时出错: {str(e)}")
             return "抱歉，我现在有点混乱，让我重新思考一下..."
 
     async def check_reply(self, reply: str, goal: str, retry_count: int = 0) -> Tuple[bool, str, bool]:

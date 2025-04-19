@@ -255,7 +255,7 @@ class ReasoningChat:
 
                 info_catcher.catch_after_generate_response(timing_results["生成回复"])
             except Exception as e:
-                logger.error(f"回复生成出现错误：str{e}")
+                logger.error(f"回复生成出现错误：{str(e)}")
                 response_set = None
 
             if not response_set:
