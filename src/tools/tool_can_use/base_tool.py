@@ -139,5 +139,5 @@ def run_lua_code(lua_code: str):
             "__error__": True,
             "type": type(e).__name__,
             "message": "Lua 代码执行出错，请检查代码是否正确。",
-            "lua_code": lua_code  # 可选：返回出错的代码片段便于调试
+            "lua_code": lua_code,  # 可选：返回出错的代码片段便于调试
         }
