@@ -91,11 +91,11 @@ def main():
     print("或者使用可以用赠金抵扣的Pro模型")
     print("请确保账户余额充足，并且在执行前确认无误。")
     confirm = input("确认继续执行？(y/n): ").strip().lower()
-    if confirm != 'y':
+    if confirm != "y":
         logger.info("用户取消操作")
         print("操作已取消")
         sys.exit(1)
-    print("\n" + "="*40 + "\n")
+    print("\n" + "=" * 40 + "\n")
 
     logger.info("--------进行信息提取--------\n")
 

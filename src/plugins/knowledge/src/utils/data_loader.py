@@ -14,11 +14,7 @@ class DataLoader:
         Args:
             custom_data_dir: 可选的自定义数据目录路径，如果不提供则使用配置文件中的默认路径
         """
-        self.data_dir = (
-            Path(custom_data_dir)
-            if custom_data_dir
-            else Path(config["persistence"]["data_root_path"])
-        )
+        self.data_dir = Path(custom_data_dir) if custom_data_dir else Path(config["persistence"]["data_root_path"])
         if not self.data_dir.exists():
             raise FileNotFoundError(f"数据目录 {self.data_dir} 不存在")
 

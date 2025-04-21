@@ -9,12 +9,7 @@ def _filter_invalid_entities(entities: List[str]) -> List[str]:
     """过滤无效的实体"""
     valid_entities = set()
     for entity in entities:
-        if (
-            not isinstance(entity, str)
-            or entity.strip() == ""
-            or entity in INVALID_ENTITY
-            or entity in valid_entities
-        ):
+        if not isinstance(entity, str) or entity.strip() == "" or entity in INVALID_ENTITY or entity in valid_entities:
             # 非字符串/空字符串/在无效实体列表中/重复
             continue
         valid_entities.add(entity)
@@ -74,9 +69,7 @@ class OpenIE:
 
         for doc in self.docs:
             # 过滤实体列表
-            doc["extracted_entities"] = _filter_invalid_entities(
-                doc["extracted_entities"]
-            )
+            doc["extracted_entities"] = _filter_invalid_entities(doc["extracted_entities"])
             # 过滤无效的三元组
             doc["extracted_triples"] = _filter_invalid_triples(doc["extracted_triples"])
 
@@ -100,9 +93,7 @@ class OpenIE:
     @staticmethod
     def load() -> "OpenIE":
         """从文件中加载OpenIE数据"""
-        with open(
-            global_config["persistence"]["openie_data_path"], "r", encoding="utf-8"
-        ) as f:
+        with open(global_config["persistence"]["openie_data_path"], "r", encoding="utf-8") as f:
             data = json.loads(f.read())
 
         openie_data = OpenIE._from_dict(data)
@@ -112,9 +103,7 @@ class OpenIE:
     @staticmethod
     def save(openie_data: "OpenIE"):
         """保存OpenIE数据到文件"""
-        with open(
-            global_config["persistence"]["openie_data_path"], "w", encoding="utf-8"
-        ) as f:
+        with open(global_config["persistence"]["openie_data_path"], "w", encoding="utf-8") as f:
             f.write(json.dumps(openie_data._to_dict(), ensure_ascii=False, indent=4))
 
     def extract_entity_dict(self):
@@ -141,7 +130,5 @@ class OpenIE:
 
     def extract_raw_paragraph_dict(self):
         """提取原始段落"""
-        raw_paragraph_dict = dict(
-            {doc_item["idx"]: doc_item["passage"] for doc_item in self.docs}
-        )
+        raw_paragraph_dict = dict({doc_item["idx"]: doc_item["passage"] for doc_item in self.docs})
         return raw_paragraph_dict

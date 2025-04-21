@@ -17,9 +17,7 @@ def load_raw_data() -> tuple[list[str], list[str]]:
     """
     # 读取import.json文件
     if os.path.exists(global_config["persistence"]["raw_data_path"]) is True:
-        with open(
-            global_config["persistence"]["raw_data_path"], "r", encoding="utf-8"
-        ) as f:
+        with open(global_config["persistence"]["raw_data_path"], "r", encoding="utf-8") as f:
             import_json = json.loads(f.read())
     else:
         raise Exception("原始数据文件读取失败")

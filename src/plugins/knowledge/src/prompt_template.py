@@ -41,9 +41,7 @@ rdf_triple_extract_system_prompt = """你是一个性能优异的RDF（资源描
 def build_rdf_triple_extract_context(paragraph: str, entities: str) -> List[LLMMessage]:
     messages = [
         LLMMessage("system", rdf_triple_extract_system_prompt).to_dict(),
-        LLMMessage(
-            "user", f"""段落：\n```\n{paragraph}```\n\n实体列表：\n```\n{entities}```"""
-        ).to_dict(),
+        LLMMessage("user", f"""段落：\n```\n{paragraph}```\n\n实体列表：\n```\n{entities}```""").to_dict(),
     ]
     return messages
 
@@ -58,16 +56,10 @@ qa_system_prompt = """
 """
 
 
-def build_qa_context(
-    question: str, knowledge: list[(str, str, str)]
-) -> List[LLMMessage]:
-    knowledge = "\n".join(
-        [f"{i + 1}. 相关性：{k[0]}\n{k[1]}" for i, k in enumerate(knowledge)]
-    )
+def build_qa_context(question: str, knowledge: list[(str, str, str)]) -> List[LLMMessage]:
+    knowledge = "\n".join([f"{i + 1}. 相关性：{k[0]}\n{k[1]}" for i, k in enumerate(knowledge)])
     messages = [
         LLMMessage("system", qa_system_prompt).to_dict(),
-        LLMMessage(
-            "user", f"问题：\n{question}\n\n可能有帮助的信息：\n{knowledge}"
-        ).to_dict(),
+        LLMMessage("user", f"问题：\n{question}\n\n可能有帮助的信息：\n{knowledge}").to_dict(),
     ]
     return messages

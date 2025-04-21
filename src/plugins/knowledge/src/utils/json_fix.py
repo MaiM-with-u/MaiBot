@@ -29,10 +29,7 @@ def _find_unclosed(json_str):
             elif char in "{[":
                 unclosed.append(char)
             elif char in "}]":
-                if unclosed and (
-                    (char == "}" and unclosed[-1] == "{")
-                    or (char == "]" and unclosed[-1] == "[")
-                ):
+                if unclosed and ((char == "}" and unclosed[-1] == "{") or (char == "]" and unclosed[-1] == "[")):
                     unclosed.pop()
 
     return unclosed
