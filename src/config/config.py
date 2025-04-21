@@ -186,18 +186,12 @@ class BotConfig:
     ban_words = set()
     ban_msgs_regex = set()
 
-    # [heartflow] # 启用启用heart_flowC(心流聊天)模式时生效, 需要填写token消耗量巨大的相关模型
-    # 启用后麦麦会自主选择进入heart_flowC模式(持续一段时间), 进行长时间高质量的聊天
-    enable_heart_flowC: bool = True  # 是否启用heart_flowC(心流聊天, HFC)模式
-    reply_trigger_threshold: float = 3.0  # 心流聊天触发阈值，越低越容易触发
-    probability_decay_factor_per_second: float = 0.2  # 概率衰减因子，越大衰减越快
-    default_decay_rate_per_second: float = 0.98  # 默认衰减率，越大衰减越慢
-    initial_duration: int = 60  # 初始持续时间，越大心流聊天持续的时间越长
-
-    # sub_heart_flow_update_interval: int = 60  # 子心流更新频率，间隔 单位秒
-    # sub_heart_flow_freeze_time: int = 120  # 子心流冻结时间，超过这个时间没有回复，子心流会冻结，间隔 单位秒
+    # heartflow
+    # enable_heartflow: bool = False  # 是否启用心流
+    sub_heart_flow_update_interval: int = 60  # 子心流更新频率，间隔 单位秒
+    sub_heart_flow_freeze_time: int = 120  # 子心流冻结时间，超过这个时间没有回复，子心流会冻结，间隔 单位秒
     sub_heart_flow_stop_time: int = 600  # 子心流停止时间，超过这个时间没有回复，子心流会停止，间隔 单位秒
-    # heart_flow_update_interval: int = 300  # 心流更新频率，间隔 单位秒
+    heart_flow_update_interval: int = 300  # 心流更新频率，间隔 单位秒
     observation_context_size: int = 20  # 心流观察到的最长上下文大小，超过这个值的上下文会被压缩
     compressed_length: int = 5  # 不能大于observation_context_size,心流上下文压缩的最短压缩长度，超过心流观察到的上下文长度，会压缩，最短压缩长度为5
     compress_length_limit: int = 5  # 最多压缩份数，超过该数值的压缩上下文会被删除
@@ -213,8 +207,8 @@ class BotConfig:
 
     # response
     response_mode: str = "heart_flow"  # 回复策略
-    model_reasoning_probability: float = 0.7  # 麦麦回答时选择推理模型(主要)模型概率
-    model_normal_probability: float = 0.3  # 麦麦回答时选择一般模型(次要)模型概率
+    MODEL_R1_PROBABILITY: float = 0.8  # R1模型概率
+    MODEL_V3_PROBABILITY: float = 0.1  # V3模型概率
     # MODEL_R1_DISTILL_PROBABILITY: float = 0.1  # R1蒸馏模型概率
 
     # emoji
@@ -407,34 +401,29 @@ class BotConfig:
 
         def response(parent: dict):
             response_config = parent["response"]
-            config.model_reasoning_probability = response_config.get(
-                "model_reasoning_probability", config.model_reasoning_probability
-            )
-            config.model_normal_probability = response_config.get(
-                "model_normal_probability", config.model_normal_probability
-            )
-
-            # 添加 enable_heart_flowC 的加载逻辑 (假设它在 [response] 部分)
-            if config.INNER_VERSION in SpecifierSet(">=1.4.0"):
-                config.enable_heart_flowC = response_config.get("enable_heart_flowC", config.enable_heart_flowC)
+            config.MODEL_R1_PROBABILITY = response_config.get("model_r1_probability", config.MODEL_R1_PROBABILITY)
+            config.MODEL_V3_PROBABILITY = response_config.get("model_v3_probability", config.MODEL_V3_PROBABILITY)
+            # config.MODEL_R1_DISTILL_PROBABILITY = response_config.get(
+            #     "model_r1_distill_probability", config.MODEL_R1_DISTILL_PROBABILITY
+            # )
+            config.max_response_length = response_config.get("max_response_length", config.max_response_length)
+            if config.INNER_VERSION in SpecifierSet(">=1.0.4"):
+                config.response_mode = response_config.get("response_mode", config.response_mode)
 
         def heartflow(parent: dict):
             heartflow_config = parent["heartflow"]
-            # 加载新增的 heartflowC 参数
-
-            # 加载原有的 heartflow 参数
-            # config.sub_heart_flow_update_interval = heartflow_config.get(
-            #     "sub_heart_flow_update_interval", config.sub_heart_flow_update_interval
-            # )
-            # config.sub_heart_flow_freeze_time = heartflow_config.get(
-            #     "sub_heart_flow_freeze_time", config.sub_heart_flow_freeze_time
-            # )
+            config.sub_heart_flow_update_interval = heartflow_config.get(
+                "sub_heart_flow_update_interval", config.sub_heart_flow_update_interval
+            )
+            config.sub_heart_flow_freeze_time = heartflow_config.get(
+                "sub_heart_flow_freeze_time", config.sub_heart_flow_freeze_time
+            )
             config.sub_heart_flow_stop_time = heartflow_config.get(
                 "sub_heart_flow_stop_time", config.sub_heart_flow_stop_time
             )
-            # config.heart_flow_update_interval = heartflow_config.get(
-            #     "heart_flow_update_interval", config.heart_flow_update_interval
-            # )
+            config.heart_flow_update_interval = heartflow_config.get(
+                "heart_flow_update_interval", config.heart_flow_update_interval
+            )
             if config.INNER_VERSION in SpecifierSet(">=1.3.0"):
                 config.observation_context_size = heartflow_config.get(
                     "observation_context_size", config.observation_context_size
@@ -443,17 +432,6 @@ class BotConfig:
                 config.compress_length_limit = heartflow_config.get(
                     "compress_length_limit", config.compress_length_limit
                 )
-            if config.INNER_VERSION in SpecifierSet(">=1.4.0"):
-                config.reply_trigger_threshold = heartflow_config.get(
-                    "reply_trigger_threshold", config.reply_trigger_threshold
-                )
-                config.probability_decay_factor_per_second = heartflow_config.get(
-                    "probability_decay_factor_per_second", config.probability_decay_factor_per_second
-                )
-                config.default_decay_rate_per_second = heartflow_config.get(
-                    "default_decay_rate_per_second", config.default_decay_rate_per_second
-                )
-                config.initial_duration = heartflow_config.get("initial_duration", config.initial_duration)
 
         def willing(parent: dict):
             willing_config = parent["willing"]

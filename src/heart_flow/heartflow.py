@@ -1,4 +1,5 @@
-from .sub_heartflow import SubHeartflow, ChattingObservation
+from .sub_heartflow import SubHeartflow
+from .observation import ChattingObservation
 from src.plugins.moods.moods import MoodManager
 from src.plugins.models.utils_model import LLMRequest
 from src.config.config import global_config
@@ -9,8 +10,7 @@ from src.common.logger import get_module_logger, LogConfig, HEARTFLOW_STYLE_CONF
 from src.individuality.individuality import Individuality
 import time
 import random
-from typing import Dict, Any, Optional
-import traceback
+from typing import Dict, Any
 
 heartflow_config = LogConfig(
     # 使用海马体专用样式
@@ -45,8 +45,6 @@ class CurrentState:
     def __init__(self):
         self.current_state_info = ""
 
-        self.chat_status = "IDLE"
-
         self.mood_manager = MoodManager()
         self.mood = self.mood_manager.get_prompt()
 
@@ -72,27 +70,20 @@ class Heartflow:
         """定期清理不活跃的子心流"""
         while True:
             current_time = time.time()
-            inactive_subheartflows_ids = []  # 修改变量名以清晰表示存储的是ID
+            inactive_subheartflows = []
 
             # 检查所有子心流
-            # 使用 list(self._subheartflows.items()) 避免在迭代时修改字典
-            for subheartflow_id, subheartflow in list(self._subheartflows.items()):
+            for subheartflow_id, subheartflow in self._subheartflows.items():
                 if (
                     current_time - subheartflow.last_active_time > global_config.sub_heart_flow_stop_time
                 ):  # 10分钟 = 600秒
-                    logger.info(f"发现不活跃的子心流: {subheartflow_id}, 准备清理。")
-                    # 1. 标记子心流让其后台任务停止
-                    subheartflow.should_stop = True
-                    # 2. 将ID添加到待清理列表
-                    inactive_subheartflows_ids.append(subheartflow_id)
+                    inactive_subheartflows.append(subheartflow_id)
+                    logger.info(f"发现不活跃的子心流: {subheartflow_id}")
 
-            # 清理不活跃的子心流 (从字典中移除)
-            for subheartflow_id in inactive_subheartflows_ids:
-                if subheartflow_id in self._subheartflows:
-                    del self._subheartflows[subheartflow_id]
-                    logger.info(f"已从主心流移除子心流: {subheartflow_id}")
-                else:
-                    logger.warning(f"尝试移除子心流 {subheartflow_id} 时发现其已被移除。")
+            # 清理不活跃的子心流
+            for subheartflow_id in inactive_subheartflows:
+                del self._subheartflows[subheartflow_id]
+                logger.info(f"已清理不活跃的子心流: {subheartflow_id}")
 
             await asyncio.sleep(30)  # 每分钟检查一次
 
@@ -104,10 +95,8 @@ class Heartflow:
                 await asyncio.sleep(30)  # 每分钟检查一次是否有新的子心流
                 continue
 
-            # await self.do_a_thinking()
-            # await asyncio.sleep(global_config.heart_flow_update_interval * 3)  # 5分钟思考一次
-
-            await asyncio.sleep(300)
+            await self.do_a_thinking()
+            await asyncio.sleep(global_config.heart_flow_update_interval)  # 5分钟思考一次
 
     async def heartflow_start_working(self):
         # 启动清理任务
@@ -121,7 +110,7 @@ class Heartflow:
         print("TODO")
 
     async def do_a_thinking(self):
-        # logger.debug("麦麦大脑袋转起来了")
+        logger.debug("麦麦大脑袋转起来了")
         self.current_state.update_current_state_info()
 
         # 开始构建prompt
@@ -227,55 +216,33 @@ class Heartflow:
 
         return response
 
-    async def create_subheartflow(self, subheartflow_id: Any) -> Optional[SubHeartflow]:
+    async def create_subheartflow(self, subheartflow_id):
         """
-        获取或创建一个新的SubHeartflow实例。
-
-        如果实例已存在，则直接返回。
-        如果不存在，则创建实例、观察对象、启动后台任务，并返回新实例。
-        创建过程中发生任何错误将返回 None。
-
-        Args:
-            subheartflow_id: 用于标识子心流的ID (例如群聊ID)。
-
-        Returns:
-            对应的 SubHeartflow 实例，如果创建失败则返回 None。
+        创建一个新的SubHeartflow实例
+        添加一个SubHeartflow实例到self._subheartflows字典中
+        并根据subheartflow_id为子心流创建一个观察对象
         """
-        # 检查是否已存在
-        existing_subheartflow = self._subheartflows.get(subheartflow_id)
-        if existing_subheartflow:
-            logger.debug(f"返回已存在的 subheartflow: {subheartflow_id}")
-            return existing_subheartflow
 
-        # 如果不存在，则创建新的
-        logger.info(f"尝试创建新的 subheartflow: {subheartflow_id}")
         try:
-            subheartflow = SubHeartflow(subheartflow_id)
-
-            # 创建并初始化观察对象
-            logger.debug(f"为 {subheartflow_id} 创建 observation")
-            observation = ChattingObservation(subheartflow_id)
-            await observation.initialize()  # 等待初始化完成
-            subheartflow.add_observation(observation)
-            logger.debug(f"为 {subheartflow_id} 添加 observation 成功")
-
-            # 创建并存储后台任务
-            subheartflow.task = asyncio.create_task(subheartflow.subheartflow_start_working())
-            logger.debug(f"为 {subheartflow_id} 创建后台任务成功")
-
-            # 添加到管理字典
-            self._subheartflows[subheartflow_id] = subheartflow
-            logger.info(f"添加 subheartflow {subheartflow_id} 成功")
-            return subheartflow
-
+            if subheartflow_id not in self._subheartflows:
+                subheartflow = SubHeartflow(subheartflow_id)
+                # 创建一个观察对象，目前只可以用chat_id创建观察对象
+                logger.debug(f"创建 observation: {subheartflow_id}")
+                observation = ChattingObservation(subheartflow_id)
+                await observation.initialize()
+                subheartflow.add_observation(observation)
+                logger.debug("添加 observation 成功")
+                # 创建异步任务
+                asyncio.create_task(subheartflow.subheartflow_start_working())
+                logger.debug("创建异步任务 成功")
+                self._subheartflows[subheartflow_id] = subheartflow
+                logger.info("添加 subheartflow 成功")
+            return self._subheartflows[subheartflow_id]
         except Exception as e:
-            # 记录详细错误信息
-            logger.error(f"创建 subheartflow {subheartflow_id} 失败: {e}")
-            logger.error(traceback.format_exc())  # 记录完整的 traceback
-            # 考虑是否需要更具体的错误处理或资源清理逻辑
+            logger.error(f"创建 subheartflow 失败: {e}")
             return None
 
-    def get_subheartflow(self, observe_chat_id: Any) -> Optional[SubHeartflow]:
+    def get_subheartflow(self, observe_chat_id) -> SubHeartflow:
         """获取指定ID的SubHeartflow实例"""
         return self._subheartflows.get(observe_chat_id)
 

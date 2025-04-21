@@ -157,17 +157,17 @@ class ReasoningChat:
         # 消息加入缓冲池
         await message_buffer.start_caching_messages(message)
 
+        # logger.info("使用推理聊天模式")
+
         # 创建聊天流
         chat = await chat_manager.get_or_create_stream(
             platform=messageinfo.platform,
             user_info=userinfo,
             group_info=groupinfo,
         )
-
         message.update_chat_stream(chat)
 
         await message.process()
-        logger.trace(f"消息处理成功: {message.processed_plain_text}")
 
         # 过滤词/正则表达式过滤
         if self._check_ban_words(message.processed_plain_text, chat, userinfo) or self._check_ban_regex(
@@ -175,13 +175,27 @@ class ReasoningChat:
         ):
             return
 
+        await self.storage.store_message(message, chat)
+
+        # 记忆激活
+        with Timer("记忆激活", timing_results):
+            interested_rate = await HippocampusManager.get_instance().get_activate_from_text(
+                message.processed_plain_text, fast_retrieval=True
+            )
+
         # 查询缓冲器结果，会整合前面跳过的消息，改变processed_plain_text
         buffer_result = await message_buffer.query_buffer_result(message)
 
+        # 处理提及
+        is_mentioned, reply_probability = is_mentioned_bot_in_message(message)
+
+        # 意愿管理器：设置当前message信息
+        willing_manager.setup(message, chat, is_mentioned, interested_rate)
+
         # 处理缓冲器结果
         if not buffer_result:
-            # await willing_manager.bombing_buffer_message_handle(message.message_info.message_id)
-            # willing_manager.delete(message.message_info.message_id)
+            await willing_manager.bombing_buffer_message_handle(message.message_info.message_id)
+            willing_manager.delete(message.message_info.message_id)
             f_type = "seglist"
             if message.message_segment.type != "seglist":
                 f_type = message.message_segment.type
@@ -199,27 +213,6 @@ class ReasoningChat:
             elif f_type == "seglist":
                 logger.info("触发缓冲，已炸飞消息列")
             return
-
-        try:
-            await self.storage.store_message(message, chat)
-            logger.trace(f"存储成功 (通过缓冲后): {message.processed_plain_text}")
-        except Exception as e:
-            logger.error(f"存储消息失败: {e}")
-            logger.error(traceback.format_exc())
-            # 存储失败可能仍需考虑是否继续，暂时返回
-            return
-
-        is_mentioned, reply_probability = is_mentioned_bot_in_message(message)
-        # 记忆激活
-        with Timer("记忆激活", timing_results):
-            interested_rate = await HippocampusManager.get_instance().get_activate_from_text(
-                message.processed_plain_text, fast_retrieval=True
-            )
-
-        # 处理提及
-
-        # 意愿管理器：设置当前message信息
-        willing_manager.setup(message, chat, is_mentioned, interested_rate)
 
         # 获取回复概率
         is_willing = False

@@ -1,7 +1,8 @@
 [inner]
-version = "1.4.0"
+version = "1.3.1"
 
-#----以下是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
+
+#以下是给开发人员阅读的，一般用户不需要阅读
 #如果你想要修改配置文件，请在修改后将version的值进行变更
 #如果新增项目，请在BotConfig类下新增相应的变量
 #1.如果你修改的是[]层级项目，例如你新增了 [memory],那么请在config.py的 load_config函数中的include_configs字典中新增"内容":{
@@ -18,12 +19,11 @@ version = "1.4.0"
 #     次版本号：当你做了向下兼容的功能性新增，
 #     修订号：当你做了向下兼容的问题修正。
 # 先行版本号及版本编译信息可以加到“主版本号.次版本号.修订号”的后面，作为延伸。
-#----以上是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 
 [bot]
-qq = 1145141919810
+qq = 114514
 nickname = "麦麦"
-alias_names = ["麦叠", "牢麦"] #该选项还在调试中，暂时未生效
+alias_names = ["麦叠", "牢麦"]
 
 [groups]
 talk_allowed = [
@@ -41,24 +41,23 @@ personality_sides = [
     "用一句话或几句话描述人格的一些细节",
     "用一句话或几句话描述人格的一些细节",
     "用一句话或几句话描述人格的一些细节",
-]# 条数任意，不能为0, 该选项还在调试中，可能未完全生效
+]# 条数任意
 
 [identity] #アイデンティティがない 生まれないらららら
 # 兴趣爱好 未完善，有些条目未使用
 identity_detail = [
     "身份特点",
     "身份特点",
-]# 条数任意，不能为0, 该选项还在调试中，可能未完全生效
+]# 条数任意
 #外貌特征
-height = 170 # 身高 单位厘米 该选项还在调试中，暂时未生效
-weight = 50 # 体重 单位千克 该选项还在调试中，暂时未生效
-age = 20 # 年龄 单位岁 该选项还在调试中，暂时未生效
-gender = "男" # 性别 该选项还在调试中，暂时未生效
-appearance = "用几句话描述外貌特征" # 外貌特征 该选项还在调试中，暂时未生效
+height = 170 # 身高 单位厘米
+weight = 50 # 体重 单位千克
+age = 20 # 年龄 单位岁
+gender = "男" # 性别
+appearance = "用几句话描述外貌特征" # 外貌特征
 
 [schedule]
-enable_schedule_gen = true # 是否启用日程表
-enable_schedule_interaction = true # 日程表是否影响回复模式
+enable_schedule_gen = true # 是否启用日程表(尚未完成)
 prompt_schedule_gen = "用几句话描述描述性格特点或行动规律，这个特征会用来生成日程表"
 schedule_doing_update_interval = 900 # 日程表更新间隔 单位秒
 schedule_temperature = 0.1 # 日程表温度，建议0.1-0.5
@@ -68,25 +67,19 @@ time_zone = "Asia/Shanghai" # 给你的机器人设置时区，可以解决运�
 nonebot-qq="http://127.0.0.1:18002/api/message"
 
 [response] #群聊的回复策略
-enable_heart_flowC = true 
-# 该功能还在完善中
-# 是否启用heart_flowC(心流聊天,HFC)模式
-# 启用后麦麦会自主选择进入heart_flowC模式(持续一段时间），进行主动的观察和回复，并给出回复，比较消耗token
+#reasoning：推理模式，麦麦会根据上下文进行推理，并给出回复
+#heart_flow：结合了PFC模式和心流模式，麦麦会进行主动的观察和回复，并给出回复
+response_mode = "heart_flow" # 回复策略，可选值：heart_flow（心流），reasoning（推理)
 
-#一般回复参数
-model_reasoning_probability = 0.7 # 麦麦回答时选择推理模型 模型的概率
-model_normal_probability = 0.3 # 麦麦回答时选择一般模型 模型的概率
+#推理回复参数
+model_r1_probability = 0.7 # 麦麦回答时选择主要回复模型1 模型的概率
+model_v3_probability = 0.3 # 麦麦回答时选择次要回复模型2 模型的概率
 
-[heartflow] #启用启用heart_flowC(心流聊天)模式时生效，需要填写以下参数
-reply_trigger_threshold = 3.0 # 心流聊天触发阈值，越低越容易进入心流聊天
-probability_decay_factor_per_second = 0.2 # 概率衰减因子，越大衰减越快，越高越容易退出心流聊天
-default_decay_rate_per_second = 0.98 # 默认衰减率，越大衰减越快，越高越难进入心流聊天
-initial_duration = 60 # 初始持续时间，越大心流聊天持续的时间越长
-
+[heartflow] # 注意：可能会消耗大量token，请谨慎开启，仅会使用v3模型
+sub_heart_flow_update_interval = 60 # 子心流更新频率，间隔 单位秒
+sub_heart_flow_freeze_time = 100 # 子心流冻结时间，超过这个时间没有回复，子心流会冻结，间隔 单位秒
 sub_heart_flow_stop_time = 500 # 子心流停止时间，超过这个时间没有回复，子心流会停止，间隔 单位秒
-# sub_heart_flow_update_interval = 60 
-# sub_heart_flow_freeze_time = 100 
-# heart_flow_update_interval = 600 
+heart_flow_update_interval = 600 # 心流更新频率，间隔 单位秒
 
 observation_context_size = 20 # 心流观察到的最长上下文大小，超过这个值的上下文会被压缩
 compressed_length = 5 # 不能大于observation_context_size,心流上下文压缩的最短压缩长度，超过心流观察到的上下文长度，会压缩，最短压缩长度为5
@@ -94,13 +87,11 @@ compress_length_limit = 5 #最多压缩份数，超过该数值的压缩上下�
 
 
 [message]
-max_context_size = 12 # 麦麦回复时获得的上文数量，建议12，太短太长都会导致脑袋尖尖
-emoji_chance = 0.2 # 麦麦一般回复时使用表情包的概率，设置为1让麦麦自己决定发不发
-thinking_timeout = 100 # 麦麦最长思考时间，超过这个时间的思考会放弃（往往是api反应太慢）
-max_response_length = 256 # 麦麦单次回答的最大token数
+max_context_size = 12 # 麦麦获得的上文数量，建议12，太短太长都会导致脑袋尖尖
+emoji_chance = 0.2 # 麦麦使用表情包的概率，设置为1让麦麦自己决定发不发
+thinking_timeout = 60 # 麦麦最长思考时间，超过这个时间的思考会放弃
+max_response_length = 256 # 麦麦回答的最大token数
 message_buffer = true # 启用消息缓冲器？启用此项以解决消息的拆分问题，但会使麦麦的回复延迟
-
-# 以下是消息过滤，可以根据规则过滤特定消息，将不会读取这些消息
 ban_words = [
     # "403","张三"
     ]
@@ -112,23 +103,22 @@ ban_msgs_regex = [
     # "\\[CQ:at,qq=\\d+\\]" # 匹配@
 ]
 
-[willing] # 一般回复模式的回复意愿设置
+[willing]
 willing_mode = "classical" # 回复意愿模式 —— 经典模式：classical，动态模式：dynamic，mxp模式：mxp，自定义模式：custom（需要你自己实现）
 response_willing_amplifier = 1 # 麦麦回复意愿放大系数，一般为1
 response_interested_rate_amplifier = 1 # 麦麦回复兴趣度放大系数,听到记忆里的内容时放大系数
 down_frequency_rate = 3 # 降低回复频率的群组回复意愿降低系数 除法
-emoji_response_penalty = 0 # 表情包回复惩罚系数，设为0为不回复单个表情包，减少单独回复表情包的概率
+emoji_response_penalty = 0.1 # 表情包回复惩罚系数，设为0为不回复单个表情包，减少单独回复表情包的概率
 mentioned_bot_inevitable_reply = false # 提及 bot 必然回复
 at_bot_inevitable_reply = false # @bot 必然回复
 
 [emoji]
-max_emoji_num = 90 # 表情包最大数量
+max_emoji_num = 120 # 表情包最大数量
 max_reach_deletion = true # 开启则在达到最大数量时删除表情包，关闭则达到最大数量时不删除，只是不会继续收集表情包
 check_interval = 30 # 检查表情包（注册，破损，删除）的时间间隔(分钟)
 auto_save = true  # 是否保存表情包和图片
-
-enable_check = false  # 是否启用表情包过滤，只有符合该要求的表情包才会被保存
-check_prompt = "符合公序良俗" # 表情包过滤要求，只有符合该要求的表情包才会被保存
+enable_check = false  # 是否启用表情包过滤
+check_prompt = "符合公序良俗" # 表情包过滤要求
 
 [memory]
 build_memory_interval = 2000 # 记忆构建间隔 单位秒   间隔越低，麦麦学习越多，但是冗余信息也会增多
@@ -141,8 +131,7 @@ forget_memory_interval = 1000 # 记忆遗忘间隔 单位秒   间隔越低，�
 memory_forget_time = 24 #多长时间后的记忆会被遗忘 单位小时 
 memory_forget_percentage = 0.01 # 记忆遗忘比例 控制记忆遗忘程度 越大遗忘越多 建议保持默认
 
-#不希望记忆的词，已经记忆的不会受到影响
-memory_ban_words = [ 
+memory_ban_words = [ #不希望记忆的词
     # "403","张三"
 ]
 
@@ -178,7 +167,7 @@ word_replace_rate=0.006 # 整词替换概率
 
 [response_splitter]
 enable_response_splitter = true # 是否启用回复分割器
-response_max_length = 256 # 回复允许的最大长度
+response_max_length = 100 # 回复允许的最大长度
 response_max_sentence_num = 4 # 回复允许的最大句子数
 
 [remote] #发送统计信息，主要是看全球有多少只麦麦

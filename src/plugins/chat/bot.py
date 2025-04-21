@@ -105,24 +105,53 @@ class ChatBot:
                 template_group_name = None
 
             async def preprocess():
-                if groupinfo is None:
-                    if global_config.enable_friend_chat:
-                        if global_config.enable_pfc_chatting:
-                            userinfo = message.message_info.user_info
-                            messageinfo = message.message_info
-                            # 创建聊天流
-                            chat = await chat_manager.get_or_create_stream(
-                                platform=messageinfo.platform,
-                                user_info=userinfo,
-                                group_info=groupinfo,
-                            )
-                            message.update_chat_stream(chat)
-                            await self.only_process_chat.process_message(message)
-                            await self._create_pfc_chat(message)
+                if global_config.enable_pfc_chatting:
+                    try:
+                        if groupinfo is None:
+                            if global_config.enable_friend_chat:
+                                userinfo = message.message_info.user_info
+                                messageinfo = message.message_info
+                                # 创建聊天流
+                                chat = await chat_manager.get_or_create_stream(
+                                    platform=messageinfo.platform,
+                                    user_info=userinfo,
+                                    group_info=groupinfo,
+                                )
+                                message.update_chat_stream(chat)
+                                await self.only_process_chat.process_message(message)
+                                await self._create_pfc_chat(message)
                         else:
-                            await self.heartFC_processor.process_message(message_data)
+                            if groupinfo.group_id in global_config.talk_allowed_groups:
+                                # logger.debug(f"开始群聊模式{str(message_data)[:50]}...")
+                                if global_config.response_mode == "heart_flow":
+                                    # logger.info(f"启动最新最好的思维流FC模式{str(message_data)[:50]}...")
+                                    await self.heartFC_processor.process_message(message_data)
+                                elif global_config.response_mode == "reasoning":
+                                    # logger.debug(f"开始推理模式{str(message_data)[:50]}...")
+                                    await self.reasoning_chat.process_message(message_data)
+                                else:
+                                    logger.error(f"未知的回复模式，请检查配置文件！！: {global_config.response_mode}")
+                    except Exception as e:
+                        logger.error(f"处理PFC消息失败: {e}")
                 else:
-                    await self.heartFC_processor.process_message(message_data)
+                    if groupinfo is None:
+                        if global_config.enable_friend_chat:
+                            # 私聊处理流程
+                            # await self._handle_private_chat(message)
+                            if global_config.response_mode == "heart_flow":
+                                await self.heartFC_processor.process_message(message_data)
+                            elif global_config.response_mode == "reasoning":
+                                await self.reasoning_chat.process_message(message_data)
+                            else:
+                                logger.error(f"未知的回复模式，请检查配置文件！！: {global_config.response_mode}")
+                    else:  # 群聊处理
+                        if groupinfo.group_id in global_config.talk_allowed_groups:
+                            if global_config.response_mode == "heart_flow":
+                                await self.heartFC_processor.process_message(message_data)
+                            elif global_config.response_mode == "reasoning":
+                                await self.reasoning_chat.process_message(message_data)
+                            else:
+                                logger.error(f"未知的回复模式，请检查配置文件！！: {global_config.response_mode}")
 
             if template_group_name:
                 async with global_prompt_manager.async_message_scope(template_group_name):

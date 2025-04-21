@@ -117,7 +117,7 @@ class MainSystem:
             await interest_manager.start_background_tasks()
             logger.success("兴趣管理器后台任务启动成功")
 
-            # 初始化并独立启动 HeartFCController
+            # 初始化并独立启动 HeartFC_Chat
             HeartFCController()
             heartfc_chat_instance = HeartFCController.get_instance()
             if heartfc_chat_instance:

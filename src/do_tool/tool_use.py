@@ -47,6 +47,7 @@ class ToolUser:
         prompt += message_txt
         # prompt += f"你注意到{sender_name}刚刚说：{message_txt}\n"
         prompt += f"注意你就是{bot_name}，{bot_name}是你的名字。根据之前的聊天记录补充问题信息，搜索时避开你的名字。\n"
+        prompt += "必须调用 'lpmm_get_knowledge' 工具来获取知识。\n"
         prompt += "你现在需要对群里的聊天内容进行回复，现在选择工具来对消息和你的回复进行处理，你是否需要额外的信息，比如回忆或者搜寻已有的知识，改变关系和情感，或者了解你现在正在做什么。"
 
         prompt = await relationship_manager.convert_all_person_sign_to_person_name(prompt)

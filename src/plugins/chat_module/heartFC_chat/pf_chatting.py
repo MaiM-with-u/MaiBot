@@ -15,9 +15,6 @@ from src.config.config import global_config
 from src.plugins.chat.utils_image import image_path_to_base64  # Local import needed after move
 from src.plugins.utils.timer_calculater import Timer  # <--- Import Timer
 
-INITIAL_DURATION = 60.0
-
-
 # 定义日志配置 (使用 loguru 格式)
 interest_log_config = LogConfig(
     console_format=PFC_STYLE_CONFIG["console_format"],  # 使用默认控制台格式
@@ -70,7 +67,7 @@ class PFChatting:
 
         Args:
             chat_id: The identifier for the chat stream (e.g., stream_id).
-            heartfc_controller_instance: 访问共享资源和方法的主HeartFCController实例。
+            heartfc_controller_instance: 访问共享资源和方法的主HeartFC_Controller实例。
         """
         self.heartfc_controller = heartfc_controller_instance  # Store the controller instance
         self.stream_id: str = chat_id
@@ -94,7 +91,7 @@ class PFChatting:
         self._loop_active: bool = False  # Is the loop currently running?
         self._loop_task: Optional[asyncio.Task] = None  # Stores the main loop task
         self._trigger_count_this_activation: int = 0  # Counts triggers within an active period
-        self._initial_duration: float = INITIAL_DURATION  # 首次触发增加的时间
+        self._initial_duration: float = 60.0  # 首次触发增加的时间
         self._last_added_duration: float = self._initial_duration  # <--- 新增：存储上次增加的时间
 
     def _get_log_prefix(self) -> str:

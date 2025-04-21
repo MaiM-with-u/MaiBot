@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://github.com/MaiM-with-u/MaiBot/">
-    <img src="depends-data/maimai.png" alt="Logo" style="max-width: 200px">
+    <img src="depends-data/maimai.png" alt="Logo" width="200">
   </a>
   <br />
   <a href="https://space.bilibili.com/1344099355">
@@ -34,6 +34,7 @@
     ·
     <a href="https://github.com/MaiM-with-u/MaiBot/issues">提出新特性</a>
   </p>
+  
 </p>
 
 ## 新版0.6.x部署前先阅读：https://docs.mai-mai.org/manual/usage/mmc_q_a
@@ -52,7 +53,7 @@
 
 <div align="center">
 <a href="https://www.bilibili.com/video/BV1amAneGE3P" target="_blank">
-    <img src="depends-data/video.png" style="max-width: 200px" alt="麦麦演示视频">
+    <img src="depends-data/video.png" width="200" alt="麦麦演示视频">
     <br>
     👆 点击观看麦麦演示视频 👆
 </a>
@@ -98,7 +99,7 @@
 
 
 <div align="left">
-<h2>📚 文档 </h2>
+<h2>📚 文档</h2>
 </div>
 
 ### (部分内容可能过时，请注意版本对应)
@@ -185,7 +186,7 @@ MaiCore是一个开源项目，我们非常欢迎你的参与。你的贡献，�
 感谢各位大佬！
 
 <a href="https://github.com/MaiM-with-u/MaiBot/graphs/contributors">
-  <img alt="contributors" src="https://contrib.rocks/image?repo=MaiM-with-u/MaiBot" />
+  <img src="https://contrib.rocks/image?repo=MaiM-with-u/MaiBot" />
 </a>
 
 **也感谢每一位给麦麦发展提出宝贵意见与建议的用户，感谢陪伴麦麦走到现在的你们**

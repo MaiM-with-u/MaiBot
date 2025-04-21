@@ -6,7 +6,6 @@ import json  # 引入 json
 import os  # 引入 os
 from typing import Optional  # <--- 添加导入
 import random  # <--- 添加导入 random
-from src.plugins.chat.message import MessageRecv
 from src.common.logger import get_module_logger, LogConfig, DEFAULT_CONFIG  # 引入 DEFAULT_CONFIG
 from src.plugins.chat.chat_stream import chat_manager  # *** Import ChatManager ***
 
@@ -66,13 +65,6 @@ class InterestChatting:
         self.current_reply_probability: float = 0.0
         self.is_above_threshold: bool = False  # 标记兴趣值是否高于阈值
         # --- 结束：概率回复相关属性 ---
-
-        # 记录激发兴趣对(消息id,激活值)
-        self.interest_dict = {}
-
-    def add_interest_dict(self, message: MessageRecv, interest_value: float, is_mentioned: bool):
-        # Store the MessageRecv object and the interest value as a tuple
-        self.interest_dict[message.message_info.message_id] = (message, interest_value, is_mentioned)
 
     def _calculate_decay(self, current_time: float):
         """计算从上次更新到现在的衰减"""
@@ -452,10 +444,6 @@ class InterestManager:
         else:
             stream_name = chat_manager.get_stream_name(stream_id) or stream_id  # 获取流名称
             logger.warning(f"尝试降低不存在的聊天流 {stream_name} 的兴趣度")
-
-    def add_interest_dict(self, message: MessageRecv, interest_value: float, is_mentioned: bool):
-        interest_chatting = self._get_or_create_interest_chatting(message.chat_stream.stream_id)
-        interest_chatting.add_interest_dict(message, interest_value, is_mentioned)
 
     def cleanup_inactive_chats(self, max_age_seconds=INACTIVE_THRESHOLD_SECONDS):
         """

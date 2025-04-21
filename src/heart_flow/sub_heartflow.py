@@ -4,7 +4,8 @@ from src.plugins.moods.moods import MoodManager
 from src.plugins.models.utils_model import LLMRequest
 from src.config.config import global_config
 import time
-from typing import Optional, List
+from typing import Optional
+from datetime import datetime
 import traceback
 from src.plugins.chat.utils import parse_text_timestamps
 
@@ -64,7 +65,7 @@ class SubHeartflow:
     def __init__(self, subheartflow_id):
         self.subheartflow_id = subheartflow_id
 
-        self.current_mind = "你什么也没想"
+        self.current_mind = ""
         self.past_mind = []
         self.current_state: CurrentState = CurrentState()
         self.llm_model = LLMRequest(
@@ -76,13 +77,15 @@ class SubHeartflow:
 
         self.main_heartflow_info = ""
 
+        self.last_reply_time = time.time()
         self.last_active_time = time.time()  # 添加最后激活时间
-        self.should_stop = False  # 添加停止标志
-        self.task: Optional[asyncio.Task] = None  # 添加 task 属性
+
+        if not self.current_mind:
+            self.current_mind = "你什么也没想"
 
         self.is_active = False
 
-        self.observations: List[ChattingObservation] = []  # 使用 List 类型提示
+        self.observations: list[ChattingObservation] = []
 
         self.running_knowledges = []
 
@@ -90,13 +93,19 @@ class SubHeartflow:
 
     async def subheartflow_start_working(self):
         while True:
+            current_time = time.time()
             # --- 调整后台任务逻辑 --- #
             # 这个后台循环现在主要负责检查是否需要自我销毁
             # 不再主动进行思考或状态更新，这些由 HeartFC_Chat 驱动
 
-            # 检查是否被主心流标记为停止
-            if self.should_stop:
-                logger.info(f"子心流 {self.subheartflow_id} 被标记为停止，正在退出后台任务...")
+            # 检查是否超过指定时间没有激活 (例如，没有被调用进行思考)
+            if current_time - self.last_active_time > global_config.sub_heart_flow_stop_time:  # 例如 5 分钟
+                logger.info(
+                    f"子心流 {self.subheartflow_id} 超过 {global_config.sub_heart_flow_stop_time} 秒没有激活，正在销毁..."
+                    f" (Last active: {datetime.fromtimestamp(self.last_active_time).strftime('%Y-%m-%d %H:%M:%S')})"
+                )
+                # 在这里添加实际的销毁逻辑，例如从主 Heartflow 管理器中移除自身
+                # heartflow.remove_subheartflow(self.subheartflow_id) # 假设有这样的方法
                 break  # 退出循环以停止任务
 
             await asyncio.sleep(global_config.sub_heart_flow_update_interval)  # 定期检查销毁条件

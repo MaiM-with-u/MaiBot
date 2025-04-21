@@ -13,7 +13,6 @@ from ...chat.message_buffer import message_buffer
 from ...utils.timer_calculater import Timer
 from .interest import InterestManager
 from src.plugins.person_info.relationship_manager import relationship_manager
-from .reasoning_chat import ReasoningChat
 
 # 定义日志配置
 processor_config = LogConfig(
@@ -30,7 +29,7 @@ class HeartFCProcessor:
     def __init__(self):
         self.storage = MessageStorage()
         self.interest_manager = InterestManager()
-        self.reasoning_chat = ReasoningChat.get_instance()
+        # self.chat_instance = chat_instance  # 持有 HeartFC_Chat 实例
 
     async def process_message(self, message_data: str) -> None:
         """处理接收到的原始消息数据，完成消息解析、缓冲、过滤、存储、兴趣度计算与更新等核心流程。
@@ -73,11 +72,11 @@ class HeartFCProcessor:
                 user_info=userinfo,
                 group_info=groupinfo,
             )
-
-            # --- 添加兴趣追踪启动 ---
-            # 在获取到 chat 对象后，启动对该聊天流的兴趣监控
-            await self.reasoning_chat.start_monitoring_interest(chat)
-            # --- 结束添加 ---
+            if not chat:
+                logger.error(
+                    f"无法为消息创建或获取聊天流: user {userinfo.user_id}, group {groupinfo.group_id if groupinfo else 'None'}"
+                )
+                return
 
             message.update_chat_stream(chat)
 
@@ -91,6 +90,7 @@ class HeartFCProcessor:
                 message.raw_message, chat, userinfo
             ):
                 return
+            logger.trace(f"过滤词/正则表达式过滤成功: {message.processed_plain_text}")
 
             # 查询缓冲器结果
             buffer_result = await message_buffer.query_buffer_result(message)
@@ -151,8 +151,6 @@ class HeartFCProcessor:
                 logger.trace(
                     f"使用激活率 {interested_rate:.2f} 更新后 (通过缓冲后)，当前兴趣度: {current_interest:.2f}"
                 )
-
-                self.interest_manager.add_interest_dict(message, interested_rate, is_mentioned)
 
             except Exception as e:
                 logger.error(f"更新兴趣度失败: {e}")  # 调整日志消息
