@@ -1,7 +1,6 @@
 import os
 import sys
 import requests
-from dotenv import load_dotenv
 import hashlib
 from datetime import datetime
 from tqdm import tqdm
@@ -14,19 +13,14 @@ sys.path.append(root_path)
 
 # 现在可以导入src模块
 from src.common.database import db  # noqa E402
-
-# 加载根目录下的env.edv文件
-env_path = os.path.join(root_path, ".env")
-if not os.path.exists(env_path):
-    raise FileNotFoundError(f"配置文件不存在: {env_path}")
-load_dotenv(env_path)
+from src.env import env
 
 
 class KnowledgeLibrary:
     def __init__(self):
         self.raw_info_dir = "data/raw_info"
         self._ensure_dirs()
-        self.api_key = os.getenv("SILICONFLOW_KEY")
+        self.api_key =  env.getenv("SILICONFLOW_KEY")
         if not self.api_key:
             raise ValueError("SILICONFLOW_API_KEY 环境变量未设置")
         self.console = Console()

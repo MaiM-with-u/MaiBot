@@ -1,11 +1,11 @@
 import asyncio
-import os
 import time
 from typing import Tuple, Union
 
 import aiohttp
 import requests
 from src.common.logger import get_module_logger
+from src.env import env
 
 logger = get_module_logger("offline_llm")
 
@@ -14,8 +14,8 @@ class LLMRequestOff:
     def __init__(self, model_name="deepseek-ai/DeepSeek-V3", **kwargs):
         self.model_name = model_name
         self.params = kwargs
-        self.api_key = os.getenv("SILICONFLOW_KEY")
-        self.base_url = os.getenv("SILICONFLOW_BASE_URL")
+        self.api_key =  env.getenv("SILICONFLOW_KEY")
+        self.base_url =  env.getenv("SILICONFLOW_BASE_URL")
 
         if not self.api_key or not self.base_url:
             raise ValueError("环境变量未正确加载：SILICONFLOW_KEY 或 SILICONFLOW_BASE_URL 未设置")

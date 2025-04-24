@@ -2,10 +2,16 @@ from fastapi import FastAPI, APIRouter
 from typing import Optional
 from uvicorn import Config, Server as UvicornServer
 import os
+from src.env import env
 
 
 class Server:
-    def __init__(self, host: Optional[str] = None, port: Optional[int] = None, app_name: str = "MaiMCore"):
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        app_name: str = "MaiMCore",
+    ):
         self.app = FastAPI(title=app_name)
         self._host: str = "127.0.0.1"
         self._port: int = 8080
@@ -46,7 +52,13 @@ class Server:
     async def run(self):
         """启动服务器"""
         # 禁用 uvicorn 默认日志和访问日志
-        config = Config(app=self.app, host=self._host, port=self._port, log_config=None, access_log=False)
+        config = Config(
+            app=self.app,
+            host=self._host,
+            port=self._port,
+            log_config=None,
+            access_log=False,
+        )
         self._server = UvicornServer(config=config)
         try:
             await self._server.serve()
@@ -71,4 +83,4 @@ class Server:
         return self.app
 
 
-global_server = Server(host=os.environ["HOST"], port=int(os.environ["PORT"]))
+global_server = Server(host=env.getenv("HOST"), port=int(env.getenv("PORT")))

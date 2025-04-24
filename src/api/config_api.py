@@ -145,11 +145,3 @@ class BotConfig:
 
     api_urls: Dict[str, str]  # API URLs
 
-
-@strawberry.type
-class EnvConfig:
-    pass
-
-    @strawberry.field
-    def get_env(self) -> str:
-        return "env"

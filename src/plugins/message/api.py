@@ -3,6 +3,7 @@ from typing import Dict, Any, Callable, List, Set, Optional
 from src.common.logger import get_module_logger
 from src.plugins.message.message_base import MessageBase
 from src.common.server import global_server
+from src.env import env
 import aiohttp
 import asyncio
 import uvicorn
@@ -247,4 +248,4 @@ class MessageServer(BaseMessageHandler):
                 raise e
 
 
-global_api = MessageServer(host=os.environ["HOST"], port=int(os.environ["PORT"]), app=global_server.get_app())
+global_api = MessageServer(host= env.getenv("HOST"), port=int( env.getenv("PORT")), app=global_server.get_app())

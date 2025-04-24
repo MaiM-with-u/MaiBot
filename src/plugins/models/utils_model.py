@@ -14,7 +14,7 @@ import io
 import os
 from ...common.database import db
 from ...config.config import global_config
-
+from src.env import env
 logger = get_module_logger("model_utils")
 
 
@@ -86,8 +86,8 @@ class LLMRequest:
     def __init__(self, model: dict, **kwargs):
         # 将大写的配置键转换为小写并从config中获取实际值
         try:
-            self.api_key = os.environ[model["key"]]
-            self.base_url = os.environ[model["base_url"]]
+            self.api_key =  env.getenv(model["key"])
+            self.base_url =  env.getenv(model["base_url"])
         except AttributeError as e:
             logger.error(f"原始 model dict 信息：{model}")
             logger.error(f"配置错误：找不到对应的配置项 - {str(e)}")

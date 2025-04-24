@@ -1,15 +1,11 @@
 from loguru import logger
 from typing import Dict, Optional, Union, List, Tuple
 import sys
-import os
 from types import ModuleType
 from pathlib import Path
-from dotenv import load_dotenv
+from src.env import env
 # from ..plugins.chat.config import global_config
 
-# 加载 .env 文件
-env_path = Path(__file__).resolve().parent.parent.parent / ".env"
-load_dotenv(dotenv_path=env_path)
 
 # 保存原生处理器ID
 default_handler_id = None
@@ -32,7 +28,7 @@ _custom_style_handlers: Dict[Tuple[str, str], List[int]] = {}  # 记录自定义
 current_file_path = Path(__file__).resolve()
 LOG_ROOT = "logs"
 
-SIMPLE_OUTPUT = os.getenv("SIMPLE_OUTPUT", "false").strip().lower()
+SIMPLE_OUTPUT =  env.getenv("SIMPLE_OUTPUT", "false").strip().lower()
 if SIMPLE_OUTPUT == "true":
     SIMPLE_OUTPUT = True
 else:
@@ -625,7 +621,7 @@ def get_module_logger(
     # 控制台处理器
     console_id = logger.add(
         sink=sys.stderr,
-        level=os.getenv("CONSOLE_LOG_LEVEL", console_level or current_config["console_level"]),
+        level= env.getenv("CONSOLE_LOG_LEVEL", console_level or current_config["console_level"]),
         format=current_config["console_format"],
         filter=lambda record: record["extra"].get("module") == module_name and "custom_style" not in record["extra"],
         enqueue=True,
@@ -640,7 +636,7 @@ def get_module_logger(
 
     file_id = logger.add(
         sink=str(log_file),
-        level=os.getenv("FILE_LOG_LEVEL", file_level or current_config["file_level"]),
+        level= env.getenv("FILE_LOG_LEVEL", file_level or current_config["file_level"]),
         format=current_config["file_format"],
         rotation=current_config["rotation"],
         retention=current_config["retention"],
@@ -686,7 +682,7 @@ def add_custom_style_handler(
     try:
         custom_console_id = logger.add(
             sink=sys.stderr,
-            level=os.getenv(f"{module_name.upper()}_{style_name.upper()}_CONSOLE_LEVEL", console_level),
+            level= env.getenv(f"{module_name.upper()}_{style_name.upper()}_CONSOLE_LEVEL", console_level),
             format=console_format,
             filter=lambda record: record["extra"].get("module") == module_name
             and record["extra"].get("custom_style") == style_name,
@@ -710,7 +706,7 @@ def add_custom_style_handler(
     #     try:
     #         custom_file_id = logger.add(
     #             sink=str(log_file),
-    #             level=os.getenv(f"{module_name.upper()}_{style_name.upper()}_FILE_LEVEL", file_level),
+    #             level= env.getenv(f"{module_name.upper()}_{style_name.upper()}_FILE_LEVEL", file_level),
     #             format=file_format,
     #             rotation=current_config["rotation"],
     #             retention=current_config["retention"],
@@ -753,10 +749,10 @@ def remove_module_logger(module_name: str) -> None:
 
 
 # 添加全局默认处理器（只处理未注册模块的日志--->控制台）
-# print(os.getenv("DEFAULT_CONSOLE_LOG_LEVEL", "SUCCESS"))
+# print( env.getenv("DEFAULT_CONSOLE_LOG_LEVEL", "SUCCESS"))
 DEFAULT_GLOBAL_HANDLER = logger.add(
     sink=sys.stderr,
-    level=os.getenv("DEFAULT_CONSOLE_LOG_LEVEL", "SUCCESS"),
+    level= env.getenv("DEFAULT_CONSOLE_LOG_LEVEL", "SUCCESS"),
     format=(
         "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
         "<level>{level: <8}</level> | "
@@ -775,7 +771,7 @@ other_log_dir.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_FILE_HANDLER = logger.add(
     sink=str(other_log_dir / "{time:YYYY-MM-DD}.log"),
-    level=os.getenv("DEFAULT_FILE_LOG_LEVEL", "DEBUG"),
+    level= env.getenv("DEFAULT_FILE_LOG_LEVEL", "DEBUG"),
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name: <15} | {message}",
     rotation=DEFAULT_CONFIG["rotation"],
     retention=DEFAULT_CONFIG["retention"],

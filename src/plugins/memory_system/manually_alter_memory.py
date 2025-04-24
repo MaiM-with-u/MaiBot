@@ -8,8 +8,6 @@ from rich.console import Console
 from Hippocampus import Hippocampus  # 海马体和记忆图
 
 
-from dotenv import load_dotenv
-
 
 """
 我想 总有那么一个瞬间
@@ -35,15 +33,6 @@ from src.common.database import db  # noqa E402
 
 logger = get_module_logger("mem_alter")
 console = Console()
-
-# 加载环境变量
-if env_path.exists():
-    logger.info(f"从 {env_path} 加载环境变量")
-    load_dotenv(env_path)
-else:
-    logger.warning(f"未找到环境变量文件: {env_path}")
-    logger.info("将使用默认配置")
-
 
 # 查询节点信息
 def query_mem_info(hippocampus: Hippocampus):

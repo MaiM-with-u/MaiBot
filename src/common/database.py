@@ -1,19 +1,18 @@
-import os
 from pymongo import MongoClient
 from pymongo.database import Database
-
+from src.env import env
 _client = None
 _db = None
 
 
 def __create_database_instance():
-    uri = os.getenv("MONGODB_URI")
-    host = os.getenv("MONGODB_HOST", "127.0.0.1")
-    port = int(os.getenv("MONGODB_PORT", "27017"))
+    uri = env.getenv("MONGODB_URI")
+    host =  env.getenv("MONGODB_HOST", "127.0.0.1")
+    port = int( env.getenv("MONGODB_PORT", "27017"))
     # db_name 变量在创建连接时不需要，在获取数据库实例时才使用
-    username = os.getenv("MONGODB_USERNAME")
-    password = os.getenv("MONGODB_PASSWORD")
-    auth_source = os.getenv("MONGODB_AUTH_SOURCE")
+    username =  env.getenv("MONGODB_USERNAME")
+    password =  env.getenv("MONGODB_PASSWORD")
+    auth_source =  env.getenv("MONGODB_AUTH_SOURCE")
 
     if uri:
         # 支持标准mongodb://和mongodb+srv://连接字符串
@@ -39,7 +38,7 @@ def get_db():
     global _client, _db
     if _client is None:
         _client = __create_database_instance()
-        _db = _client[os.getenv("DATABASE_NAME", "MegBot")]
+        _db = _client[ env.getenv("DATABASE_NAME", "MegBot")]
     return _db
 
 
