@@ -159,7 +159,6 @@ def parse_specific_oclock(time_description: str, local_tz: timezone) -> Optional
     now_local = datetime.now(local_tz) # 使用传入的 UTC+8 时区获取当前时间
     target_hour: Optional[int] = None
     hour_part = None # 用于记录提取出的小时部分 (如 "八", "8")
-    # period_specified = False # 移除：标记是否明确指定了时间段
 
     # 使用正则表达式匹配，允许可选的前缀
     pattern = r"^(?:(早上|上午|中午|下午|晚上|morning|afternoon|evening|night))?([一二三四五六七八九十零]|[0-9]{1,2})[点時]$"
@@ -168,14 +167,10 @@ def parse_specific_oclock(time_description: str, local_tz: timezone) -> Optional
     if not match:
         logger.debug(f"'parse_specific_oclock' 未匹配到模式: '{time_description}'")
         return None
-
+    
     # period_part = match.group(1) # 获取时间段部分 (仍然可以获取，但不再用于 PM 推断逻辑)
     hour_part = match.group(2) # 获取小时部分
 
-    # if period_part: # 移除
-    #     period_specified = True # 移除
-
-    # Convert hour part to integer
     if hour_part in CHINESE_NUMERALS:
         num = CHINESE_NUMERALS[hour_part]
         # 支持 0 点到 24 点 (24点视为次日0点)
@@ -192,9 +187,9 @@ def parse_specific_oclock(time_description: str, local_tz: timezone) -> Optional
         logger.warning(f"无法从 '{time_description}' 的小时部分 '{hour_part}' 解析出有效小时 (0-24)。")
         return None
 
-    # --- 新增：根据上下文推断 PM --- #
+    # --- 根据上下文推断 PM --- #
     original_target_hour = target_hour # 保存原始解析的小时
-    # 移除 not period_specified 条件
+    
     if now_local.hour >= 12 and 1 <= target_hour <= 6:
         # 如果当前是中午或之后，且小时是 1-6 点，则假定用户指的是 PM
         target_hour += 12
@@ -742,9 +737,10 @@ class TaskScheduler:
 # --- ScheduleTaskTool 类 (自动判断模式) --- #
 class ScheduleTaskTool(BaseTool):
     name = "schedule_task"
-    description = ("只要关系到时间规划，或者是对于未来时间的安排，无论是用户请求还是你自己请求，你必须使用到工具\n"
-                   "如果想更新一个已经存在的任务，需要告诉我你想更新的是哪件事，还有新的执行时间。默认情况下这会覆盖掉原来的安排，如果你不想覆盖，需要明确设置。\n"
-                   "如果想取消一个任务，只需要告诉我你想取消的是哪件事就行了，不用说时间。\n")
+    description = ("当你需要处理未来的提醒或计划时，无论是响应别人的请求（比如'五分钟后提醒我'），还是你自己需要记住完成当前事情后做某事（比如估算完成时间后提醒别人），你必须使用这个功能。\n"
+                   "如果想更新一个已存在的任务，需要告诉我你想更新的是哪件事和新的执行时间（默认会覆盖旧安排）。\n"
+                   "如果想取消一个任务，只需要告诉我你想取消的是哪件事就行了。\n"#目前为准确描述，效果不佳，需要改进
+                   "它能听懂很多时间说法，像是'五分钟后'、'明天早上'、'下周一'等等。") # 微调描述，暗示可基于自身状态使用
     parameters = {
         "type": "object",
         "properties": {
