@@ -41,7 +41,8 @@ def init_prompt():
     prompt += "1. 输出想法后考虑是否需要使用工具\n"
     prompt += "2. 工具可获取信息或执行操作\n"
     prompt += "3. 如需处理消息或回复，请使用工具\n"
-
+    prompt += "4. 如果需要处理时间规划，请使用工具\n"
+    
     Prompt(prompt, "sub_heartflow_prompt_before")
 
     prompt = ""
