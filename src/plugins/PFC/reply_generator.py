@@ -1,6 +1,9 @@
-from typing import Tuple, List, Dict, Any
+# PFC/reply_generator.py
+import traceback
+from typing import Tuple, List, Dict, Any, Optional # Added Optional
 from src.common.logger import get_module_logger
-from ..models.utils_model import LLMRequest
+# from ..models.utils_model import LLMRequest # Ensure correct path
+from src.common.utils_llm import LLMRequest # Using updated common location assumption
 from ...config.config import global_config
 from .chat_observer import ChatObserver
 from .reply_checker import ReplyChecker
@@ -16,13 +19,17 @@ logger = get_module_logger("reply_generator")
 # Prompt for direct_reply (首次回复)
 PROMPT_DIRECT_REPLY = """{persona_text}。现在你在参与一场QQ私聊，请根据以下信息生成一条回复：
 
-当前对话目标：{goals_str}
-最近的聊天记录：
+【当前对话目标】
+{goals_str}
+【你现在的想法】
+『{pfc_heartflow}』
+
+【最近的聊天记录】
 {chat_history_text}
+--- 消息结束 ---
 
-
-请根据上述信息，结合聊天记录，回复对方。该回复应该：
-1. 符合对话目标，以"你"的角度发言（不要自己与自己对话！）
+请根据上述信息，结合聊天记录和你自己的想法，回复对方。该回复应该：
+1. 符合对话目标和你的内心想法，以"你"的角度发言（不要自己与自己对话！）
 2. 符合你的性格特征和身份细节
 3. 通俗易懂，自然流畅，像正常聊天一样，简短（通常20字以内，除非特殊情况）
 4. 适当利用相关知识，但不要生硬引用
@@ -33,18 +40,22 @@ PROMPT_DIRECT_REPLY = """{persona_text}。现在你在参与一场QQ私聊，请
 请你注意不要输出多余内容(包括前后缀，冒号和引号，括号，表情等)，只输出回复内容。
 不要输出多余内容(包括前后缀，冒号和引号，括号，表情包，at或 @等 )。
 
-请直接输出回复内容，不需要任何额外格式。"""
+请直接输出回复内容，不需要任何额外格式。""" # Added heartflow placeholder and updated instructions
 
 # Prompt for send_new_message (追问/补充)
-PROMPT_SEND_NEW_MESSAGE = """{persona_text}。现在你在参与一场QQ私聊，**刚刚你已经发送了一条或多条消息**，现在请根据以下信息再发一条新消息： 
+PROMPT_SEND_NEW_MESSAGE = """{persona_text}。现在你在参与一场QQ私聊，**刚刚你已经发送了一条或多条消息**，现在请根据以下信息再发一条新消息：
 
-当前对话目标：{goals_str}
-最近的聊天记录：
+【当前对话目标】
+{goals_str}
+【你现在的想法】
+『{pfc_heartflow}』
+
+【最近的聊天记录】
 {chat_history_text}
+--- 消息结束 ---
 
-
-请根据上述信息，结合聊天记录，继续发一条新消息（例如对之前消息的补充，深入话题，或追问等等）。该消息应该： 
-1. 符合对话目标，以"你"的角度发言（不要自己与自己对话！）
+请根据上述信息，结合聊天记录和你自己的想法，继续发一条新消息（例如对之前消息的补充，深入话题，或追问等等）。该消息应该：
+1. 符合对话目标和你的内心想法，以"你"的角度发言（不要自己与自己对话！）
 2. 符合你的性格特征和身份细节
 3. 通俗易懂，自然流畅，像正常聊天一样，简短（通常20字以内，除非特殊情况）
 4. 适当利用相关知识，但不要生硬引用
@@ -55,28 +66,41 @@ PROMPT_SEND_NEW_MESSAGE = """{persona_text}。现在你在参与一场QQ私聊�
 请你注意不要输出多余内容(包括前后缀，冒号和引号，括号，表情等)，只输出消息内容。
 不要输出多余内容(包括前后缀，冒号和引号，括号，表情包，at或 @等 )。
 
-请直接输出回复内容，不需要任何额外格式。"""
+请直接输出回复内容，不需要任何额外格式。""" # Added heartflow placeholder and updated instructions
 
 
 class ReplyGenerator:
     """回复生成器"""
 
     def __init__(self, stream_id: str):
-        self.llm = LLMRequest(
-            model=global_config.llm_PFC_chat,
-            temperature=global_config.llm_PFC_chat["temp"],
-            max_tokens=300,
-            request_type="reply_generation",
-        )
-        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=3)
-        self.identity_detail_info = Individuality.get_instance().get_prompt(type="identity", x_person=2, level=2)
+        # Ensure correct LLM config path/structure
+        try:
+            self.llm = LLMRequest(
+                model=global_config.llm_PFC_chat,
+                temperature=global_config.llm_PFC_chat.get("temp", 0.7), # Use .get for safety
+                max_tokens=global_config.llm_PFC_chat.get("max_tokens", 300), # Use .get for safety
+                request_type="reply_generation",
+            )
+        except AttributeError:
+            logger.error("Config error: llm_PFC_chat not found or missing keys ('temp'/'max_tokens'). Using fallback.")
+            # Fallback or raise error
+            self.llm = LLMRequest(model=global_config.llm_normal, temperature=0.7, max_tokens=300, request_type="reply_generation_fallback")
+
+        self.individuality = Individuality.get_instance() # Store instance
+        self.personality_info = self.individuality.get_prompt(type="personality", x_person=2, level=3)
+        self.identity_detail_info = self.individuality.get_prompt(type="identity", x_person=2, level=2)
+
         self.name = global_config.BOT_NICKNAME
         self.chat_observer = ChatObserver.get_instance(stream_id)
-        self.reply_checker = ReplyChecker(stream_id)
+        self.reply_checker = ReplyChecker(stream_id) # Assuming ReplyChecker exists
 
-    # 修改 generate 方法签名，增加 action_type 参数
+    # 修改 generate 方法签名，增加 action_type 和 pfc_heartflow 参数
     async def generate(
-        self, observation_info: ObservationInfo, conversation_info: ConversationInfo, action_type: str
+        self,
+        observation_info: ObservationInfo,
+        conversation_info: ConversationInfo,
+        action_type: str,
+        pfc_heartflow: Optional[str], # <--- 新增参数
     ) -> str:
         """生成回复
 
@@ -84,49 +108,78 @@ class ReplyGenerator:
             observation_info: 观察信息
             conversation_info: 对话信息
             action_type: 当前执行的动作类型 ('direct_reply' 或 'send_new_message')
+            pfc_heartflow: 当前的心流文本 # <--- 新增参数说明
 
         Returns:
             str: 生成的回复
         """
-        # 构建提示词
-        logger.debug(f"开始生成回复 (动作类型: {action_type})：当前目标: {conversation_info.goal_list}")
+        logger.debug(f"开始生成回复 (动作类型: {action_type})：当前目标: {getattr(conversation_info, 'goal_list', '不可用')}")
 
         # --- 构建通用 Prompt 参数 ---
-        # (这部分逻辑基本不变)
 
-        # 构建对话目标 (goals_str)
-        goals_str = ""
-        if conversation_info.goal_list:
+        # 构建对话目标 (goals_str) - Robust handling
+        goals_str = "- 目前没有明确对话目标。\n" # Default
+        if hasattr(conversation_info, "goal_list") and conversation_info.goal_list:
+            temp_goals_str = ""
             for goal_reason in conversation_info.goal_list:
-                if isinstance(goal_reason, tuple):
-                    goal = goal_reason[0] if len(goal_reason) > 0 else "目标内容缺失"
-                    reasoning = goal_reason[1] if len(goal_reason) > 1 else "没有明确原因"
+<<<<<<< HEAD
+<<<<<<< HEAD
+                goal = "目标内容缺失"
+                reasoning = "没有明确原因"
+                if isinstance(goal_reason, tuple) and len(goal_reason) > 0:
+                    goal = goal_reason[0]
+                    if len(goal_reason) > 1: reasoning = goal_reason[1]
                 elif isinstance(goal_reason, dict):
+=======
+                if isinstance(goal_reason, dict):
+>>>>>>> 3cfa1e6b17340f82f2937a2243b8e99030196294
+=======
+                if isinstance(goal_reason, dict):
+>>>>>>> 3cfa1e6b17340f82f2937a2243b8e99030196294
                     goal = goal_reason.get("goal", "目标内容缺失")
-                    reasoning = goal_reason.get("reasoning", "没有明确原因")
+                    reasoning = goal_reason.get("reason", "没有明确原因") # Use 'reason' key
                 else:
                     goal = str(goal_reason)
+<<<<<<< HEAD
+=======
                     reasoning = "没有明确原因"
+<<<<<<< HEAD
+>>>>>>> 3cfa1e6b17340f82f2937a2243b8e99030196294
+=======
+>>>>>>> 3cfa1e6b17340f82f2937a2243b8e99030196294
+
                 goal = str(goal) if goal is not None else "目标内容缺失"
                 reasoning = str(reasoning) if reasoning is not None else "没有明确原因"
-                goals_str += f"- 目标：{goal}\n  原因：{reasoning}\n"
-        else:
-            goals_str = "- 目前没有明确对话目标\n"  # 简化无目标情况
+                temp_goals_str += f"- 目标：{goal}\n  原因：{reasoning}\n"
+            if temp_goals_str:
+                goals_str = temp_goals_str
 
-        # 获取聊天历史记录 (chat_history_text)
-        chat_history_text = observation_info.chat_history_str
-        if observation_info.new_messages_count > 0 and observation_info.unprocessed_messages:
-            new_messages_list = observation_info.unprocessed_messages
-            new_messages_str = await build_readable_messages(
-                new_messages_list,
-                replace_bot_name=True,
-                merge_messages=False,
-                timestamp_mode="relative",
-                read_mark=0.0,
-            )
-            chat_history_text += f"\n--- 以下是 {observation_info.new_messages_count} 条新消息 ---\n{new_messages_str}"
-        elif not chat_history_text:
-            chat_history_text = "还没有聊天记录。"
+
+        # 获取聊天历史记录 (chat_history_text) - Robust handling
+        chat_history_text = "还没有聊天记录。\n" # Default
+        if hasattr(observation_info, 'chat_history_str') and observation_info.chat_history_str:
+             chat_history_text = observation_info.chat_history_str + "\n" # Ensure newline
+
+        # Append unprocessed messages if any
+        if hasattr(observation_info, 'new_messages_count') and observation_info.new_messages_count > 0:
+             if hasattr(observation_info, 'unprocessed_messages') and observation_info.unprocessed_messages:
+                 new_messages_list = observation_info.unprocessed_messages
+                 try:
+                    new_messages_str = await build_readable_messages(
+                        new_messages_list,
+                        replace_bot_name=True,
+                        merge_messages=False,
+                        timestamp_mode="relative",
+                        read_mark=0.0,
+                    )
+                    chat_history_text += f"\n--- 以下是 {observation_info.new_messages_count} 条新收到的消息 ---\n{new_messages_str}\n"
+                 except Exception as build_err:
+                    logger.error(f"Error building readable messages for reply gen: {build_err}")
+                    chat_history_text += "\n--- (无法格式化新消息) ---\n"
+             else:
+                 logger.warning("Reply gen: new_messages_count > 0 but unprocessed_messages is empty/missing.")
+                 chat_history_text += f"\n--- (有 {observation_info.new_messages_count} 条新消息，但无法显示内容) ---\n"
+
 
         # 构建 Persona 文本 (persona_text)
         identity_details_only = self.identity_detail_info
@@ -153,20 +206,34 @@ class ReplyGenerator:
             logger.info("使用 PROMPT_DIRECT_REPLY (首次/非连续回复生成)")
 
         # --- 格式化最终的 Prompt ---
-        prompt = prompt_template.format(
-            persona_text=persona_text, goals_str=goals_str, chat_history_text=chat_history_text
-        )
+        # Provide default for heartflow if None or empty
+        heartflow_for_prompt = pfc_heartflow if pfc_heartflow else "无（没有内心想法信息）"
+
+        try:
+            prompt = prompt_template.format(
+                persona_text=persona_text,
+                goals_str=goals_str.strip(),
+                pfc_heartflow=heartflow_for_prompt, # <--- 传入心流
+                chat_history_text=chat_history_text.strip(),
+            )
+        except KeyError as e:
+            logger.error(f"格式化回复生成 Prompt 时出错，缺少键: {e}")
+            return f"抱歉，我在组织语言时遇到了点内部问题（缺少参数 {e}），请稍后再试。"
+
 
         # --- 调用 LLM 生成 ---
         logger.debug(f"发送到LLM的生成提示词:\n------\n{prompt}\n------")
         try:
             content, _ = await self.llm.generate_response_async(prompt)
-            logger.debug(f"生成的回复: {content}")
-            # 移除旧的检查新消息逻辑，这应该由 conversation 控制流处理
+            # Basic cleaning
+            content = content.strip().strip('"')
+            logger.debug(f"生成的原始回复: {content}")
+            # No check for new messages here, handled by Conversation loop
             return content
 
         except Exception as e:
             logger.error(f"生成回复时出错: {e}")
+            logger.error(traceback.format_exc()) # Log traceback
             return "抱歉，我现在有点混乱，让我重新思考一下..."
 
     # check_reply 方法保持不变
@@ -174,6 +241,11 @@ class ReplyGenerator:
         self, reply: str, goal: str, chat_history: List[Dict[str, Any]], chat_history_str: str, retry_count: int = 0
     ) -> Tuple[bool, str, bool]:
         """检查回复是否合适
-        (此方法逻辑保持不变)
+        (此方法逻辑保持不变, 不接收心流)
         """
+        # Ensure ReplyChecker exists
+        if not hasattr(self, 'reply_checker'):
+             logger.error("ReplyChecker not initialized in ReplyGenerator!")
+             return False, "内部错误：无法检查回复", True # Assume replan is needed
+
         return await self.reply_checker.check(reply, goal, chat_history, chat_history_str, retry_count)

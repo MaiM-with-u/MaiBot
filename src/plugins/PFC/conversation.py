@@ -188,10 +188,7 @@ class Conversation:
                 goal_ended = False
                 if hasattr(self.conversation_info, "goal_list") and self.conversation_info.goal_list:
                     for goal_item in self.conversation_info.goal_list:
-                        current_goal = None
-                        if isinstance(goal_item, tuple) and len(goal_item) > 0:
-                            current_goal = goal_item[0]
-                        elif isinstance(goal_item, dict):
+                        if isinstance(goal_item, dict):
                             current_goal = goal_item.get("goal")
 
                         if current_goal == "结束对话":

@@ -1,7 +1,10 @@
+# PFC/action_planner.py
+import traceback
 import time
-from typing import Tuple, Optional  # 增加了 Optional
+from typing import Tuple, Optional, Dict, Any # 增加了 Optional, Dict, Any
 from src.common.logger_manager import get_logger
-from ..models.utils_model import LLMRequest
+# from ..models.utils_model import LLMRequest # Assuming LLMRequest is needed, ensure import path is correct
+from src.common.utils_llm import LLMRequest # Using updated common location assumption
 from ...config.config import global_config
 from .chat_observer import ChatObserver
 from .pfc_utils import get_items_from_json
@@ -21,6 +24,8 @@ PROMPT_INITIAL_REPLY = """{persona_text}。现在你在参与一场QQ私聊，�
 
 【当前对话目标】
 {goals_str}
+【你现在的想法】
+{pfc_heartflow}
 
 【最近行动历史概要】
 {action_history_summary}
@@ -43,23 +48,25 @@ block_and_ignore: 更加极端的结束对话方式，直接结束对话并在�
 请以JSON格式输出你的决策：
 {{
     "action": "选择的行动类型 (必须是上面列表中的一个)",
-    "reason": "选择该行动的详细原因 (必须有解释你是如何根据“上一次行动结果”、“对话记录”和自身设定人设做出合理判断的)"
+    "reason": "选择该行动的详细原因 (必须有解释你是如何根据“上一次行动结果”、“对话记录”、你的想法和自身设定人设做出合理判断的)"
 }}
 
-注意：请严格按照JSON格式输出，不要包含任何其他内容。"""
+注意：请严格按照JSON格式输出，不要包含任何其他内容。""" # Updated reason instruction
 
 # Prompt(2): 上一次成功回复后，决定继续发言时的决策 Prompt
-PROMPT_FOLLOW_UP = """{persona_text}。现在你在参与一场QQ私聊，刚刚你已经回复了对方，请根据以下【所有信息】审慎且灵活的决策下一步行动，可以继续发送新消息，可以等待，可以倾听，可以调取知识，甚至可以屏蔽对方： 
+PROMPT_FOLLOW_UP = """{persona_text}。现在你在参与一场QQ私聊，刚刚你已经回复了对方，请根据以下【所有信息】审慎且灵活的决策下一步行动，可以继续发送新消息，可以等待，可以倾听，可以调取知识，甚至可以屏蔽对方：
 
 【当前对话目标】
 {goals_str}
+【你现在的想法】
+{pfc_heartflow}
 
 【最近行动历史概要】
 {action_history_summary}
 【上一次行动的详细情况和结果】
 {last_action_context}
 【时间和超时提示】
-{time_since_last_bot_message_info}{timeout_context} 
+{time_since_last_bot_message_info}{timeout_context}
 【最近的对话记录】(包括你已成功发送的消息 和 新收到的消息)
 {chat_history_text}
 
@@ -76,10 +83,10 @@ block_and_ignore: 更加极端的结束对话方式，直接结束对话并在�
 请以JSON格式输出你的决策：
 {{
     "action": "选择的行动类型 (必须是上面列表中的一个)",
-    "reason": "选择该行动的详细原因 (必须有解释你是如何根据“上一次行动结果”、“对话记录”和自身设定人设做出合理判断的。请说明你为什么选择继续发言而不是等待，以及打算发送什么类型的新消息连续发言，必须记录已经发言了几次)"
+    "reason": "选择该行动的详细原因 (必须有解释你是如何根据“上一次行动结果”、“对话记录”、你的想法和自身设定人设做出合理判断的。请说明你为什么选择继续发言而不是等待，以及打算发送什么类型的新消息连续发言，必须记录已经发言了几次)"
 }}
 
-注意：请严格按照JSON格式输出，不要包含任何其他内容。"""
+注意：请严格按照JSON格式输出，不要包含任何其他内容。""" # Updated reason instruction
 
 
 # ActionPlanner 类定义，顶格
@@ -87,70 +94,80 @@ class ActionPlanner:
     """行动规划器"""
 
     def __init__(self, stream_id: str):
-        self.llm = LLMRequest(
-            model=global_config.llm_PFC_action_planner,
-            temperature=global_config.llm_PFC_action_planner["temp"],
-            max_tokens=1500,
-            request_type="action_planning",
-        )
-        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=3)
-        self.identity_detail_info = Individuality.get_instance().get_prompt(type="identity", x_person=2, level=2)
+        # Ensure correct LLM config path/structure
+        try:
+            self.llm = LLMRequest(
+                model=global_config.llm_PFC_action_planner,
+                temperature=global_config.llm_PFC_action_planner.get("temp", 0.7), # Use .get for safety
+                max_tokens=global_config.llm_PFC_action_planner.get("max_tokens", 1500), # Use .get for safety
+                request_type="action_planning",
+            )
+        except AttributeError:
+             logger.error("Config error: llm_PFC_action_planner not found or missing keys ('temp'/'max_tokens'). Using fallback.")
+             # Fallback or raise error
+             self.llm = LLMRequest(model=global_config.llm_normal, temperature=0.7, max_tokens=1000, request_type="action_planning_fallback")
+
+        # Load personality/identity prompts
+        self.individuality = Individuality.get_instance() # Store instance
+        self.personality_info = self.individuality.get_prompt(type="personality", x_person=2, level=3)
+        self.identity_detail_info = self.individuality.get_prompt(type="identity", x_person=2, level=2)
+
         self.name = global_config.BOT_NICKNAME
         self.chat_observer = ChatObserver.get_instance(stream_id)
-        # self.action_planner_info = ActionPlannerInfo() # 移除未使用的变量
 
-    # 修改 plan 方法签名，增加 last_successful_reply_action 参数
+    # 修改 plan 方法签名，增加 pfc_heartflow 参数
     async def plan(
         self,
         observation_info: ObservationInfo,
         conversation_info: ConversationInfo,
         last_successful_reply_action: Optional[str],
+        pfc_heartflow: Optional[str], # <--- 新增参数
     ) -> Tuple[str, str]:
         """规划下一步行动
 
         Args:
             observation_info: 决策信息
             conversation_info: 对话信息
-            last_successful_reply_action: 上一次成功的回复动作类型 ('direct_reply' 或 'send_new_message' 或 None)
+            last_successful_reply_action: 上一次成功的回复动作类型
+            pfc_heartflow: 当前的心流文本 # <--- 新增参数说明
 
         Returns:
             Tuple[str, str]: (行动类型, 行动原因)
         """
         # --- 获取 Bot 上次发言时间信息 ---
-        # (这部分逻辑不变)
         time_since_last_bot_message_info = ""
-        try:
-            bot_id = str(global_config.BOT_QQ)
-            if hasattr(observation_info, "chat_history") and observation_info.chat_history:
-                for i in range(len(observation_info.chat_history) - 1, -1, -1):
-                    msg = observation_info.chat_history[i]
-                    if not isinstance(msg, dict):
-                        continue
-                    sender_info = msg.get("user_info", {})
-                    sender_id = str(sender_info.get("user_id")) if isinstance(sender_info, dict) else None
-                    msg_time = msg.get("time")
-                    if sender_id == bot_id and msg_time:
-                        time_diff = time.time() - msg_time
-                        if time_diff < 60.0:
-                            time_since_last_bot_message_info = (
-                                f"提示：你上一条成功发送的消息是在 {time_diff:.1f} 秒前。\n"
-                            )
-                        break
-            else:
-                logger.debug("Observation info chat history is empty or not available for bot time check.")
-        except AttributeError:
-            logger.warning("ObservationInfo object might not have chat_history attribute yet for bot time check.")
-        except Exception as e:
-            logger.warning(f"获取 Bot 上次发言时间时出错: {e}")
+        bot_last_speak_time = observation_info.last_bot_speak_time # Use ObservationInfo directly
+        if bot_last_speak_time:
+            time_diff = time.time() - bot_last_speak_time
+            if time_diff < 3600: # Show within an hour
+                 time_since_last_bot_message_info = f"提示：你上一条成功发送的消息是在 {time_diff:.1f} 秒前。\n"
 
         # --- 获取超时提示信息 ---
-        # (这部分逻辑不变)
         timeout_context = ""
+<<<<<<< HEAD
+        # Check for timeout goal added by Waiter
+        if hasattr(conversation_info, "goal_list") and conversation_info.goal_list:
+             last_goal_item = conversation_info.goal_list[-1]
+             goal_text = ""
+             reason_text = ""
+             if isinstance(last_goal_item, dict):
+                 goal_text = last_goal_item.get("goal", "")
+                 reason_text = last_goal_item.get("reason", "") # Get reason from dict
+             elif isinstance(last_goal_item, tuple) and len(last_goal_item) > 0:
+                 goal_text = last_goal_item[0]
+                 if len(last_goal_item) > 1:
+                     reason_text = last_goal_item[1] # Get reason from tuple
+
+             # Check if goal indicates a wait timeout
+             if "分钟，思考接下来要做什么" in goal_text or "对方话说一半消失了" in goal_text:
+                 timeout_context = f"重要提示：检测到等待超时。({reason_text}) 请基于此情况规划下一步。\n"
+
+=======
         try:
             if hasattr(conversation_info, "goal_list") and conversation_info.goal_list:
-                last_goal_tuple = conversation_info.goal_list[-1]
-                if isinstance(last_goal_tuple, tuple) and len(last_goal_tuple) > 0:
-                    last_goal_text = last_goal_tuple[0]
+                last_goal_dict = conversation_info.goal_list[-1]
+                if isinstance(last_goal_dict, dict) and "goal" in last_goal_dict:
+                    last_goal_text = last_goal_dict["goal"]
                     if isinstance(last_goal_text, str) and "分钟，思考接下来要做什么" in last_goal_text:
                         try:
                             timeout_minutes_text = last_goal_text.split("，")[0].replace("你等待了", "")
@@ -163,28 +180,52 @@ class ActionPlanner:
             logger.warning("ConversationInfo object might not have goal_list attribute yet for timeout check.")
         except Exception as e:
             logger.warning(f"检查超时目标时出错: {e}")
+>>>>>>> 3cfa1e6b17340f82f2937a2243b8e99030196294
 
         # --- 构建通用 Prompt 参数 ---
         logger.debug(f"开始规划行动：当前目标: {getattr(conversation_info, 'goal_list', '不可用')}")
 
         # 构建对话目标 (goals_str)
+<<<<<<< HEAD
+        goals_str = "- 目前没有明确对话目标，请考虑设定一个。\n" # Default
+        if hasattr(conversation_info, "goal_list") and conversation_info.goal_list:
+            temp_goals_str = ""
+            for goal_reason in conversation_info.goal_list:
+                goal = "目标内容缺失"
+                reasoning = "没有明确原因"
+                if isinstance(goal_reason, tuple) and len(goal_reason) > 0:
+                    goal = goal_reason[0]
+                    if len(goal_reason) > 1: reasoning = goal_reason[1]
+                elif isinstance(goal_reason, dict):
+                    goal = goal_reason.get("goal", "目标内容缺失")
+                    reasoning = goal_reason.get("reason", "没有明确原因") # Use 'reason' key based on Waiter
+                else:
+                    goal = str(goal_reason)
+
+                goal = str(goal) if goal is not None else "目标内容缺失"
+                reasoning = str(reasoning) if reasoning is not None else "没有明确原因"
+                temp_goals_str += f"- 目标：{goal}\n  原因：{reasoning}\n"
+            if temp_goals_str: # Only overwrite default if goals were found
+                goals_str = temp_goals_str
+=======
         goals_str = ""
         try:
             if hasattr(conversation_info, "goal_list") and conversation_info.goal_list:
                 for goal_reason in conversation_info.goal_list:
-                    if isinstance(goal_reason, tuple) and len(goal_reason) > 0:
-                        goal = goal_reason[0]
-                        reasoning = goal_reason[1] if len(goal_reason) > 1 else "没有明确原因"
-                    elif isinstance(goal_reason, dict):
+                    if isinstance(goal_reason, dict):
                         goal = goal_reason.get("goal", "目标内容缺失")
                         reasoning = goal_reason.get("reasoning", "没有明确原因")
                     else:
                         goal = str(goal_reason)
                         reasoning = "没有明确原因"
+
                     goal = str(goal) if goal is not None else "目标内容缺失"
                     reasoning = str(reasoning) if reasoning is not None else "没有明确原因"
                     goals_str += f"- 目标：{goal}\n  原因：{reasoning}\n"
-            if not goals_str:
+
+                if not goals_str:
+                    goals_str = "- 目前没有明确对话目标，请考虑设定一个。\n"
+            else:
                 goals_str = "- 目前没有明确对话目标，请考虑设定一个。\n"
         except AttributeError:
             logger.warning("ConversationInfo object might not have goal_list attribute yet.")
@@ -192,43 +233,37 @@ class ActionPlanner:
         except Exception as e:
             logger.error(f"构建对话目标字符串时出错: {e}")
             goals_str = "- 构建对话目标时出错。\n"
+>>>>>>> 3cfa1e6b17340f82f2937a2243b8e99030196294
 
         # 获取聊天历史记录 (chat_history_text)
-        chat_history_text = ""
-        try:
-            if hasattr(observation_info, "chat_history") and observation_info.chat_history:
-                chat_history_text = observation_info.chat_history_str
-                if not chat_history_text:
-                    chat_history_text = "还没有聊天记录。\n"
-            else:
-                chat_history_text = "还没有聊天记录。\n"
+        chat_history_text = "还没有聊天记录。\n" # Default
+        if hasattr(observation_info, 'chat_history_str') and observation_info.chat_history_str:
+            chat_history_text = observation_info.chat_history_str + "\n" # Ensure newline
 
-            if hasattr(observation_info, "new_messages_count") and observation_info.new_messages_count > 0:
-                if hasattr(observation_info, "unprocessed_messages") and observation_info.unprocessed_messages:
-                    new_messages_list = observation_info.unprocessed_messages
+        # Append unprocessed messages if any
+        if hasattr(observation_info, 'new_messages_count') and observation_info.new_messages_count > 0:
+             if hasattr(observation_info, 'unprocessed_messages') and observation_info.unprocessed_messages:
+                 new_messages_list = observation_info.unprocessed_messages
+                 try:
+                    # Ensure build_readable_messages exists and handles the list format correctly
                     new_messages_str = await build_readable_messages(
                         new_messages_list,
                         replace_bot_name=True,
                         merge_messages=False,
                         timestamp_mode="relative",
-                        read_mark=0.0,
+                        read_mark=0.0, # Assuming this param exists
                     )
-                    chat_history_text += (
-                        f"\n--- 以下是 {observation_info.new_messages_count} 条新消息 ---\n{new_messages_str}"
-                    )
-                else:
-                    logger.warning(
-                        "ObservationInfo has new_messages_count > 0 but unprocessed_messages is empty or missing."
-                    )
-        except AttributeError:
-            logger.warning("ObservationInfo object might be missing expected attributes for chat history.")
-            chat_history_text = "获取聊天记录时出错。\n"
-        except Exception as e:
-            logger.error(f"处理聊天记录时发生未知错误: {e}")
-            chat_history_text = "处理聊天记录时出错。\n"
+                    chat_history_text += f"\n--- 以下是 {observation_info.new_messages_count} 条新收到的消息 ---\n{new_messages_str}\n"
+                 except Exception as build_err:
+                    logger.error(f"Error building readable messages: {build_err}")
+                    chat_history_text += "\n--- (无法格式化新消息) ---\n"
+             else:
+                 logger.warning("new_messages_count > 0 but unprocessed_messages is empty/missing.")
+                 chat_history_text += f"\n--- (有 {observation_info.new_messages_count} 条新消息，但无法显示内容) ---\n"
+
 
         # 构建 Persona 文本 (persona_text)
-        # (这部分逻辑不变)
+        # Using stored Individuality instance
         identity_details_only = self.identity_detail_info
         identity_addon = ""
         if isinstance(identity_details_only, str):
@@ -245,71 +280,57 @@ class ActionPlanner:
         persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"
 
         # 构建行动历史和上一次行动结果 (action_history_summary, last_action_context)
-        # (这部分逻辑不变)
         action_history_summary = "你最近执行的行动历史：\n"
         last_action_context = "关于你【上一次尝试】的行动：\n"
         action_history_list = []
-        try:
-            if hasattr(conversation_info, "done_action") and conversation_info.done_action:
-                action_history_list = conversation_info.done_action[-5:]
-            else:
-                logger.debug("Conversation info done_action is empty or not available.")
-        except AttributeError:
-            logger.warning("ConversationInfo object might not have done_action attribute yet.")
-        except Exception as e:
-            logger.error(f"访问行动历史时出错: {e}")
+        if hasattr(conversation_info, "done_action") and conversation_info.done_action:
+            action_history_list = conversation_info.done_action[-5:] # Get last 5
 
         if not action_history_list:
             action_history_summary += "- 还没有执行过行动。\n"
             last_action_context += "- 这是你规划的第一个行动。\n"
         else:
             for i, action_data in enumerate(action_history_list):
-                action_type = "未知"
-                plan_reason = "未知"
-                status = "未知"
+                # Default values
+                action_type = "未知行动"
+                plan_reason = "未知原因"
+                status = "未知状态"
                 final_reason = ""
-                action_time = ""
+                action_time = "未知时间"
 
+                # Check if action_data is a dictionary (new format)
                 if isinstance(action_data, dict):
-                    action_type = action_data.get("action", "未知")
-                    plan_reason = action_data.get("plan_reason", "未知规划原因")
-                    status = action_data.get("status", "未知")
-                    final_reason = action_data.get("final_reason", "")
-                    action_time = action_data.get("time", "")
-                elif isinstance(action_data, tuple):
-                    # 假设旧格式兼容
-                    if len(action_data) > 0:
-                        action_type = action_data[0]
-                    if len(action_data) > 1:
-                        plan_reason = action_data[1]  # 可能是规划原因或最终原因
-                    if len(action_data) > 2:
-                        status = action_data[2]
-                    if status == "recall" and len(action_data) > 3:
-                        final_reason = action_data[3]
-                    elif status == "done" and action_type in ["direct_reply", "send_new_message"]:
-                        plan_reason = "成功发送"  # 简化显示
+                    action_type = action_data.get("action", action_type)
+                    plan_reason = action_data.get("plan_reason", plan_reason)
+                    status = action_data.get("status", status)
+                    final_reason = action_data.get("final_reason", "") # Get final_reason if exists
+                    action_time = action_data.get("time", action_time)
+                else:
+                     # Handle potential old format or unexpected data gracefully
+                     logger.warning(f"Unexpected action history format: {action_data}")
+                     action_type = str(action_data) # Basic representation
 
+                # Build summary line
                 reason_text = f", 失败/取消原因: {final_reason}" if final_reason else ""
                 summary_line = f"- 时间:{action_time}, 尝试行动:'{action_type}', 状态:{status}{reason_text}"
                 action_history_summary += summary_line + "\n"
 
+                # Build context for the very last action
                 if i == len(action_history_list) - 1:
                     last_action_context += f"- 上次【规划】的行动是: '{action_type}'\n"
                     last_action_context += f"- 当时规划的【原因】是: {plan_reason}\n"
                     if status == "done":
                         last_action_context += "- 该行动已【成功执行】。\n"
-                        # 记录这次成功的行动类型，供下次决策
-                        # self.last_successful_action_type = action_type # 不在这里记录，由 conversation 控制
                     elif status == "recall":
                         last_action_context += "- 但该行动最终【未能执行/被取消】。\n"
                         if final_reason:
                             last_action_context += f"- 【重要】失败/取消的具体原因是: “{final_reason}”\n"
                         else:
                             last_action_context += "- 【重要】失败/取消原因未明确记录。\n"
-                        # self.last_successful_action_type = None # 行动失败，清除记录
                     else:
-                        last_action_context += f"- 该行动当前状态: {status}\n"
-                        # self.last_successful_action_type = None # 非完成状态，清除记录
+                        # Handle other potential statuses like 'start' or unexpected ones
+                        last_action_context += f"- 该行动当前状态: {status} (未完成或状态未知)\n"
+
 
         # --- 选择 Prompt ---
         if last_successful_reply_action in ["direct_reply", "send_new_message"]:
@@ -320,36 +341,46 @@ class ActionPlanner:
             logger.debug("使用 PROMPT_INITIAL_REPLY (首次/非连续回复决策)")
 
         # --- 格式化最终的 Prompt ---
-        prompt = prompt_template.format(
-            persona_text=persona_text,
-            goals_str=goals_str if goals_str.strip() else "- 目前没有明确对话目标，请考虑设定一个。",
-            action_history_summary=action_history_summary,
-            last_action_context=last_action_context,
-            time_since_last_bot_message_info=time_since_last_bot_message_info,
-            timeout_context=timeout_context,
-            chat_history_text=chat_history_text if chat_history_text.strip() else "还没有聊天记录。",
-        )
+        # Provide default for heartflow if None or empty
+        heartflow_for_prompt = pfc_heartflow if pfc_heartflow else "你现在还没有明确的想法，请先思考。"
+
+        try:
+            prompt = prompt_template.format(
+                persona_text=persona_text,
+                goals_str=goals_str.strip(), # Remove leading/trailing whitespace
+                pfc_heartflow=heartflow_for_prompt, # <--- 传入心流
+                action_history_summary=action_history_summary.strip(),
+                last_action_context=last_action_context.strip(),
+                time_since_last_bot_message_info=time_since_last_bot_message_info,
+                timeout_context=timeout_context,
+                chat_history_text=chat_history_text.strip(),
+            )
+        except KeyError as e:
+             logger.error(f"格式化行动规划 Prompt 时出错，缺少键: {e}")
+             # Handle error: maybe return a default action or raise
+             return "wait", f"内部错误：无法格式化行动规划提示（缺少 {e}）"
 
         logger.debug(f"发送到LLM的最终提示词:\n------\n{prompt}\n------")
         try:
             content, _ = await self.llm.generate_response_async(prompt)
             logger.debug(f"LLM原始返回内容: {content}")
 
+            # Use default_values in get_items_from_json for robustness
             success, result = get_items_from_json(
                 content,
                 "action",
                 "reason",
                 default_values={"action": "wait", "reason": "LLM返回格式错误或未提供原因，默认等待"},
+                required_types={"action": str, "reason": str} # Add type checking
             )
 
-            action = result.get("action", "wait")
+            action = result.get("action", "wait") # Ensure default if key somehow missing after get_items
             reason = result.get("reason", "LLM未提供原因，默认等待")
 
             # 验证action类型
-            # 更新 valid_actions 列表以包含 send_new_message
             valid_actions = [
                 "direct_reply",
-                "send_new_message",  # 添加新动作
+                "send_new_message",
                 "fetch_knowledge",
                 "wait",
                 "listening",
@@ -362,10 +393,14 @@ class ActionPlanner:
                 reason = f"(原始行动'{action}'无效，已强制改为wait) {reason}"
                 action = "wait"
 
+            # Sanitize reason (optional, e.g., remove extra quotes)
+            reason = reason.strip().strip('"')
+
             logger.info(f"规划的行动: {action}")
             logger.info(f"行动原因: {reason}")
             return action, reason
 
         except Exception as e:
             logger.error(f"规划行动时调用 LLM 或处理结果出错: {str(e)}")
+            logger.error(traceback.format_exc()) # Log full traceback
             return "wait", f"行动规划处理中发生错误，暂时等待: {str(e)}"

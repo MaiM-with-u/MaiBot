@@ -60,16 +60,10 @@ class GoalAnalyzer:
         goals_str = ""
         if conversation_info.goal_list:
             for goal_reason in conversation_info.goal_list:
-                # 处理字典或元组格式
-                if isinstance(goal_reason, tuple):
-                    # 假设元组的第一个元素是目标，第二个元素是原因
-                    goal = goal_reason[0]
-                    reasoning = goal_reason[1] if len(goal_reason) > 1 else "没有明确原因"
-                elif isinstance(goal_reason, dict):
-                    goal = goal_reason.get("goal")
+                if isinstance(goal_reason, dict):
+                    goal = goal_reason.get("goal", "目标内容缺失")
                     reasoning = goal_reason.get("reasoning", "没有明确原因")
                 else:
-                    # 如果是其他类型，尝试转为字符串
                     goal = str(goal_reason)
                     reasoning = "没有明确原因"
 

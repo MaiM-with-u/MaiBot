@@ -39,7 +39,7 @@ class Waiter:
                 logger.info(f"等待超过 {DESIRED_TIMEOUT_SECONDS} 秒...添加思考目标。")
                 wait_goal = {
                     "goal": f"你等待了{elapsed_time / 60:.1f}分钟，注意可能在对方看来聊天已经结束，思考接下来要做什么",
-                    "reason": "对方很久没有回复你的消息了",
+                    "reasoning": "对方很久没有回复你的消息了",
                 }
                 conversation_info.goal_list.append(wait_goal)
                 logger.info(f"添加目标: {wait_goal}")
@@ -66,7 +66,7 @@ class Waiter:
                 wait_goal = {
                     # 保持 goal 文本一致
                     "goal": f"你等待了{elapsed_time / 60:.1f}分钟，对方似乎话说一半突然消失了，可能忙去了？也可能忘记了回复？要问问吗？还是结束对话？或继续等待？思考接下来要做什么",
-                    "reason": "对方话说一半消失了，很久没有回复",
+                    "reasoning": "对方话说一半消失了，很久没有回复",
                 }
                 conversation_info.goal_list.append(wait_goal)
                 logger.info(f"添加目标: {wait_goal}")
