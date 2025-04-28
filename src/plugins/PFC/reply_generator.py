@@ -122,20 +122,7 @@ class ReplyGenerator:
         if hasattr(conversation_info, "goal_list") and conversation_info.goal_list:
             temp_goals_str = ""
             for goal_reason in conversation_info.goal_list:
-<<<<<<< HEAD
-<<<<<<< HEAD
-                goal = "目标内容缺失"
-                reasoning = "没有明确原因"
-                if isinstance(goal_reason, tuple) and len(goal_reason) > 0:
-                    goal = goal_reason[0]
-                    if len(goal_reason) > 1: reasoning = goal_reason[1]
-                elif isinstance(goal_reason, dict):
-=======
                 if isinstance(goal_reason, dict):
->>>>>>> 3cfa1e6b17340f82f2937a2243b8e99030196294
-=======
-                if isinstance(goal_reason, dict):
->>>>>>> 3cfa1e6b17340f82f2937a2243b8e99030196294
                     goal = goal_reason.get("goal", "目标内容缺失")
                     reasoning = goal_reason.get("reason", "没有明确原因") # Use 'reason' key
                 else:
@@ -143,10 +130,6 @@ class ReplyGenerator:
 <<<<<<< HEAD
 =======
                     reasoning = "没有明确原因"
-<<<<<<< HEAD
->>>>>>> 3cfa1e6b17340f82f2937a2243b8e99030196294
-=======
->>>>>>> 3cfa1e6b17340f82f2937a2243b8e99030196294
 
                 goal = str(goal) if goal is not None else "目标内容缺失"
                 reasoning = str(reasoning) if reasoning is not None else "没有明确原因"
