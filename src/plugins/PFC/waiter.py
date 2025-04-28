@@ -47,7 +47,9 @@ class Waiter:
                 return True  # 返回 True 表示超时
 
             await asyncio.sleep(5)  # 每 5 秒检查一次
-            logger.debug(f"[私聊][{self.private_name}]等待中...")  # 可以考虑把这个频繁日志注释掉，只在超时或收到消息时输出
+            logger.debug(
+                f"[私聊][{self.private_name}]等待中..."
+            )  # 可以考虑把这个频繁日志注释掉，只在超时或收到消息时输出
 
     async def wait_listening(self, conversation_info: ConversationInfo) -> bool:
         """倾听用户发言或超时"""

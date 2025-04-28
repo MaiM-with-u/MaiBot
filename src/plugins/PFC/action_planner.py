@@ -138,9 +138,13 @@ class ActionPlanner:
                             )
                         break
             else:
-                logger.debug(f"[私聊][{self.private_name}]Observation info chat history is empty or not available for bot time check.")
+                logger.debug(
+                    f"[私聊][{self.private_name}]Observation info chat history is empty or not available for bot time check."
+                )
         except AttributeError:
-            logger.warning(f"[私聊][{self.private_name}]ObservationInfo object might not have chat_history attribute yet for bot time check.")
+            logger.warning(
+                f"[私聊][{self.private_name}]ObservationInfo object might not have chat_history attribute yet for bot time check."
+            )
         except Exception as e:
             logger.warning(f"[私聊][{self.private_name}]获取 Bot 上次发言时间时出错: {e}")
 
@@ -159,14 +163,20 @@ class ActionPlanner:
                         except Exception:
                             timeout_context = "重要提示：对方已经长时间没有回复你的消息了（这可能代表对方繁忙/不想回复/没注意到你的消息等情况，或在对方看来本次聊天已告一段落），请基于此情况规划下一步。\n"
             else:
-                logger.debug(f"[私聊][{self.private_name}]Conversation info goal_list is empty or not available for timeout check.")
+                logger.debug(
+                    f"[私聊][{self.private_name}]Conversation info goal_list is empty or not available for timeout check."
+                )
         except AttributeError:
-            logger.warning(f"[私聊][{self.private_name}]ConversationInfo object might not have goal_list attribute yet for timeout check.")
+            logger.warning(
+                f"[私聊][{self.private_name}]ConversationInfo object might not have goal_list attribute yet for timeout check."
+            )
         except Exception as e:
             logger.warning(f"[私聊][{self.private_name}]检查超时目标时出错: {e}")
 
         # --- 构建通用 Prompt 参数 ---
-        logger.debug(f"[私聊][{self.private_name}]开始规划行动：当前目标: {getattr(conversation_info, 'goal_list', '不可用')}")
+        logger.debug(
+            f"[私聊][{self.private_name}]开始规划行动：当前目标: {getattr(conversation_info, 'goal_list', '不可用')}"
+        )
 
         # 构建对话目标 (goals_str)
         goals_str = ""
@@ -189,7 +199,9 @@ class ActionPlanner:
             else:
                 goals_str = "- 目前没有明确对话目标，请考虑设定一个。\n"
         except AttributeError:
-            logger.warning(f"[私聊][{self.private_name}]ConversationInfo object might not have goal_list attribute yet.")
+            logger.warning(
+                f"[私聊][{self.private_name}]ConversationInfo object might not have goal_list attribute yet."
+            )
             goals_str = "- 获取对话目标时出错。\n"
         except Exception as e:
             logger.error(f"[私聊][{self.private_name}]构建对话目标字符串时出错: {e}")
@@ -223,7 +235,9 @@ class ActionPlanner:
                         f"[私聊][{self.private_name}]ObservationInfo has new_messages_count > 0 but unprocessed_messages is empty or missing."
                     )
         except AttributeError:
-            logger.warning(f"[私聊][{self.private_name}]ObservationInfo object might be missing expected attributes for chat history.")
+            logger.warning(
+                f"[私聊][{self.private_name}]ObservationInfo object might be missing expected attributes for chat history."
+            )
             chat_history_text = "获取聊天记录时出错。\n"
         except Exception as e:
             logger.error(f"[私聊][{self.private_name}]处理聊天记录时发生未知错误: {e}")
@@ -257,7 +271,9 @@ class ActionPlanner:
             else:
                 logger.debug(f"[私聊][{self.private_name}]Conversation info done_action is empty or not available.")
         except AttributeError:
-            logger.warning(f"[私聊][{self.private_name}]ConversationInfo object might not have done_action attribute yet.")
+            logger.warning(
+                f"[私聊][{self.private_name}]ConversationInfo object might not have done_action attribute yet."
+            )
         except Exception as e:
             logger.error(f"[私聊][{self.private_name}]访问行动历史时出错: {e}")
 

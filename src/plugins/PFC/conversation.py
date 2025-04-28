@@ -149,7 +149,9 @@ class Conversation:
                 if hasattr(self.observation_info, "new_messages_count"):
                     initial_new_message_count = self.observation_info.new_messages_count + 1  # 算上麦麦自己发的那一条
                 else:
-                    logger.warning(f"[私聊][{self.private_name}]ObservationInfo missing 'new_messages_count' before planning.")
+                    logger.warning(
+                        f"[私聊][{self.private_name}]ObservationInfo missing 'new_messages_count' before planning."
+                    )
 
                 # --- 调用 Action Planner ---
                 # 传递 self.conversation_info.last_successful_reply_action
@@ -162,7 +164,9 @@ class Conversation:
                 if hasattr(self.observation_info, "new_messages_count"):
                     current_new_message_count = self.observation_info.new_messages_count
                 else:
-                    logger.warning(f"[私聊][{self.private_name}]ObservationInfo missing 'new_messages_count' after planning.")
+                    logger.warning(
+                        f"[私聊][{self.private_name}]ObservationInfo missing 'new_messages_count' after planning."
+                    )
 
                 if current_new_message_count > initial_new_message_count + 2:
                     logger.info(
@@ -176,12 +180,16 @@ class Conversation:
                 #  包含 send_new_message
                 if initial_new_message_count > 0 and action in ["direct_reply", "send_new_message"]:
                     if hasattr(self.observation_info, "clear_unprocessed_messages"):
-                        logger.debug(f"[私聊][{self.private_name}]准备执行 {action}，清理 {initial_new_message_count} 条规划时已知的新消息。")
+                        logger.debug(
+                            f"[私聊][{self.private_name}]准备执行 {action}，清理 {initial_new_message_count} 条规划时已知的新消息。"
+                        )
                         await self.observation_info.clear_unprocessed_messages()
                         if hasattr(self.observation_info, "new_messages_count"):
                             self.observation_info.new_messages_count = 0
                     else:
-                        logger.error(f"[私聊][{self.private_name}]无法清理未处理消息: ObservationInfo 缺少 clear_unprocessed_messages 方法！")
+                        logger.error(
+                            f"[私聊][{self.private_name}]无法清理未处理消息: ObservationInfo 缺少 clear_unprocessed_messages 方法！"
+                        )
 
                 await self._handle_action(action, reason, self.observation_info, self.conversation_info)
 
@@ -214,7 +222,9 @@ class Conversation:
         """检查在规划后是否有新消息"""
         # 检查 ObservationInfo 是否已初始化并且有 new_messages_count 属性
         if not hasattr(self, "observation_info") or not hasattr(self.observation_info, "new_messages_count"):
-            logger.warning(f"[私聊][{self.private_name}]ObservationInfo 未初始化或缺少 'new_messages_count' 属性，无法检查新消息。")
+            logger.warning(
+                f"[私聊][{self.private_name}]ObservationInfo 未初始化或缺少 'new_messages_count' 属性，无法检查新消息。"
+            )
             return False  # 或者根据需要抛出错误
 
         if self.observation_info.new_messages_count > 2:
@@ -225,7 +235,9 @@ class Conversation:
             if hasattr(self, "conversation_info"):  # 确保 conversation_info 已初始化
                 self.conversation_info.last_successful_reply_action = None
             else:
-                logger.warning(f"[私聊][{self.private_name}]ConversationInfo 未初始化，无法重置 last_successful_reply_action。")
+                logger.warning(
+                    f"[私聊][{self.private_name}]ConversationInfo 未初始化，无法重置 last_successful_reply_action。"
+                )
             return True
         return False
 
@@ -294,14 +306,18 @@ class Conversation:
 
             while reply_attempt_count < max_reply_attempts and not is_suitable:
                 reply_attempt_count += 1
-                logger.info(f"[私聊][{self.private_name}]尝试生成追问回复 (第 {reply_attempt_count}/{max_reply_attempts} 次)...")
+                logger.info(
+                    f"[私聊][{self.private_name}]尝试生成追问回复 (第 {reply_attempt_count}/{max_reply_attempts} 次)..."
+                )
                 self.state = ConversationState.GENERATING
 
                 # 1. 生成回复 (调用 generate 时传入 action_type)
                 self.generated_reply = await self.reply_generator.generate(
                     observation_info, conversation_info, action_type="send_new_message"
                 )
-                logger.info(f"[私聊][{self.private_name}]第 {reply_attempt_count} 次生成的追问回复: {self.generated_reply}")
+                logger.info(
+                    f"[私聊][{self.private_name}]第 {reply_attempt_count} 次生成的追问回复: {self.generated_reply}"
+                )
 
                 # 2. 检查回复 (逻辑不变)
                 self.state = ConversationState.CHECKING
@@ -326,7 +342,9 @@ class Conversation:
                         )
                         break
                 except Exception as check_err:
-                    logger.error(f"[私聊][{self.private_name}]第 {reply_attempt_count} 次调用 ReplyChecker (追问) 时出错: {check_err}")
+                    logger.error(
+                        f"[私聊][{self.private_name}]第 {reply_attempt_count} 次调用 ReplyChecker (追问) 时出错: {check_err}"
+                    )
                     check_reason = f"第 {reply_attempt_count} 次检查过程出错: {check_err}"
                     break
 
@@ -351,7 +369,9 @@ class Conversation:
 
             else:
                 # 追问失败
-                logger.warning(f"[私聊][{self.private_name}]经过 {reply_attempt_count} 次尝试，未能生成合适的追问回复。最终原因: {check_reason}")
+                logger.warning(
+                    f"[私聊][{self.private_name}]经过 {reply_attempt_count} 次尝试，未能生成合适的追问回复。最终原因: {check_reason}"
+                )
                 conversation_info.done_action[action_index].update(
                     {"status": "recall", "final_reason": f"追问尝试{reply_attempt_count}次后失败: {check_reason}"}
                 )
@@ -381,14 +401,18 @@ class Conversation:
 
             while reply_attempt_count < max_reply_attempts and not is_suitable:
                 reply_attempt_count += 1
-                logger.info(f"[私聊][{self.private_name}]尝试生成首次回复 (第 {reply_attempt_count}/{max_reply_attempts} 次)...")
+                logger.info(
+                    f"[私聊][{self.private_name}]尝试生成首次回复 (第 {reply_attempt_count}/{max_reply_attempts} 次)..."
+                )
                 self.state = ConversationState.GENERATING
 
                 # 1. 生成回复
                 self.generated_reply = await self.reply_generator.generate(
                     observation_info, conversation_info, action_type="direct_reply"
                 )
-                logger.info(f"[私聊][{self.private_name}]第 {reply_attempt_count} 次生成的首次回复: {self.generated_reply}")
+                logger.info(
+                    f"[私聊][{self.private_name}]第 {reply_attempt_count} 次生成的首次回复: {self.generated_reply}"
+                )
 
                 # 2. 检查回复
                 self.state = ConversationState.CHECKING
@@ -413,7 +437,9 @@ class Conversation:
                         )
                         break
                 except Exception as check_err:
-                    logger.error(f"[私聊][{self.private_name}]第 {reply_attempt_count} 次调用 ReplyChecker (首次回复) 时出错: {check_err}")
+                    logger.error(
+                        f"[私聊][{self.private_name}]第 {reply_attempt_count} 次调用 ReplyChecker (首次回复) 时出错: {check_err}"
+                    )
                     check_reason = f"第 {reply_attempt_count} 次检查过程出错: {check_err}"
                     break
 
@@ -438,7 +464,9 @@ class Conversation:
 
             else:
                 # 首次回复失败
-                logger.warning(f"[私聊][{self.private_name}]经过 {reply_attempt_count} 次尝试，未能生成合适的首次回复。最终原因: {check_reason}")
+                logger.warning(
+                    f"[私聊][{self.private_name}]经过 {reply_attempt_count} 次尝试，未能生成合适的首次回复。最终原因: {check_reason}"
+                )
                 conversation_info.done_action[action_index].update(
                     {"status": "recall", "final_reason": f"首次回复尝试{reply_attempt_count}次后失败: {check_reason}"}
                 )
@@ -526,7 +554,9 @@ class Conversation:
             logger.info(f"[私聊][{self.private_name}]不想再理你了...")
             ignore_duration_seconds = 10 * 60
             self.ignore_until_timestamp = time.time() + ignore_duration_seconds
-            logger.info(f"[私聊][{self.private_name}]将忽略此对话直到: {datetime.datetime.fromtimestamp(self.ignore_until_timestamp)}")
+            logger.info(
+                f"[私聊][{self.private_name}]将忽略此对话直到: {datetime.datetime.fromtimestamp(self.ignore_until_timestamp)}"
+            )
             self.state = ConversationState.IGNORED
             action_successful = True  # 标记动作成功
 

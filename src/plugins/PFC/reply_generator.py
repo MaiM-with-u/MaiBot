@@ -90,7 +90,9 @@ class ReplyGenerator:
             str: 生成的回复
         """
         # 构建提示词
-        logger.debug(f"[私聊][{self.private_name}]开始生成回复 (动作类型: {action_type})：当前目标: {conversation_info.goal_list}")
+        logger.debug(
+            f"[私聊][{self.private_name}]开始生成回复 (动作类型: {action_type})：当前目标: {conversation_info.goal_list}"
+        )
 
         # --- 构建通用 Prompt 参数 ---
         # (这部分逻辑基本不变)

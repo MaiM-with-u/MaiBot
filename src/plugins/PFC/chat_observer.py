@@ -145,7 +145,9 @@ class ChatObserver:
             return False
 
         has_new = self.last_message_time > time_point
-        logger.debug(f"[私聊][{self.private_name}]判断是否在指定时间点后有新消息: {self.last_message_time} > {time_point} = {has_new}")
+        logger.debug(
+            f"[私聊][{self.private_name}]判断是否在指定时间点后有新消息: {self.last_message_time} > {time_point} = {has_new}"
+        )
         return has_new
 
     def get_message_history(

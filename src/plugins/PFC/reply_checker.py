@@ -50,7 +50,9 @@ class ReplyChecker:
                 # 可以用简单比较，或者更复杂的相似度库 (如 difflib)
                 # 简单比较：是否完全相同
                 if reply == bot_messages[0]:  # 和最近一条完全一样
-                    logger.warning(f"[私聊][{self.private_name}]ReplyChecker 检测到回复与上一条 Bot 消息完全相同: '{reply}'")
+                    logger.warning(
+                        f"[私聊][{self.private_name}]ReplyChecker 检测到回复与上一条 Bot 消息完全相同: '{reply}'"
+                    )
                     return (
                         False,
                         "回复内容与你上一条发言完全相同，请修改，可以选择深入话题或寻找其它话题或等待",

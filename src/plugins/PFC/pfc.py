@@ -155,7 +155,12 @@ class GoalAnalyzer:
 
         # 使用改进后的get_items_from_json函数处理JSON数组
         success, result = get_items_from_json(
-            content, self.private_name, "goal", "reasoning", required_types={"goal": str, "reasoning": str}, allow_array=True
+            content,
+            self.private_name,
+            "goal",
+            "reasoning",
+            required_types={"goal": str, "reasoning": str},
+            allow_array=True,
         )
 
         if success:
