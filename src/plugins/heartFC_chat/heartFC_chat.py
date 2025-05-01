@@ -1371,9 +1371,9 @@ class HeartFChatting:
                 if not mark_head:
                     mark_head = True
                     first_bot_msg = bot_message  # 保存第一个成功发送的消息对象
-                    await self.heart_fc_sender.type_and_send_message(bot_message, type=False)
+                    await self.heart_fc_sender.type_and_send_message(bot_message, typing=False)
                 else:
-                    await self.heart_fc_sender.type_and_send_message(bot_message, type=True)
+                    await self.heart_fc_sender.type_and_send_message(bot_message, typing=True)
 
                 reply_message_ids.append(part_message_id)  # 记录我们生成的ID
 
