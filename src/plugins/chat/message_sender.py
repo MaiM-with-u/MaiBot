@@ -11,6 +11,7 @@ from ...config.config import global_config
 from .utils import truncate_message, calculate_typing_time, count_messages_between
 
 from src.common.logger_manager import get_logger
+from src.plugins.message import global_api # Import global_api
 
 
 logger = get_logger("sender")
@@ -19,7 +20,9 @@ logger = get_logger("sender")
 async def send_via_ws(message: MessageSending) -> None:
     """通过 WebSocket 发送消息"""
     try:
-        await send_message(message)
+        # await send_message(message)  # <--- REMOVE RECURSIVE CALL
+        # await _actual_send_implementation(message)  # <--- REMOVE PLACEHOLDER
+        await global_api.send_message(message)  # <--- CALL THE ACTUAL API
     except Exception as e:
         logger.error(f"WS发送失败: {e}")
         raise ValueError(f"未找到平台：{message.message_info.platform} 的url配置，请检查配置文件") from e
