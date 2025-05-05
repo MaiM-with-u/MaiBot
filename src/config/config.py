@@ -503,6 +503,7 @@ class BotConfig:
                         "pri_in": 0,
                         "pri_out": 0,
                         "temp": 0.7,
+                        "extra_body": {},
                     }
 
                     if config.INNER_VERSION in SpecifierSet("<=0.0.0"):
@@ -540,6 +541,12 @@ class BotConfig:
                         else:
                             # 如果没有temp参数，就删除默认值
                             cfg_target.pop("temp", None)
+
+                        if "extra_body" in cfg_item:
+                            if not isinstance(cfg_item["extra_body"], dict):
+                                logger.error(f"extra_body 字段在模型配置 {item} 中不是字典类型，请检查")
+                                raise TypeError(f"extra_body 字段在模型配置 {item} 中不是字典类型，请检查")
+                            cfg_target["extra_body"] = cfg_item["extra_body"]
 
                         provider = cfg_item.get("provider")
                         if provider is None:

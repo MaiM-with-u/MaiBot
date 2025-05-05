@@ -204,6 +204,7 @@ name = "Pro/deepseek-ai/DeepSeek-R1"
 provider = "SILICONFLOW"
 pri_in = 1.0 #模型的输入价格（非必填，可以记录消耗）
 pri_out = 4.0 #模型的输出价格（非必填，可以记录消耗）
+# extra_body = {enable_thinking = true} # 允许在请求体中添加额外的参数，例如设置 Qwen3 的思考模式
 
 [model.llm_normal] #V3 回复模型 专注和一般聊天模式共用的回复模型
 name = "Pro/deepseek-ai/DeepSeek-V3"

@@ -635,6 +635,11 @@ class LLMRequest:
             "messages": messages,
             **params_copy,
         }
+        
+        # 添加 extra_args 字段到请求体
+        extra_args = self.params.get("extra_args", {})
+        payload.update(extra_args)
+
         if "max_tokens" not in payload and "max_completion_tokens" not in payload:
             payload["max_tokens"] = global_config.model_max_output_length
         # 如果 payload 中依然存在 max_tokens 且需要转换，在这里进行再次检查
