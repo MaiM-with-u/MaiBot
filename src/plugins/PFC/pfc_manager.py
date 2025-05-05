@@ -62,7 +62,12 @@ class PFCManager:
             if instance.should_continue:
                 logger.debug(f"[私聊][{private_name}]使用现有会话实例: {stream_id}")
                 return instance
-        # else: 实例存在但不应继续
+            else:
+                # 清理旧实例资源
+                await self._cleanup_conversation(instance)
+                del self._instances[stream_id]
+
+        # 创建新实例
         try:
             # 创建新实例
             logger.info(f"[私聊][{private_name}]创建新的对话实例: {stream_id}")
@@ -103,6 +108,25 @@ class PFCManager:
             logger.error(f"[私聊][{private_name}]{traceback.format_exc()}")
             # 清理失败的初始化
 
+    async def _cleanup_conversation(self, conversation: Conversation):
+        """清理会话实例的资源
+
+        Args:
+            conversation: 要清理的会话实例
+        """
+        try:
+            # 调用conversation的停止方法，确保所有组件都被正确关闭
+            if hasattr(conversation, 'stop') and callable(conversation.stop):
+                await conversation.stop()
+
+            # 特别确保空闲对话检测器被关闭
+            if hasattr(conversation, 'idle_conversation_starter'):
+                conversation.idle_conversation_starter.stop()
+
+            logger.info(f"[私聊][{conversation.private_name}]会话实例 {conversation.stream_id} 资源已清理")
+        except Exception as e:
+            logger.error(f"[私聊][{conversation.private_name}]清理会话实例资源失败: {e}")
+
     async def get_conversation(self, stream_id: str) -> Optional[Conversation]:
         """获取已存在的会话实例
 
@@ -113,3 +137,19 @@ class PFCManager:
             Optional[Conversation]: 会话实例，不存在则返回None
         """
         return self._instances.get(stream_id)
+
+    async def remove_conversation(self, stream_id: str):
+        """移除会话实例
+
+        Args:
+            stream_id: 聊天流ID
+        """
+        if stream_id in self._instances:
+            try:
+                # 清理资源
+                await self._cleanup_conversation(self._instances[stream_id])
+                # 删除实例引用
+                del self._instances[stream_id]
+                logger.info(f"会话实例 {stream_id} 已从管理器中移除")
+            except Exception as e:
+                logger.error(f"移除会话实例 {stream_id} 失败: {e}")

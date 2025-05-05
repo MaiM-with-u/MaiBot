@@ -9,7 +9,7 @@ from src.plugins.utils.chat_message_builder import build_readable_messages, get_
 from typing import Dict, Any, Optional
 from ..chat.message import Message
 from .pfc_types import ConversationState
-from .pfc import ChatObserver, GoalAnalyzer
+from .pfc import ChatObserver, GoalAnalyzer, IdleConversationStarter
 from .message_sender import DirectMessageSender
 from src.common.logger_manager import get_logger
 from .action_planner import ActionPlanner
@@ -58,6 +58,7 @@ class Conversation:
             self.knowledge_fetcher = KnowledgeFetcher(self.private_name)
             self.waiter = Waiter(self.stream_id, self.private_name)
             self.direct_sender = DirectMessageSender(self.private_name)
+            self.idle_conversation_starter = IdleConversationStarter(self.stream_id, self.private_name)
 
             # 获取聊天流信息
             self.chat_stream = chat_manager.get_stream(self.stream_id)
@@ -116,6 +117,9 @@ class Conversation:
                 # 让 ChatObserver 从加载的最后一条消息之后开始同步
                 self.chat_observer.last_message_time = self.observation_info.last_message_time
                 self.chat_observer.last_message_read = last_msg  # 更新 observer 的最后读取记录
+
+                # 初始化空闲对话检测器的最后消息时间
+                self.idle_conversation_starter.update_last_message_time(self.observation_info.last_message_time)
             else:
                 logger.info(f"[私聊][{self.private_name}]没有找到初始聊天记录。")
 
@@ -124,6 +128,11 @@ class Conversation:
             # 出错也要继续，只是没有历史记录而已
         # 组件准备完成，启动该论对话
         self.should_continue = True
+
+        # 启动空闲对话检测器
+        self.idle_conversation_starter.start()
+        logger.info(f"[私聊][{self.private_name}]空闲对话检测器已启动")
+
         asyncio.create_task(self.start())
 
     async def start(self):
@@ -140,6 +149,10 @@ class Conversation:
         while self.should_continue:
             # 忽略逻辑
             if self.ignore_until_timestamp and time.time() < self.ignore_until_timestamp:
+                # 暂停空闲对话检测器，避免在忽略期间触发
+                if hasattr(self, 'idle_conversation_starter') and self.idle_conversation_starter._running:
+                    self.idle_conversation_starter.stop()
+                    logger.debug(f"[私聊][{self.private_name}]对话被暂时忽略，暂停空闲对话检测")
                 await asyncio.sleep(30)
                 continue
             elif self.ignore_until_timestamp and time.time() >= self.ignore_until_timestamp:
@@ -147,6 +160,12 @@ class Conversation:
                 self.ignore_until_timestamp = None
                 self.should_continue = False
                 continue
+            else:
+                # 确保空闲对话检测器在正常对话时是启动的
+                if hasattr(self, 'idle_conversation_starter') and not self.idle_conversation_starter._running:
+                    self.idle_conversation_starter.start()
+                    logger.debug(f"[私聊][{self.private_name}]恢复空闲对话检测")
+
             try:
                 # --- 在规划前记录当前新消息数量 ---
                 initial_new_message_count = 0
@@ -371,6 +390,9 @@ class Conversation:
                 self.conversation_info.last_successful_reply_action = "send_new_message"
                 action_successful = True  # 标记动作成功
 
+                # 更新最后消息时间，重置空闲检测计时器
+                self.idle_conversation_starter.update_last_message_time()
+
             elif need_replan:
                 # 打回动作决策
                 logger.warning(
@@ -474,6 +496,9 @@ class Conversation:
                 # 更新状态: 标记上次成功是 direct_reply
                 self.conversation_info.last_successful_reply_action = "direct_reply"
                 action_successful = True  # 标记动作成功
+
+                # 更新最后消息时间，重置空闲检测计时器
+                self.idle_conversation_starter.update_last_message_time()
 
             elif need_replan:
                 # 打回动作决策
@@ -699,3 +724,15 @@ class Conversation:
             )
         except Exception as e:
             logger.error(f"[私聊][{self.private_name}]发送超时消息失败: {str(e)}")
+
+    async def stop(self):
+        """停止对话处理"""
+        logger.info(f"[私聊][{self.private_name}]停止对话 {self.stream_id}")
+        self.should_continue = False
+
+        # 停止空闲对话检测器
+        if hasattr(self, 'idle_conversation_starter'):
+            self.idle_conversation_starter.stop()
+
+        if hasattr(self, 'chat_observer'):
+            self.chat_observer.stop()

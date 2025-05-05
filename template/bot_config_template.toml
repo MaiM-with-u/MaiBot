@@ -291,6 +291,11 @@ provider = "SILICONFLOW"
 pri_in = 2
 pri_out = 8
 
+[idle_conversation]
+enable_idle_conversation = true
+idle_check_interval = 600  # 检查间隔，10分钟检查一次
+min_idle_time = 7200      # 最短无活动时间，2小时 (7200秒)建议拉高
+max_idle_time = 18000     # 最长无活动时间，5小时 (18000秒)
 
 #以下模型暂时没有使用！！
 #以下模型暂时没有使用！！
