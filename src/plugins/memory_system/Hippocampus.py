@@ -1046,8 +1046,14 @@ class EntorhinalCortex:
 
         # 清空数据库
         clear_start = time.time()
-        db.graph_data.nodes.delete_many({})
-        db.graph_data.edges.delete_many({})
+        # 备份节点和边集合
+        db.graph_data.nodes.rename("nodes_backup", dropTarget=True)
+        db.graph_data.edges.rename("edges_backup", dropTarget=True)
+
+        # 创建新的空集合
+        db.create_collection("nodes")
+        db.create_collection("edges")
+        
         clear_end = time.time()
         logger.info(f"[数据库] 清空数据库耗时: {clear_end - clear_start:.2f}秒")
 
