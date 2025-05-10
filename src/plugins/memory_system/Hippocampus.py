@@ -1045,53 +1045,63 @@ class EntorhinalCortex:
         start_time = time.time()
         logger.info("[数据库] 开始重新同步所有记忆数据...")
 
-        # 清空数据库
-        clear_start = time.time()
-        db.graph_data.nodes.delete_many({})
-        db.graph_data.edges.delete_many({})
-        clear_end = time.time()
-        logger.info(f"[数据库] 清空数据库耗时: {clear_end - clear_start:.2f}秒")
+        with db.client.start_session() as session:
+            session.start_transaction()
+            try:
+                # 清空数据库
+                clear_start = time.time()
+                # delete_many({})是危险操作需要在事务中执行
+                db.graph_data.nodes.delete_many({}, session=session)
+                db.graph_data.edges.delete_many({}, session=session)
+                clear_end = time.time()
+                logger.info(f"[数据库] 清空数据库耗时: {clear_end - clear_start:.2f}秒")
 
-        # 获取所有节点和边
-        memory_nodes = list(self.memory_graph.G.nodes(data=True))
-        memory_edges = list(self.memory_graph.G.edges(data=True))
+                # 获取所有节点和边
+                memory_nodes = list(self.memory_graph.G.nodes(data=True))
+                memory_edges = list(self.memory_graph.G.edges(data=True))
 
-        # 重新写入节点
-        node_start = time.time()
-        for concept, data in memory_nodes:
-            memory_items = data.get("memory_items", [])
-            if not isinstance(memory_items, list):
-                memory_items = [memory_items] if memory_items else []
+                # 重新写入节点
+                node_start = time.time()
+                for concept, data in memory_nodes:
+                    memory_items = data.get("memory_items", [])
+                    if not isinstance(memory_items, list):
+                        memory_items = [memory_items] if memory_items else []
 
-            node_data = {
-                "concept": concept,
-                "memory_items": memory_items,
-                "hash": self.hippocampus.calculate_node_hash(concept, memory_items),
-                "created_time": data.get("created_time", datetime.datetime.now().timestamp()),
-                "last_modified": data.get("last_modified", datetime.datetime.now().timestamp()),
-            }
-            db.graph_data.nodes.insert_one(node_data)
-        node_end = time.time()
-        logger.info(f"[数据库] 写入 {len(memory_nodes)} 个节点耗时: {node_end - node_start:.2f}秒")
+                    node_data = {
+                        "concept": concept,
+                        "memory_items": memory_items,
+                        "hash": self.hippocampus.calculate_node_hash(concept, memory_items),
+                        "created_time": data.get("created_time", datetime.datetime.now().timestamp()),
+                        "last_modified": data.get("last_modified", datetime.datetime.now().timestamp()),
+                    }
+                    db.graph_data.nodes.insert_one(node_data, session=session)
+                node_end = time.time()
+                logger.info(f"[数据库] 写入 {len(memory_nodes)} 个节点耗时: {node_end - node_start:.2f}秒")
 
-        # 重新写入边
-        edge_start = time.time()
-        for source, target, data in memory_edges:
-            edge_data = {
-                "source": source,
-                "target": target,
-                "strength": data.get("strength", 1),
-                "hash": self.hippocampus.calculate_edge_hash(source, target),
-                "created_time": data.get("created_time", datetime.datetime.now().timestamp()),
-                "last_modified": data.get("last_modified", datetime.datetime.now().timestamp()),
-            }
-            db.graph_data.edges.insert_one(edge_data)
-        edge_end = time.time()
-        logger.info(f"[数据库] 写入 {len(memory_edges)} 条边耗时: {edge_end - edge_start:.2f}秒")
+                # 重新写入边
+                edge_start = time.time()
+                for source, target, data in memory_edges:
+                    edge_data = {
+                        "source": source,
+                        "target": target,
+                        "strength": data.get("strength", 1),
+                        "hash": self.hippocampus.calculate_edge_hash(source, target),
+                        "created_time": data.get("created_time", datetime.datetime.now().timestamp()),
+                        "last_modified": data.get("last_modified", datetime.datetime.now().timestamp()),
+                    }
+                    db.graph_data.edges.insert_one(edge_data, session=session)
+                edge_end = time.time()
+                logger.info(f"[数据库] 写入 {len(memory_edges)} 条边耗时: {edge_end - edge_start:.2f}秒")
 
-        end_time = time.time()
-        logger.success(f"[数据库] 重新同步完成，总耗时: {end_time - start_time:.2f}秒")
-        logger.success(f"[数据库] 同步了 {len(memory_nodes)} 个节点和 {len(memory_edges)} 条边")
+                end_time = time.time()
+                logger.success(f"[数据库] 重新同步完成，总耗时: {end_time - start_time:.2f}秒")
+                logger.success(f"[数据库] 同步了 {len(memory_nodes)} 个节点和 {len(memory_edges)} 条边")
+            except Exception as e:
+                logger.exception(f"[数据库] 重新同步失败: {e}")
+                session.abort_transaction()
+            else:
+                session.commit_transaction()
+
 
 
 # 负责整合，遗忘，合并记忆
