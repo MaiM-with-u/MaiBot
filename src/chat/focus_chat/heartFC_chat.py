@@ -32,6 +32,8 @@ from src.chat.focus_chat.info_processors.tool_processor import ToolProcessor
 from src.chat.focus_chat.expressors.default_expressor import DefaultExpressor
 from src.chat.focus_chat.hfc_utils import create_empty_anchor_message, parse_thinking_id_to_timestamp
 from src.chat.focus_chat.memory_activator import MemoryActivator
+from src.chat.utils.chat_message_builder import get_raw_msg_before_timestamp_with_chat
+from src.plugins.group_nickname.nickname_manager import nickname_manager
 
 install(extra_lines=3)
 
@@ -800,7 +802,16 @@ class HeartFChatting:
                 logger.debug(
                     f"{self.log_prefix}[Planner] 临时移除的动作: {actions_to_remove_temporarily}, 当前可用: {list(current_available_actions.keys())}"
                 )
-
+            # 需要获取用于上下文的历史消息
+            message_list_before_now = get_raw_msg_before_timestamp_with_chat(
+                chat_id=self.stream_id,
+                timestamp=time.time(),  # 使用当前时间作为参考点
+                limit=global_config.observation_context_size,  # 使用与 prompt 构建一致的 limit
+            )
+            # 调用工具函数获取格式化后的绰号字符串
+            nickname_injection_str = await nickname_manager.get_nickname_prompt_injection(
+                self.chat_stream, message_list_before_now
+            )
             # --- 构建提示词 (调用修改后的 PromptBuilder 方法) ---
             prompt = await prompt_builder.build_planner_prompt(
                 is_group_chat=is_group_chat,  # <-- Pass HFC state
@@ -810,6 +821,7 @@ class HeartFChatting:
                 structured_info=structured_info,  # <-- Pass SubMind info
                 current_available_actions=current_available_actions,  # <-- Pass determined actions
                 cycle_info=cycle_info,  # <-- Pass cycle info
+                nickname_info=nickname_injection_str,  # <-- Pass nickname injection
             )
 
             # --- 调用 LLM (普通文本生成) ---

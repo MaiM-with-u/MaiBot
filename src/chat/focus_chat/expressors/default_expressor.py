@@ -113,8 +113,15 @@ class DefaultExpressor:
                             response_set=reply,
                         )
                     has_sent_something = True
-                    # 调用工具函数触发绰号分析
-                    await nickname_manager.trigger_nickname_analysis(anchor_message, reply, self.chat_stream)
+
+                    # 为 trigger_nickname_analysis 准备 bot_reply 参数
+                    bot_reply_for_analysis = []
+                    if reply: # reply 是 List[Tuple[str, str]]
+                        for seg_type, seg_data in reply:
+                            if seg_type == "text": # 只取文本类型的数据
+                                bot_reply_for_analysis.append(seg_data)
+
+                    await nickname_manager.trigger_nickname_analysis(anchor_message, bot_reply_for_analysis, self.chat_stream)
                 else:
                     logger.warning(f"{self.log_prefix} 文本回复生成失败")
 
