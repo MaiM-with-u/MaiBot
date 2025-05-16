@@ -53,6 +53,7 @@ person_info_default = {
     "msg_interval_list": [],
     "user_cardname": None,  # 添加群名片
     "user_avatar": None,  # 添加头像信息（例如URL或标识符）
+    "group_nicknames": [],
 }  # 个人信息的各项与默认值在此定义，以下处理会自动创建/补全每一项
 
 

@@ -1,5 +1,6 @@
 import random
 import re
+import regex
 import time
 from collections import Counter
 
@@ -17,6 +18,135 @@ from ...common.database import db
 from ...config.config import global_config
 
 logger = get_module_logger("chat_utils")
+
+# 预编译正则表达式以提高性能
+_L_REGEX = regex.compile(r"\p{L}")  # 匹配任何Unicode字母
+_HAN_CHAR_REGEX = regex.compile(r"\p{Han}")  # 匹配汉字 (Unicode属性)
+_Nd_REGEX = regex.compile(r"\p{Nd}")  # 新增：匹配Unicode数字 (Nd = Number, decimal digit)
+
+BOOK_TITLE_PLACEHOLDER_PREFIX = "__BOOKTITLE_"
+SEPARATORS = {"。", "，", ",", " ", ";", "\xa0", "\n", ".", "—", "！", "？"}
+KNOWN_ABBREVIATIONS_ENDING_WITH_DOT = {
+    "Mr.",
+    "Mrs.",
+    "Ms.",
+    "Dr.",
+    "Prof.",
+    "St.",
+    "Messrs.",
+    "Mmes.",
+    "Capt.",
+    "Gov.",
+    "Inc.",
+    "Ltd.",
+    "Corp.",
+    "Co.",
+    "PLC",  # PLC通常不带点，但有些可能
+    "vs.",
+    "etc.",
+    "i.e.",
+    "e.g.",
+    "viz.",
+    "al.",
+    "et al.",
+    "ca.",
+    "cf.",
+    "No.",
+    "Vol.",
+    "pp.",
+    "fig.",
+    "figs.",
+    "ed.",
+    "Ph.D.",
+    "M.D.",
+    "B.A.",
+    "M.A.",
+    "Jan.",
+    "Feb.",
+    "Mar.",
+    "Apr.",
+    "Jun.",
+    "Jul.",
+    "Aug.",
+    "Sep.",
+    "Oct.",
+    "Nov.",
+    "Dec.",  # May. 通常不用点
+    "Mon.",
+    "Tue.",
+    "Wed.",
+    "Thu.",
+    "Fri.",
+    "Sat.",
+    "Sun.",
+    "U.S.",
+    "U.K.",
+    "E.U.",
+    "U.S.A.",
+    "U.S.S.R.",
+    "Ave.",
+    "Blvd.",
+    "Rd.",
+    "Ln.",  # Street suffixes
+    "approx.",
+    "dept.",
+    "appt.",
+    "श्री.",  # Hindi Shri.
+}
+
+
+def is_letter_not_han(char_str: str) -> bool:
+    """
+    检查字符是否为“字母”且“非汉字”。
+    例如拉丁字母、西里尔字母、韩文等返回True。
+    汉字、数字、标点、空格等返回False。
+    """
+    if not isinstance(char_str, str) or len(char_str) != 1:
+        return False
+
+    is_letter = _L_REGEX.fullmatch(char_str) is not None
+    if not is_letter:
+        return False
+
+    # 使用 \p{Han} 属性进行汉字判断，更为准确
+    is_han = _HAN_CHAR_REGEX.fullmatch(char_str) is not None
+    return not is_han
+
+
+def is_han_character(char_str: str) -> bool:
+    """检查字符是否为汉字 (使用 \p{Han} Unicode 属性)"""
+    if not isinstance(char_str, str) or len(char_str) != 1:
+        return False
+    return _HAN_CHAR_REGEX.fullmatch(char_str) is not None
+
+
+def is_digit(char_str: str) -> bool:
+    """检查字符是否为Unicode数字"""
+    if not isinstance(char_str, str) or len(char_str) != 1:
+        return False
+    return _Nd_REGEX.fullmatch(char_str) is not None
+
+
+def is_relevant_word_char(char_str: str) -> bool:  # 新增辅助函数
+    """
+    检查字符是否为“相关词语字符”（非汉字字母 或 数字）。
+    用于判断在非中文语境下，空格两侧是否应被视为一个词内部的部分。
+    例如拉丁字母、西里尔字母、数字等返回True。
+    汉字、标点、纯空格等返回False。
+    """
+    if not isinstance(char_str, str) or len(char_str) != 1:
+        return False
+
+    # 检查是否为Unicode字母
+    if _L_REGEX.fullmatch(char_str):
+        # 如果是字母，则检查是否非汉字
+        return not _HAN_CHAR_REGEX.fullmatch(char_str)
+
+    # 检查是否为Unicode数字
+    if _Nd_REGEX.fullmatch(char_str):
+        return True  # 数字本身被视为相关词语字符
+
+    return False
 
 
 def is_english_letter(char: str) -> bool:
@@ -75,7 +205,8 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> tuple[bool, float]:
         if not is_mentioned:
             # 判断是否被回复
             if re.match(
-                f"\[回复 [\s\S]*?\({str(global_config.BOT_QQ)}\)：[\s\S]*?]，说：", message.processed_plain_text
+                f"\[回复 [\s\S]*?\({str(global_config.BOT_QQ)}\)：[\s\S]*?\]，说：",
+                message.processed_plain_text,
             ):
                 is_mentioned = True
             else:
@@ -172,124 +303,182 @@ def get_recent_group_speaker(chat_stream_id: int, sender, limit: int = 12) -> li
     return who_chat_in_group
 
 
-def split_into_sentences_w_remove_punctuation(text: str) -> list[str]:
-    """将文本分割成句子，并根据概率合并
-    1. 识别分割点（, ， 。 ; 空格），但如果分割点左右都是英文字母则不分割。
-    2. 将文本分割成 (内容, 分隔符) 的元组。
-    3. 根据原始文本长度计算合并概率，概率性地合并相邻段落。
-    注意：此函数假定颜文字已在上层被保护。
-    Args:
-        text: 要分割的文本字符串 (假定颜文字已被保护)
-    Returns:
-        List[str]: 分割和合并后的句子列表
-    """
-    # 预处理：处理多余的换行符
-    # 1. 将连续的换行符替换为单个换行符
-    text = re.sub(r"\n\s*\n+", "\n", text)
-    # 2. 处理换行符和其他分隔符的组合
-    text = re.sub(r"\n\s*([，,。;\s])", r"\1", text)
-    text = re.sub(r"([，,。;\s])\s*\n", r"\1", text)
+def split_into_sentences_w_remove_punctuation(original_text: str) -> list[str]:
+    """将文本分割成句子，并根据概率合并"""
+    # print(f"DEBUG: 输入文本 (repr): {repr(text)}")
+    text, local_book_title_mapping = protect_book_titles(original_text)
+    perform_book_title_recovery_here = True
+    # 预处理
+    text = regex.sub(r"\n\s*\n+", "\n", text)  # 合并多个换行符
+    text = regex.sub(r"\n\s*([—。.,，;\s\xa0！？])", r"\1", text)
+    text = regex.sub(r"([—。.,，;\s\xa0！？])\s*\n", r"\1", text)
 
-    # 处理两个汉字中间的换行符
-    text = re.sub(r"([\u4e00-\u9fff])\n([\u4e00-\u9fff])", r"\1。\2", text)
+    def replace_han_newline(match):
+        char1 = match.group(1)
+        char2 = match.group(2)
+        if is_han_character(char1) and is_han_character(char2):
+            return char1 + "，" + char2  # 汉字间的换行符替换为逗号
+        return match.group(0)
+
+    text = regex.sub(r"(.)\n(.)", replace_han_newline, text)
 
     len_text = len(text)
     if len_text < 3:
-        if random.random() < 0.01:
-            return list(text)  # 如果文本很短且触发随机条件,直接按字符分割
-        else:
-            return [text]
+        stripped_text = text.strip()
+        if not stripped_text:
+            return []
+        if len(stripped_text) == 1 and stripped_text in SEPARATORS:
+            return []
+        return [stripped_text]
 
-    # 定义分隔符
-    separators = {"，", ",", " ", "。", ";"}
     segments = []
     current_segment = ""
-
-    # 1. 分割成 (内容, 分隔符) 元组
     i = 0
     while i < len(text):
         char = text[i]
-        if char in separators:
-            # 检查分割条件：如果分隔符左右都是英文字母，则不分割
-            can_split = True
-            if 0 < i < len(text) - 1:
-                prev_char = text[i - 1]
-                next_char = text[i + 1]
-                # if is_english_letter(prev_char) and is_english_letter(next_char) and char == ' ': # 原计划只对空格应用此规则，现应用于所有分隔符
-                if is_english_letter(prev_char) and is_english_letter(next_char):
-                    can_split = False
+        if char in SEPARATORS:
+            can_split_current_char = True
 
-            if can_split:
-                # 只有当当前段不为空时才添加
-                if current_segment:
+            if char == ".":
+                can_split_this_dot = True
+                # 规则1: 小数点 (数字.数字)
+                if 0 < i < len_text - 1 and is_digit(text[i - 1]) and is_digit(text[i + 1]):
+                    can_split_this_dot = False
+                # 规则2: 西文缩写/域名内部的点 (西文字母.西文字母)
+                elif 0 < i < len_text - 1 and is_letter_not_han(text[i - 1]) and is_letter_not_han(text[i + 1]):
+                    can_split_this_dot = False
+                # 规则3: 已知缩写词的末尾点 (例如 "e.g. ", "U.S.A. ")
+                else:
+                    potential_abbreviation_word = current_segment + char
+                    is_followed_by_space = i + 1 < len_text and text[i + 1] == " "
+                    is_at_end_of_text = i + 1 == len_text
+
+                    if potential_abbreviation_word in KNOWN_ABBREVIATIONS_ENDING_WITH_DOT and (
+                        is_followed_by_space or is_at_end_of_text
+                    ):
+                        can_split_this_dot = False
+                can_split_current_char = can_split_this_dot
+            elif char == " " or char == "\xa0":  # 处理空格/NBSP
+                if 0 < i < len_text - 1:
+                    prev_char = text[i - 1]
+                    next_char = text[i + 1]
+                    # 非中文单词内部的空格不分割 (例如 "hello world", "слово1 слово2")
+                    if is_relevant_word_char(prev_char) and is_relevant_word_char(next_char):
+                        can_split_current_char = False
+
+            if can_split_current_char:
+                if current_segment:  # 如果当前段落有内容，则添加 (内容, 分隔符)
                     segments.append((current_segment, char))
-                # 如果当前段为空，但分隔符是空格，则也添加一个空段（保留空格）
-                elif char == " ":
-                    segments.append(("", char))
-                current_segment = ""
+                # 如果当前段落为空，但分隔符不是简单的排版空格 (除非是换行符这种有意义的空行分隔)
+                elif char not in [" ", "\xa0"] or char == "\n":
+                    segments.append(("", char))  # 添加 ("", 分隔符)
+                current_segment = ""  # 重置当前段落
             else:
-                # 不分割，将分隔符加入当前段
-                current_segment += char
+                current_segment += char  # 不分割，将当前分隔符加入到当前段落
         else:
-            current_segment += char
+            current_segment += char  # 非分隔符，加入当前段落
         i += 1
 
-    # 添加最后一个段（没有后续分隔符）
-    if current_segment:
+    if current_segment:  # 处理末尾剩余的段落
         segments.append((current_segment, ""))
 
-    # 过滤掉完全空的段（内容和分隔符都为空）
-    segments = [(content, sep) for content, sep in segments if content or sep]
+    # 过滤掉仅由空格组成的segment，但保留其后的有效分隔符
+    filtered_segments = []
+    for content, sep in segments:
+        stripped_content = content.strip()
+        if stripped_content:
+            filtered_segments.append((stripped_content, sep))
+        elif sep and (sep not in [" ", "\xa0"] or sep == "\n"):
+            filtered_segments.append(("", sep))
+    segments = filtered_segments
 
-    # 如果分割后为空（例如，输入全是分隔符且不满足保留条件），恢复颜文字并返回
     if not segments:
-        # recovered_text = recover_kaomoji([text], mapping) # 恢复原文本中的颜文字 - 已移至上层处理
-        # return [s for s in recovered_text if s] # 返回非空结果
-        return [text] if text else []  # 如果原始文本非空，则返回原始文本（可能只包含未被分割的字符或颜文字占位符）
+        return [text.strip()] if text.strip() else []
 
-    # 2. 概率合并
+    preliminary_final_sentences = []
+    current_sentence_build = ""
+    for k, (content, sep) in enumerate(segments):
+        current_sentence_build += content  # 先添加内容部分
+
+        # 判断分隔符类型
+        is_strong_terminator = sep in {"。", ".", "！", "？", "\n", "—"}
+        is_space_separator = sep in [" ", "\xa0"]
+
+        if is_strong_terminator:
+            current_sentence_build += sep  # 将强终止符加入
+            if current_sentence_build.strip():
+                preliminary_final_sentences.append(current_sentence_build.strip())
+            current_sentence_build = ""  # 开始新的句子构建
+        elif is_space_separator:
+            # 如果是空格，并且当前构建的句子不以空格结尾，则添加空格并继续构建
+            if not current_sentence_build.endswith(sep):
+                current_sentence_build += sep
+        elif sep:  # 其他分隔符 (如 ',', ';')
+            current_sentence_build += sep  # 加入并继续构建，这些通常不独立成句
+            # 如果这些弱分隔符后紧跟的就是文本末尾，则它们可能结束一个句子
+            if k == len(segments) - 1 and current_sentence_build.strip():
+                preliminary_final_sentences.append(current_sentence_build.strip())
+                current_sentence_build = ""
+
+    if current_sentence_build.strip():  # 处理最后一个构建中的句子
+        preliminary_final_sentences.append(current_sentence_build.strip())
+
+    preliminary_final_sentences = [s for s in preliminary_final_sentences if s.strip()]  # 清理空字符串
+    # print(f"DEBUG: 初步分割（优化组装后）的句子: {preliminary_final_sentences}")
+
+    if not preliminary_final_sentences:
+        return []
+
     if len_text < 12:
         split_strength = 0.2
     elif len_text < 32:
-        split_strength = 0.6
+        split_strength = 0.5
     else:
         split_strength = 0.7
-    # 合并概率与分割强度相反
     merge_probability = 1.0 - split_strength
 
-    merged_segments = []
-    idx = 0
-    while idx < len(segments):
-        current_content, current_sep = segments[idx]
+    if merge_probability == 1.0 and len(preliminary_final_sentences) > 1:
+        merged_text = " ".join(preliminary_final_sentences).strip()
+        if merged_text.endswith(",") or merged_text.endswith("，"):
+            merged_text = merged_text[:-1].strip()
+        return [merged_text] if merged_text else []
+    elif len(preliminary_final_sentences) == 1:
+        s = preliminary_final_sentences[0].strip()
+        if s.endswith(",") or s.endswith("，"):
+            s = s[:-1].strip()
+        return [s] if s else []
 
-        # 检查是否可以与下一段合并
-        # 条件：不是最后一段，且随机数小于合并概率，且当前段有内容（避免合并空段）
-        if idx + 1 < len(segments) and random.random() < merge_probability and current_content:
-            next_content, next_sep = segments[idx + 1]
-            # 合并: (内容1 + 分隔符1 + 内容2, 分隔符2)
-            # 只有当下一段也有内容时才合并文本，否则只传递分隔符
-            if next_content:
-                merged_content = current_content + current_sep + next_content
-                merged_segments.append((merged_content, next_sep))
-            else:  # 下一段内容为空，只保留当前内容和下一段的分隔符
-                merged_segments.append((current_content, next_sep))
+    final_sentences_merged = []
+    temp_sentence = ""
+    if preliminary_final_sentences:
+        temp_sentence = preliminary_final_sentences[0]
+        for i_merge in range(1, len(preliminary_final_sentences)):
+            should_merge_based_on_punctuation = True
+            if temp_sentence and temp_sentence[-1] in {"。", ".", "！", "？"}:
+                should_merge_based_on_punctuation = False
 
-            idx += 2  # 跳过下一段，因为它已被合并
-        else:
-            # 不合并，直接添加当前段
-            merged_segments.append((current_content, current_sep))
-            idx += 1
+            if random.random() < merge_probability and temp_sentence and should_merge_based_on_punctuation:
+                temp_sentence += " " + preliminary_final_sentences[i_merge]
+            else:
+                if temp_sentence:
+                    final_sentences_merged.append(temp_sentence)
+                temp_sentence = preliminary_final_sentences[i_merge]
+        if temp_sentence:
+            final_sentences_merged.append(temp_sentence)
 
-    # 提取最终的句子内容
-    final_sentences = [content for content, sep in merged_segments if content]  # 只保留有内容的段
+    processed_sentences_after_merge = []
+    for sentence in final_sentences_merged:
+        s = sentence.strip()
+        if s.endswith(",") or s.endswith("，"):
+            s = s[:-1].strip()
+        if s:
+            s = random_remove_punctuation(s)
+            processed_sentences_after_merge.append(s)
 
-    # 清理可能引入的空字符串和仅包含空白的字符串
-    final_sentences = [
-        s for s in final_sentences if s.strip()
-    ]  # 过滤掉空字符串以及仅包含空白（如换行符、空格）的字符串
-
-    logger.debug(f"分割并合并后的句子: {final_sentences}")
-    return final_sentences
+    if perform_book_title_recovery_here and local_book_title_mapping:
+        # 假设 processed_sentences_after_merge 是最终的句子列表
+        processed_sentences_after_merge = recover_book_titles(processed_sentences_after_merge, local_book_title_mapping)
+    return processed_sentences_after_merge
 
 
 def random_remove_punctuation(text: str) -> str:
@@ -310,9 +499,9 @@ def random_remove_punctuation(text: str) -> str:
                 continue
         elif char == "，":
             rand = random.random()
-            if rand < 0.25:  # 5%概率删除逗号
+            if rand < 0.25:  # 25%概率删除逗号
                 continue
-            elif rand < 0.25:  # 20%概率把逗号变成空格
+            elif rand < 0.2:  # 20%概率把逗号变成空格
                 result += " "
                 continue
         result += char
@@ -338,7 +527,6 @@ def process_llm_response(text: str) -> list[str]:
         return ["呃呃"]
 
     logger.debug(f"{text}去除括号处理后的文本: {cleaned_text}")
-
     # 对清理后的文本进行进一步处理
     max_length = global_config.response_max_length * 2
     max_sentence_num = global_config.response_max_sentence_num
@@ -404,25 +592,22 @@ def calculate_typing_time(
     - 在所有输入结束后，额外加上回车时间0.3秒
     - 如果is_emoji为True，将使用固定1秒的输入时间
     """
-    # 将0-1的唤醒度映射到-1到1
     mood_arousal = mood_manager.current_mood.arousal
-    # 映射到0.5到2倍的速度系数
-    typing_speed_multiplier = 1.5**mood_arousal  # 唤醒度为1时速度翻倍,为-1时速度减半
+    typing_speed_multiplier = 1.5**mood_arousal
     chinese_time *= 1 / typing_speed_multiplier
     english_time *= 1 / typing_speed_multiplier
-    # 计算中文字符数
-    chinese_chars = sum(1 for char in input_string if "\u4e00" <= char <= "\u9fff")
 
-    # 如果只有一个中文字符，使用3倍时间
+    # 使用 is_han_character 进行判断
+    chinese_chars = sum(1 for char in input_string if is_han_character(char))
+
     if chinese_chars == 1 and len(input_string.strip()) == 1:
-        return chinese_time * 3 + 0.3  # 加上回车时间
+        return chinese_time * 3 + 0.3
 
-    # 正常计算所有字符的输入时间
-    total_time = 0.0
+    total_time = 0
     for char in input_string:
-        if "\u4e00" <= char <= "\u9fff":  # 判断是否为中文字符
+        if is_han_character(char):  # 使用 is_han_character 进行判断
             total_time += chinese_time
-        else:  # 其他字符（如英文）
+        else:
             total_time += english_time
 
     if is_emoji:
@@ -431,12 +616,7 @@ def calculate_typing_time(
     if time.time() - thinking_start_time > 10:
         total_time = 1
 
-    # print(f"thinking_start_time:{thinking_start_time}")
-    # print(f"nowtime:{time.time()}")
-    # print(f"nowtime - thinking_start_time:{time.time() - thinking_start_time}")
-    # print(f"{total_time}")
-
-    return total_time  # 加上回车时间
+    return total_time
 
 
 def cosine_similarity(v1, v2):
@@ -554,7 +734,7 @@ def get_western_ratio(paragraph):
     if not alnum_chars:
         return 0.0
 
-    western_count = sum(1 for char in alnum_chars if is_english_letter(char))
+    western_count = sum(1 for char in alnum_chars if is_english_letter(char))  # 保持使用 is_english_letter
     return western_count / len(alnum_chars)
 
 
@@ -615,7 +795,7 @@ def translate_timestamp_to_human_readable(timestamp: float, mode: str = "normal"
         str: 格式化后的时间字符串
     """
     if mode == "normal":
-        return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
+        return time.strftime("%Y-%m-%d %H:%M:%S ", time.localtime(timestamp))
     elif mode == "relative":
         now = time.time()
         diff = now - timestamp
@@ -742,3 +922,25 @@ def parse_text_timestamps(text: str, mode: str = "normal") -> str:
             result_text = re.sub(pattern_instance, readable_time, result_text, count=1)
 
         return result_text
+
+def protect_book_titles(text):
+    book_title_mapping = {}
+    book_title_pattern = re.compile(r"《(.*?)》") # 非贪婪匹配
+
+    def replace_func(match):
+        # 生成唯一占位符
+        placeholder = f"{BOOK_TITLE_PLACEHOLDER_PREFIX}{len(book_title_mapping)}__"
+        # 存储映射关系
+        book_title_mapping[placeholder] = match.group(0) # 存储包含书名号的完整匹配
+        return placeholder
+
+    protected_text = book_title_pattern.sub(replace_func, text)
+    return protected_text, book_title_mapping
+
+def recover_book_titles(sentences, book_title_mapping):
+    recovered_sentences = []
+    for sentence in sentences:
+        for placeholder, original_content in book_title_mapping.items():
+            sentence = sentence.replace(placeholder, original_content)
+        recovered_sentences.append(sentence)
+    return recovered_sentences

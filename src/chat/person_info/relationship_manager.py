@@ -5,6 +5,8 @@ from bson.decimal128 import Decimal128
 from .person_info import person_info_manager
 import time
 import random
+from typing import List, Dict
+from ...common.database import db
 from maim_message import UserInfo
 
 from ...manager.mood_manager import mood_manager
@@ -79,6 +81,131 @@ class RelationshipManager:
         """判断是否认识某人"""
         is_known = person_info_manager.is_person_known(platform, user_id)
         return is_known
+
+    # --- [修改] 使用全局 db 对象进行查询 ---
+    @staticmethod
+    async def get_person_names_batch(platform: str, user_ids: List[str]) -> Dict[str, str]:
+        """
+        批量获取多个用户的 person_name。
+        """
+        if not user_ids:
+            return {}
+
+        person_ids = [person_info_manager.get_person_id(platform, str(uid)) for uid in user_ids]
+        names_map = {}
+        try:
+            cursor = db.person_info.find(
+                {"person_id": {"$in": person_ids}},
+                {"_id": 0, "person_id": 1, "user_id": 1, "person_name": 1},  # 只查询需要的字段
+            )
+
+            for doc in cursor:
+                user_id_val = doc.get("user_id")  # 获取原始值
+                original_user_id = None  # 初始化
+
+                if isinstance(user_id_val, (int, float)):  # 检查是否是数字类型
+                    original_user_id = str(user_id_val)  # 直接转换为字符串
+                elif isinstance(user_id_val, str):  # 检查是否是字符串
+                    if "_" in user_id_val:  # 如果包含下划线，则分割
+                        original_user_id = user_id_val.split("_", 1)[-1]
+                    else:  # 如果不包含下划线，则直接使用该字符串
+                        original_user_id = user_id_val
+                # else: # 其他类型或 None，original_user_id 保持为 None
+
+                person_name = doc.get("person_name")
+
+                # 确保 original_user_id 和 person_name 都有效
+                if original_user_id and person_name:
+                    names_map[original_user_id] = person_name
+
+            logger.debug(f"批量获取 {len(user_ids)} 个用户的 person_name，找到 {len(names_map)} 个。")
+        except AttributeError as e:
+            # 如果 db 对象没有 person_info 属性，或者 find 方法不存在
+            logger.error(f"访问数据库时出错: {e}。请检查 common/database.py 和集合名称。")
+        except Exception as e:
+            logger.error(f"批量获取 person_name 时出错: {e}", exc_info=True)
+        return names_map
+
+    @staticmethod
+    async def get_users_group_nicknames(
+        platform: str, user_ids: List[str], group_id: str
+    ) -> Dict[str, List[Dict[str, int]]]:
+        """
+        批量获取多个用户在指定群组的绰号信息。
+
+        Args:
+            platform (str): 平台名称。
+            user_ids (List[str]): 用户 ID 列表。
+            group_id (str): 群组 ID。
+
+        Returns:
+            Dict[str, List[Dict[str, int]]]: 映射 {person_name: [{"绰号A": 次数}, ...]}
+        """
+        if not user_ids or not group_id:
+            return {}
+
+        person_ids = [person_info_manager.get_person_id(platform, str(uid)) for uid in user_ids]
+        nicknames_data = {}
+        group_id_str = str(group_id)  # 确保 group_id 是字符串
+
+        try:
+            # 查询包含目标 person_id 的文档
+            cursor = db.person_info.find(
+                {"person_id": {"$in": person_ids}},
+                {"_id": 0, "person_id": 1, "person_name": 1, "group_nicknames": 1},  # 查询所需字段
+            )
+
+            # 假设同步迭代可行
+            for doc in cursor:
+                person_name = doc.get("person_name")
+                if not person_name:
+                    continue  # 跳过没有 person_name 的用户
+
+                group_nicknames_list = doc.get("group_nicknames", [])  # 获取 group_nicknames 数组
+                target_group_nicknames = []  # 存储目标群组的绰号列表
+
+                # 遍历 group_nicknames 数组，查找匹配的 group_id
+                for group_entry in group_nicknames_list:
+                    # 确保 group_entry 是字典且包含 group_id 键
+                    if isinstance(group_entry, dict) and group_entry.get("group_id") == group_id_str:
+                        # 提取 nicknames 列表
+                        nicknames_raw = group_entry.get("nicknames", [])
+                        if isinstance(nicknames_raw, list):
+                            target_group_nicknames = nicknames_raw
+                        break  # 找到匹配的 group_id 后即可退出内层循环
+
+                # 如果找到了目标群组的绰号列表
+                if target_group_nicknames:
+                    valid_nicknames_formatted = []  # 存储格式化后的绰号
+                    for item in target_group_nicknames:
+                        # 校验每个绰号条目的格式 { "name": str, "count": int }
+                        if (
+                            isinstance(item, dict)
+                            and isinstance(item.get("name"), str)
+                            and isinstance(item.get("count"), int)
+                            and item["count"] > 0
+                        ):  # 确保 count 是正整数
+                            # --- 格式转换：从 { "name": "xxx", "count": y } 转为 { "xxx": y } ---
+                            valid_nicknames_formatted.append({item["name"]: item["count"]})
+                            # --- 结束格式转换 ---
+                        else:
+                            logger.warning(
+                                f"数据库中用户 {person_name} 群组 {group_id_str} 的绰号格式无效或 count <= 0: {item}"
+                            )
+
+                    if valid_nicknames_formatted:  # 如果存在有效的、格式化后的绰号
+                        nicknames_data[person_name] = valid_nicknames_formatted  # 使用 person_name 作为 key
+
+            logger.debug(
+                f"批量获取群组 {group_id_str} 中 {len(user_ids)} 个用户的绰号，找到 {len(nicknames_data)} 个用户的数据。"
+            )
+
+        except AttributeError as e:
+            logger.error(f"访问数据库时出错: {e}。请检查 common/database.py 和集合名称 'person_info'。")
+        except Exception as e:
+            logger.error(f"批量获取群组绰号时出错: {e}", exc_info=True)
+
+        return nicknames_data
 
     @staticmethod
     async def is_qved_name(platform, user_id):

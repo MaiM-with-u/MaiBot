@@ -1,19 +1,18 @@
 import time
 from typing import Optional
-from src.common.logger import get_module_logger
+from src.common.logger_manager import get_logger
 from src.chat.message_receive.chat_stream import ChatStream
 from src.chat.message_receive.message import Message
 from maim_message import UserInfo, Seg
 from src.chat.message_receive.message import MessageSending, MessageSet
 from src.chat.message_receive.message_sender import message_manager
-from src.chat.message_receive.storage import MessageStorage
 from src.config.config import global_config
 from rich.traceback import install
 
 install(extra_lines=3)
 
 
-logger = get_module_logger("message_sender")
+logger = get_logger("pfc_sender")
 
 
 class DirectMessageSender:
@@ -21,13 +20,14 @@ class DirectMessageSender:
 
     def __init__(self, private_name: str):
         self.private_name = private_name
-        self.storage = MessageStorage()
 
     async def send_message(
         self,
         chat_stream: ChatStream,
-        content: str,
+        segments: Seg,
         reply_to_message: Optional[Message] = None,
+        is_emoji: Optional[bool] = False,
+        content: str = None,
     ) -> None:
         """发送消息到聊天流
 
@@ -37,9 +37,6 @@ class DirectMessageSender:
             reply_to_message: 要回复的消息（可选）
         """
         try:
-            # 创建消息内容
-            segments = Seg(type="seglist", data=[Seg(type="text", data=content)])
-
             # 获取麦麦的信息
             bot_user_info = UserInfo(
                 user_id=global_config.BOT_QQ,
@@ -59,7 +56,7 @@ class DirectMessageSender:
                 message_segment=segments,
                 reply=reply_to_message,
                 is_head=True,
-                is_emoji=False,
+                is_emoji=is_emoji,
                 thinking_start_time=time.time(),
             )
 
@@ -73,8 +70,10 @@ class DirectMessageSender:
             message_set = MessageSet(chat_stream, message_id)
             message_set.add_message(message)
             await message_manager.add_message(message_set)
-            await self.storage.store_message(message, chat_stream)
-            logger.info(f"[私聊][{self.private_name}]PFC消息已发送: {content}")
+            if is_emoji:
+                logger.info(f"[私聊][{self.private_name}]PFC表情消息已发送: {content}")
+            else:
+                logger.info(f"[私聊][{self.private_name}]PFC消息已发送: {content}")
 
         except Exception as e:
             logger.error(f"[私聊][{self.private_name}]PFC消息发送失败: {str(e)}")

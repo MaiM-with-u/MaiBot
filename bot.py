@@ -13,6 +13,8 @@ from src.common.logger_manager import get_logger
 from src.common.crash_logger import install_crash_handler
 from src.main import MainSystem
 from rich.traceback import install
+from src.plugins.group_nickname.nickname_manager import nickname_manager
+import atexit
 
 from src.manager.async_task_manager import async_task_manager
 
@@ -215,6 +217,19 @@ def raw_main():
 
     env_config = {key: os.getenv(key) for key in os.environ}
     scan_provider(env_config)
+
+    # 确保 NicknameManager 单例实例存在并已初始化
+    # (单例模式下，导入时或第一次调用时会自动初始化)
+    _ = nickname_manager  # 显式引用一次
+
+    # 启动 NicknameManager 的后台处理器线程
+    logger.info("准备启动绰号处理管理器...")
+    nickname_manager.start_processor()  # 调用实例的方法
+    logger.info("已调用启动绰号处理管理器。")
+
+    # 注册 NicknameManager 的停止方法到 atexit，确保程序退出时线程能被清理
+    atexit.register(nickname_manager.stop_processor)  # 注册实例的方法
+    logger.info("已注册绰号处理管理器的退出处理程序。")
 
     # 返回MainSystem实例
     return MainSystem()

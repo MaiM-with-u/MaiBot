@@ -18,6 +18,7 @@ from src.manager.mood_manager import mood_manager
 from src.chat.heart_flow.utils_chat import get_chat_type_and_target_info
 from src.chat.message_receive.chat_stream import ChatStream
 from src.chat.focus_chat.hfc_utils import parse_thinking_id_to_timestamp
+from src.plugins.group_nickname.nickname_manager import nickname_manager
 
 logger = get_logger("expressor")
 
@@ -112,6 +113,17 @@ class DefaultExpressor:
                             response_set=reply,
                         )
                     has_sent_something = True
+
+                    # 为 trigger_nickname_analysis 准备 bot_reply 参数
+                    bot_reply_for_analysis = []
+                    if reply:  # reply 是 List[Tuple[str, str]]
+                        for seg_type, seg_data in reply:
+                            if seg_type == "text":  # 只取文本类型的数据
+                                bot_reply_for_analysis.append(seg_data)
+
+                    await nickname_manager.trigger_nickname_analysis(
+                        anchor_message, bot_reply_for_analysis, self.chat_stream
+                    )
                 else:
                     logger.warning(f"{self.log_prefix} 文本回复生成失败")
 

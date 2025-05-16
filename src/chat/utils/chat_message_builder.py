@@ -250,6 +250,8 @@ async def _build_readable_messages_internal(
     message_details_raw.sort(key=lambda x: x[0])  # 按时间戳(第一个元素)升序排序，越早的消息排在前面
 
     # 应用截断逻辑 (如果 truncate 为 True)
+    if not global_config.long_message_auto_truncate:
+        truncate = False
     message_details: List[Tuple[float, str, str]] = []
     n_messages = len(message_details_raw)
     if truncate and n_messages > 0:

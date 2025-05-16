@@ -2,7 +2,7 @@ import time
 import asyncio
 import traceback
 from typing import Optional, Dict, Any, List
-from src.common.logger import get_module_logger
+from src.common.logger_manager import get_logger
 from maim_message import UserInfo
 from src.config.config import global_config
 from src.experimental.PFC.chat_states import (
@@ -15,7 +15,7 @@ from rich.traceback import install
 
 install(extra_lines=3)
 
-logger = get_module_logger("chat_observer")
+logger = get_logger("pfc_chat_observer")
 
 
 class ChatObserver:
@@ -105,6 +105,35 @@ class ChatObserver:
             message: 消息数据
         """
         try:
+            if isinstance(message, dict):  # 确保是字典才添加
+                self.message_cache.append(message)
+                # 可选：限制 message_cache 的大小，例如只保留最近 N 条
+                # 你可以根据你的需求调整 MAX_CACHE_SIZE
+                # 对于情绪判断，可能不需要太长的历史，例如 5-10 条可能就足够了
+                # 但 ChatObserver 的 get_cached_messages 也可能被其他地方用于获取更长的历史
+                # 所以这里的 MAX_CACHE_SIZE 需要权衡，或者让调用者自己决定 limit
+                MAX_CACHE_SIZE = 30  # 例如，保留最近30条作为通用缓存
+                if len(self.message_cache) > MAX_CACHE_SIZE:
+                    self.message_cache = self.message_cache[-MAX_CACHE_SIZE:]
+                logger.debug(
+                    f"[私聊][{self.private_name}] 消息已添加到 ChatObserver 缓存，当前缓存大小: {len(self.message_cache)}"
+                )
+
+                # 检查是否用户发送的消息（而非机器人自己）
+                try:
+                    from .PFC_idle.idle_chat import IdleChat
+
+                    # 获取消息的发送者
+                    user_info = message.get("user_info", {})
+                    if user_info and str(user_info.get("user_id")) != str(global_config.BOT_QQ):
+                        # 用户发送了消息，通知IdleChat
+                        asyncio.create_task(IdleChat.register_user_response(self.private_name))
+                        logger.debug(f"[私聊][{self.private_name}] 检测到用户消息，已通知IdleChat更新用户响应状态")
+                except Exception as e_idle:
+                    logger.warning(f"[私聊][{self.private_name}] 通知IdleChat用户响应状态失败: {e_idle}")
+            else:
+                logger.warning(f"[私聊][{self.private_name}] 尝试向 message_cache 添加非字典类型消息: {type(message)}")
+
             # 发送新消息通知
             notification = create_new_message_notification(
                 sender="chat_observer", target="observation_info", message=message

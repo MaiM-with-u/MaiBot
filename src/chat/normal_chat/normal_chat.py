@@ -21,6 +21,7 @@ from src.chat.utils.utils_image import image_path_to_base64
 from src.chat.emoji_system.emoji_manager import emoji_manager
 from src.chat.normal_chat.willing.willing_manager import willing_manager
 from src.config.config import global_config
+from src.plugins.group_nickname.nickname_manager import nickname_manager
 
 logger = get_logger("chat")
 
@@ -316,6 +317,7 @@ class NormalChat:
             # 检查 first_bot_msg 是否为 None (例如思考消息已被移除的情况)
             if first_bot_msg:
                 info_catcher.catch_after_response(timing_results["消息发送"], response_set, first_bot_msg)
+                await nickname_manager.trigger_nickname_analysis(message, response_set, self.chat_stream)
             else:
                 logger.warning(f"[{self.stream_name}] 思考消息 {thinking_id} 在发送前丢失，无法记录 info_catcher")
 

@@ -1,7 +1,9 @@
+import time
 import json  # <--- 确保导入 json
 import traceback
 from typing import List, Dict, Any, Optional
 from rich.traceback import install
+from src.chat.message_receive.chat_stream import ChatStream
 from src.chat.models.utils_model import LLMRequest
 from src.config.config import global_config
 from src.chat.focus_chat.heartflow_prompt_builder import prompt_builder
@@ -15,6 +17,9 @@ from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 from src.individuality.individuality import Individuality
 from src.chat.focus_chat.planners.action_factory import ActionManager
 from src.chat.focus_chat.planners.action_factory import ActionInfo
+from src.chat.utils.chat_message_builder import get_raw_msg_before_timestamp_with_chat
+from src.plugins.group_nickname.nickname_manager import nickname_manager
+
 logger = get_logger("planner")
 
 install(extra_lines=3)
@@ -22,6 +27,7 @@ install(extra_lines=3)
 def init_prompt():
     Prompt(
         """你的名字是{bot_name},{prompt_personality}，{chat_context_description}。需要基于以下信息决定如何参与对话：
+{nickname_info_block}
 {chat_content_block}
 {mind_info_block}
 {cycle_info_block}
@@ -60,7 +66,7 @@ action_name: {action_name}
     
 
 class ActionPlanner:
-    def __init__(self, log_prefix: str, action_manager: ActionManager):
+    def __init__(self, log_prefix: str, action_manager: ActionManager, stream_id: str, chat_stream: ChatStream):
         self.log_prefix = log_prefix
         # LLM规划器配置
         self.planner_llm = LLMRequest(
@@ -68,8 +74,9 @@ class ActionPlanner:
             max_tokens=1000,
             request_type="action_planning",  # 用于动作规划
         )
-        
         self.action_manager = action_manager
+        self.stream_id = stream_id
+        self.chat_stream = chat_stream
 
     async def plan(self, all_plan_info: List[InfoBase], cycle_timers: dict) -> Dict[str, Any]:
         """
@@ -242,7 +249,7 @@ class ActionPlanner:
                 # print(using_actions_info["parameters"])
                 # print(using_actions_info["require"])
                 # print(using_actions_info["description"])
-                
+
                 using_action_prompt = await global_prompt_manager.get_prompt_async("action_prompt")
                 
                 param_text = ""
@@ -261,8 +268,17 @@ class ActionPlanner:
                 )
                 
                 action_options_block += using_action_prompt
-                
 
+            # 需要获取用于上下文的历史消息
+            message_list_before_now = get_raw_msg_before_timestamp_with_chat(
+                chat_id=self.stream_id,
+                timestamp=time.time(),  # 使用当前时间作为参考点
+                limit=global_config.observation_context_size,  # 使用与 prompt 构建一致的 limit
+            )
+            # 调用工具函数获取格式化后的绰号字符串
+            nickname_injection_str = await nickname_manager.get_nickname_prompt_injection(
+                self.chat_stream, message_list_before_now
+            )
 
             
             planner_prompt_template = await global_prompt_manager.get_prompt_async("planner_prompt")
@@ -274,6 +290,7 @@ class ActionPlanner:
                 mind_info_block=mind_info_block,
                 cycle_info_block=cycle_info,
                 action_options_text=action_options_block,
+                nickname_info_block=nickname_injection_str,
             )
             return prompt
 

@@ -18,6 +18,7 @@ class ConversationState(Enum):
     ENDED = "结束"
     JUDGING = "判断"
     IGNORED = "屏蔽"
+    ERROR = "错误"  # <--- 添加 ERROR 状态
 
 
 ActionType = Literal["direct_reply", "fetch_knowledge", "wait"]
