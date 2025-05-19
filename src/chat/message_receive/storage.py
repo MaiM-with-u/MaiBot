@@ -84,12 +84,11 @@ class MessageStorage:
             logger.exception("存储撤回消息失败")
 
     @staticmethod
-    async def remove_recalled_message(time: str) -> None:
+    async def remove_recalled_message(timestamp: float) -> None:
         """删除撤回消息"""
         try:
-            # Assuming input 'time' is a string timestamp that can be converted to float
-            current_time_float = float(time)
-            RecalledMessages.delete().where(RecalledMessages.time < (current_time_float - 300)).execute()
+            # timestamp is the current time get from time.time()
+            RecalledMessages.delete().where(RecalledMessages.time < (timestamp - 300)).execute()
         except Exception:
             logger.exception("删除撤回消息失败")
 
