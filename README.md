@@ -1,189 +1,125 @@
-# 麦麦！MaiCore-MaiMBot
-<br />
-<div style="text-align: center">
+<picture>
+  <source media="(max-width: 600px)" srcset="depends-data/maimai.png" width="100%">
+  <img alt="MaiBot" src="depends-data/maimai.png" title="作者:略nd" align="right" width="30%">
+</picture>
 
-  ![Python Version](https://img.shields.io/badge/Python-3.10+-blue)
-  ![License](https://img.shields.io/github/license/SengokuCola/MaiMBot?label=协议)
-  ![Status](https://img.shields.io/badge/状态-开发中-yellow)
-  ![Contributors](https://img.shields.io/github/contributors/MaiM-with-u/MaiBot.svg?style=flat&label=贡献者)
-  ![forks](https://img.shields.io/github/forks/MaiM-with-u/MaiBot.svg?style=flat&label=分支数)
-  ![stars](https://img.shields.io/github/stars/MaiM-with-u/MaiBot?style=flat&label=星标数)
-  ![issues](https://img.shields.io/github/issues/MaiM-with-u/MaiBot)
-  [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/DrSmoothl/MaiBot)
+# 麦麦！MaiCore-MaiBot (编辑中)
 
-  </div>
+![Python Version](https://img.shields.io/badge/Python-3.10+-blue)
+![License](https://img.shields.io/github/license/SengokuCola/MaiMBot?label=协议)
+![Status](https://img.shields.io/badge/状态-开发中-yellow)
+![Contributors](https://img.shields.io/github/contributors/MaiM-with-u/MaiBot.svg?style=flat&label=贡献者)
+![forks](https://img.shields.io/github/forks/MaiM-with-u/MaiBot.svg?style=flat&label=分支数)
+![stars](https://img.shields.io/github/stars/MaiM-with-u/MaiBot?style=flat&label=星标数)
+![issues](https://img.shields.io/github/issues/MaiM-with-u/MaiBot)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/DrSmoothl/MaiBot)
 
-<p style="text-align: center">
-  <a href="https://github.com/MaiM-with-u/MaiBot/">
-    <img src="depends-data/maimai.png" alt="Logo" style="width: 200px">
-  </a>
-  <br />
-  <a href="https://space.bilibili.com/1344099355">
-    画师：略nd
-  </a>
+<strong>
+<a href="https://www.bilibili.com/video/BV1amAneGE3P">🌟 演示视频</a> | 
+<a href="#-更新和安装">🚀 快速入门</a> | 
+<a href="#-文档">📃 教程</a> | 
+<a href="#-讨论">💬 讨论</a> | 
+<a href="#-贡献和致谢">🙋 贡献指南</a>
+</strong>
 
-  <h3 style="text-align: center">MaiBot(麦麦)</h3>
-  <p style="text-align: center">
-    一款专注于<strong> 群组聊天 </strong>的赛博网友
-    <br />
-    <a href="https://docs.mai-mai.org"><strong>探索本项目的文档 »</strong></a>
-    <br />
-    <br />
-    <!-- <a href="https://github.com/shaojintian/Best_README_template">查看Demo</a>
-    · -->
-    <a href="https://github.com/MaiM-with-u/MaiBot/issues">报告Bug</a>
-    ·
-    <a href="https://github.com/MaiM-with-u/MaiBot/issues">提出新特性</a>
-  </p>
-</p>
+## 🎉 介绍
 
-## 新版0.6.x部署前先阅读：https://docs.mai-mai.org/manual/usage/mmc_q_a
+**🍔MaiCore 是一个基于大语言模型的可交互智能体**
 
-
-## 📝 项目简介
-
-**🍔MaiCore是一个基于大语言模型的可交互智能体**
-
-
-- 💭 **智能对话系统**：基于LLM的自然语言交互
-- 🤔 **实时思维系统**：模拟人类思考过程
-- 💝 **情感表达系统**：丰富的表情包和情绪表达
-- 🧠 **持久记忆系统**：基于MongoDB的长期记忆存储
-- 🔄 **动态人格系统**：自适应的性格特征
+- 💭 **智能对话系统**：基于 LLM 的自然语言交互。
+- 🤔 **实时思维系统**：模拟人类思考过程。
+- 💝 **情感表达系统**：丰富的表情包和情绪表达。
+- 🧠 **持久记忆系统**：基于 MongoDB 的长期记忆存储。
+- 🔄 **动态人格系统**：自适应的性格特征。
 
 <div style="text-align: center">
 <a href="https://www.bilibili.com/video/BV1amAneGE3P" target="_blank">
-    <img src="depends-data/video.png" style="max-width: 200px" alt="麦麦演示视频">
-    <br>
-    👆 点击观看麦麦演示视频 👆
+    <picture>
+      <source media="(max-width: 600px)" srcset="depends-data/video.png" width="100%">
+      <img src="depends-data/video.png" width="30%" alt="麦麦演示视频">
+    </picture>
+    <br />
+  👆 点击观看麦麦演示视频 👆
 </a>
 </div>
 
+## 🔥 更新和安装
 
-### 📢 版本信息
+**最新版本: v0.6.3** ([更新日志](changelogs/changelog.md))
+可前往 [Release](https://github.com/MaiM-with-u/MaiBot/releases/) 页面下载最新版本
+**GitHub 分支说明：**
+- `main`: 稳定发布版本(推荐)
+- `dev`: 开发测试版本(不稳定)
+- `classical`: 旧版本(停止维护)
 
-**最新版本: v0.6.3-fix-4** ([查看更新日志](changelogs/changelog.md))
-> [!WARNING]
-> 请阅读教程后更新！！！！！！！
-> 请阅读教程后更新！！！！！！！
-> 请阅读教程后更新！！！！！！！
-> 次版本MaiBot将基于MaiCore运行，不再依赖于nonebot相关组件运行。
-> MaiBot将通过nonebot的插件与nonebot建立联系，然后nonebot与QQ建立联系，实现MaiBot与QQ的交互
-
-**分支说明：**
-- `main`: 稳定发布版本
-- `dev`: 开发测试版本（不知道什么意思就别下）
-- `classical`: 0.6.0之前的版本
-
-
+### 最新版本部署教程 (MaiCore 版本)
+- [🚀 最新版本部署教程](https://docs.mai-mai.org/manual/deployment/mmc_deploy_windows.html) - 基于 MaiCore 的新版本部署方式(与旧版本不兼容)
 
 > [!WARNING]
-> - 项目处于活跃开发阶段，代码可能随时更改
-> - 文档未完善，有问题可以提交 Issue 或者 Discussion
-> - QQ机器人存在被限制风险，请自行了解，谨慎使用
-> - 由于持续迭代，可能存在一些已知或未知的bug
-> - 由于开发中，可能消耗较多token
+> - 从 0.5.x 旧版本升级前请务必阅读：[升级指南](https://docs.mai-mai.org/faq/maibot/backup_update.html)
+> - 项目处于活跃开发阶段，功能和 API 可能随时调整。
+> - 文档未完善，有问题可以提交 Issue 或者 Discussion。
+> - QQ 机器人存在被限制风险，请自行了解，谨慎使用。
+> - 由于持续迭代，可能存在一些已知或未知的 bug。
+> - 由于程序处于开发中，可能消耗较多 token。
 
-### ⚠️ 重要提示
+## 💬 讨论
 
-- 升级到v0.6.x版本前请务必阅读：[升级指南](https://docs.mai-mai.org/manual/usage/mmc_q_a)
-- 本版本基于MaiCore重构，通过nonebot插件与QQ平台交互
-- 项目处于活跃开发阶段，功能和API可能随时调整
-
-### 💬交流群（开发和建议相关讨论）不一定有空回复，会优先写文档和代码
-- [一群](https://qm.qq.com/q/VQ3XZrWgMs) 766798517 
-- [二群](https://qm.qq.com/q/RzmCiRtHEW) 571780722
-- [五群](https://qm.qq.com/q/JxvHZnxyec) 1022489779
-- [三群](https://qm.qq.com/q/wlH5eT8OmQ) 1035228475【已满】
-- [四群](https://qm.qq.com/q/wlH5eT8OmQ) 729957033【已满】
-
-
+- [一群](https://qm.qq.com/q/VQ3XZrWgMs) |
+  [四群](https://qm.qq.com/q/wGePTl1UyY) | 
+  [二群](https://qm.qq.com/q/RzmCiRtHEW) | 
+  [五群](https://qm.qq.com/q/JxvHZnxyec)(已满) | 
+  [三群](https://qm.qq.com/q/wlH5eT8OmQ)(已满)
 
 ## 📚 文档
 
+**部分内容可能更新不够及时，请注意版本对应**
 
-### (部分内容可能过时，请注意版本对应)
+- [📚 核心 Wiki 文档](https://docs.mai-mai.org) - 项目最全面的文档中心，你可以了解麦麦有关的一切。
 
-### 核心文档
-- [📚 核心Wiki文档](https://docs.mai-mai.org) - 项目最全面的文档中心，你可以了解麦麦有关的一切
-
-### 最新版本部署教程(MaiCore版本)
-- [🚀 最新版本部署教程](https://docs.mai-mai.org/manual/deployment/mmc_deploy_windows.html) - 基于MaiCore的新版本部署方式（与旧版本不兼容）
-
-
-## 🎯 0.6.3 功能介绍
-
-| 模块       | 主要功能                                                             | 特点    |
-|----------|------------------------------------------------------------------|-------|
-| 💬 聊天系统  | • **统一调控不同回复逻辑**<br>• 智能交互模式 (普通聊天/专注水群)<br>• 关键词主动发言<br>• 多模型支持<br>• 动态prompt构建<br>• 私聊功能(PFC)增强 | 拟人化交互 |
-| 🧠 心流系统  | • 实时思考生成<br>• **智能状态管理**<br>• **概率回复机制**<br>• 自动启停机制<br>• 日程系统联动<br>• **上下文感知工具调用** | 智能化决策 |
-| 🧠 记忆系统  | • **记忆整合与提取**<br>• 海马体记忆机制<br>• 聊天记录概括 | 持久化记忆 |
-| 😊 表情系统  | • **全新表情包系统**<br>• **优化选择逻辑**<br>• 情绪匹配发送<br>• GIF支持<br>• 自动收集与审查 | 丰富表达  |
-| 📅 日程系统  | • 动态日程生成<br>• 自定义想象力<br>• 思维流联动                                  | 智能规划  |
-| 👥 关系系统  | • **工具调用动态更新**<br>• 关系管理优化<br>• 丰富接口支持<br>• 个性化交互         | 深度社交  |
-| 📊 统计系统  | • 使用数据统计<br>• LLM调用记录<br>• 实时控制台显示                               | 数据可视  |
-| 🛠️ 工具系统 | • **LPMM知识库集成**<br>• **上下文感知调用**<br>• 知识获取工具<br>• 自动注册机制<br>• 多工具支持 | 扩展功能  |
-| 📚 **知识库(LPMM)** | • **全新LPMM系统**<br>• **强大的信息检索能力**                             | 知识增强 |
-| ✨ **昵称系统** | • **自动为群友取昵称**<br>• **降低认错人概率** (早期阶段)                      | 身份识别 |
-
-## 📐 项目架构
-
-```mermaid
-graph TD
-    A[MaiCore] --> B[对话系统]
-    A --> C[心流系统]
-    A --> D[记忆系统]
-    A --> E[情感系统]
-    B --> F[多模型支持]
-    B --> G[动态Prompt]
-    C --> H[实时思考]
-    C --> I[日程联动]
-    D --> J[记忆存储]
-    D --> K[记忆检索]
-    E --> L[表情管理]
-    E --> M[情绪识别]
-```
-
-## ✍️如何给本项目报告BUG/提交建议/做贡献
-
-MaiCore是一个开源项目，我们非常欢迎你的参与。你的贡献，无论是提交bug报告、功能需求还是代码pr，都对项目非常宝贵。我们非常感谢你的支持！🎉 但无序的讨论会降低沟通效率，进而影响问题的解决速度，因此在提交任何贡献前，请务必先阅读本项目的[贡献指南](depends-data/CONTRIBUTE.md)（待补完）
-
-
-
-## 设计理念（原始时代的火花）
+### 设计理念(原始时代的火花)
 
 > **千石可乐说：**
-> - 这个项目最初只是为了给牛牛bot添加一点额外的功能，但是功能越写越多，最后决定重写。其目的是为了创造一个活跃在QQ群聊的"生命体"。可以目的并不是为了写一个功能齐全的机器人，而是一个尽可能让人感知到真实的类人存在。
-> - 程序的功能设计理念基于一个核心的原则："最像而不是好"
-> - 如果人类真的需要一个AI来陪伴自己，并不是所有人都需要一个完美的，能解决所有问题的"helpful assistant"，而是一个会犯错的，拥有自己感知和想法的"生命形式"。
-> - 代码会保持开源和开放，但个人希望MaiMbot的运行时数据保持封闭，尽量避免以显式命令来对其进行控制和调试.我认为一个你无法完全掌控的个体才更能让你感觉到它的自主性，而视其成为一个对话机器.
-> - SengokuCola~~纯编程外行，面向cursor编程，很多代码写得不好多多包涵~~已得到大脑升级
+> - 这个项目最初只是为了给牛牛 bot 添加一点额外的功能，但是功能越写越多，最后决定重写。其目的是为了创造一个活跃在 QQ 群聊的"生命体"。目的并不是为了写一个功能齐全的机器人，而是一个尽可能让人感知到真实的类人存在。
+> - 程序的功能设计理念基于一个核心的原则："最像而不是好"。
+> - 如果人类真的需要一个 AI 来陪伴自己，并不是所有人都需要一个完美的，能解决所有问题的"helpful assistant"，而是一个会犯错的，拥有自己感知和想法的"生命形式"。
+> - 代码会保持开源和开放，但个人希望 MaiMbot 的运行时数据保持封闭，尽量避免以显式命令来对其进行控制和调试。我认为一个你无法完全掌控的个体才更能让你感觉到它的自主性，而视其成为一个对话机器。
+> - SengokuCola~~纯编程外行，面向 cursor 编程，很多代码写得不好多多包涵~~已得到大脑升级。
 
-
-## 📌 注意事项
-
-> [!WARNING]
-> 使用本项目前必须阅读和同意用户协议和隐私协议
-> 本应用生成内容来自人工智能模型，由 AI 生成，请仔细甄别，请勿用于违反法律的用途，AI生成内容不代表本人观点和立场。
-
-## 致谢
-
-- [NapCat](https://github.com/NapNeko/NapCatQQ): 现代化的基于 NTQQ 的 Bot 协议端实现  
-
-## 麦麦仓库状态
-
-![Alt](https://repobeats.axiom.co/api/embed/9faca9fccfc467931b87dd357b60c6362b5cfae0.svg "Repobeats analytics image")
+## 🙋 贡献和致谢
+你可以阅读[开发文档](https://docs.mai-mai.org/develop/)来更好的了解麦麦!  
+MaiCore 是一个开源项目，我们非常欢迎你的参与。你的贡献，无论是提交 bug 报告、功能需求还是代码 pr，都对项目非常宝贵。我们非常感谢你的支持！🎉  
+但无序的讨论会降低沟通效率，进而影响问题的解决速度，因此在提交任何贡献前，请务必先阅读本项目的[贡献指南](docs/CONTRIBUTE.md)。(待补完)  
 
 ### 贡献者
 
-感谢各位大佬！
+感谢各位大佬！  
 
 <a href="https://github.com/MaiM-with-u/MaiBot/graphs/contributors">
   <img alt="contributors" src="https://contrib.rocks/image?repo=MaiM-with-u/MaiBot" />
 </a>
 
-**也感谢每一位给麦麦发展提出宝贵意见与建议的用户，感谢陪伴麦麦走到现在的你们**
+### 致谢
 
-## Stargazers over time
+- [略nd](https://space.bilibili.com/1344099355): 为麦麦绘制人设。
+- [NapCat](https://github.com/NapNeko/NapCatQQ): 现代化的基于 NTQQ 的 Bot 协议端实现。
 
-[![Stargazers over time](https://starchart.cc/MaiM-with-u/MaiBot.svg?variant=adaptive)](https://starchart.cc/MaiM-with-u/MaiBot)
+**也感谢每一位给麦麦发展提出宝贵意见与建议的用户，感谢陪伴麦麦走到现在的你们！**
+
+## 📌 注意事项
+
+> [!WARNING]
+> 使用本项目前必须阅读和同意[用户协议](EULA.md)和[隐私协议](PRIVACY.md)。  
+> 本应用生成内容来自人工智能模型，由 AI 生成，请仔细甄别，请勿用于违反法律的用途，AI 生成内容不代表本项目团队的观点和立场。
+
+## 麦麦仓库状态
+
+![Alt](https://repobeats.axiom.co/api/embed/9faca9fccfc467931b87dd357b60c6362b5cfae0.svg "麦麦仓库状态")
+
+### Star 趋势
+
+[![Star 趋势](https://starchart.cc/MaiM-with-u/MaiBot.svg?variant=adaptive)](https://starchart.cc/MaiM-with-u/MaiBot)
+
+## License
+
+GPL-3.0
