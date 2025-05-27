@@ -65,7 +65,11 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> tuple[bool, float]:
             )
 
     # 判断是否被@
-    if re.search(f"@[\s\S]*?（id:{global_config.BOT_QQ}）", message.processed_plain_text):
+    if re.search(
+        rf"@(.+?)（id:{global_config.BOT_QQ}）", message.processed_plain_text
+    ) or re.search(
+        rf"@<(.+?)(?=:{global_config.BOT_QQ}>)\:{global_config.BOT_QQ}>", message.processed_plain_text
+    ):
         is_at = True
         is_mentioned = True
 
@@ -76,13 +80,17 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> tuple[bool, float]:
         if not is_mentioned:
             # 判断是否被回复
             if re.match(
-                f"\[回复 [\s\S]*?\({str(global_config.BOT_QQ)}\)：[\s\S]*?]，说：", message.processed_plain_text
+                rf"\[回复 (.+?)\({str(global_config.BOT_QQ)}\)：(.+?)\]，说：", message.processed_plain_text
+            ) or re.match(
+                rf"\[回复<(.+?)(?=:{str(global_config.BOT_QQ)}>)\:{str(global_config.BOT_QQ)}>：(.+?)\]，说：", message.processed_plain_text
             ):
                 is_mentioned = True
             else:
                 # 判断内容中是否被提及
-                message_content = re.sub(r"@[\s\S]*?（(\d+)）", "", message.processed_plain_text)
-                message_content = re.sub(r"\[回复 [\s\S]*?\(((\d+)|未知id)\)：[\s\S]*?]，说：", "", message_content)
+                message_content = re.sub(r"@(.+?)（(\d+)）", "", message.processed_plain_text)
+                message_content = re.sub(r"@<(.+?)(?=:(\d+))\:(\d+)>", "", message_content)
+                message_content = re.sub(r"\[回复 (.+?)\(((\d+)|未知id)\)：(.+?)\]，说：", "", message_content)
+                message_content = re.sub(r"\[回复<(.+?)(?=:(\d+))\:(\d+)>：(.+?)\]，说：", "", message_content)
                 for keyword in keywords:
                     if keyword in message_content:
                         is_mentioned = True
