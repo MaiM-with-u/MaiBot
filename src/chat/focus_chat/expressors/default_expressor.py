@@ -281,14 +281,14 @@ class DefaultExpressor:
         in_mind_reply,
         target_message,
     ) -> str:
-        prompt_personality = individuality.get_prompt(x_person=0, level=2)
+        # prompt_personality = individuality.get_prompt(x_person=0, level=2)
 
         # Determine if it's a group chat
         is_group_chat = bool(chat_stream.group_info)
 
         # Use sender_name passed from caller for private chat, otherwise use a default for group
         # Default sender_name for group chat isn't used in the group prompt template, but set for consistency
-        effective_sender_name = sender_name if not is_group_chat else "某人"
+        # effective_sender_name = sender_name if not is_group_chat else "某人"
 
         message_list_before_now = get_raw_msg_before_timestamp_with_chat(
             chat_id=chat_stream.stream_id,
