@@ -76,7 +76,10 @@ class StructuredInfo:
         """
 
         info_str = ""
+        # print(f"self.data: {self.data}")
+
         for key, value in self.data.items():
+            # print(f"key: {key}, value: {value}")
             info_str += f"信息类型：{key}，信息内容：{value}\n"
 
         return info_str

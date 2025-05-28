@@ -117,6 +117,9 @@ class LLMRequest:
         self.model_name: str = model["name"]
         self.params = kwargs
 
+        self.enable_thinking = model.get("enable_thinking", False)
+        self.temp = model.get("temp", 0.7)
+        self.thinking_budget = model.get("thinking_budget", 4096)
         self.stream = model.get("stream", False)
         self.pri_in = model.get("pri_in", 0)
         self.pri_out = model.get("pri_out", 0)
@@ -435,7 +438,7 @@ class LLMRequest:
                 logger.error(
                     f"模型 {self.model_name} 错误码: {response.status} - {error_code_mapping.get(response.status)}"
                 )
-                raise RuntimeError("服务器负载过高，模型恢复失败QAQ")
+                raise RuntimeError("服务器负载过高，模型回复失败QAQ")
             else:
                 logger.warning(f"模型 {self.model_name} 请求限制(429)，等待{wait_time}秒后重试...")
                 raise RuntimeError("请求限制(429)")
@@ -459,6 +462,8 @@ class LLMRequest:
             logger.error(
                 f"模型 {self.model_name} 错误码: {response.status} - {error_code_mapping.get(response.status)}"
             )
+            print(request_content)
+            print(response)
             # 尝试获取并记录服务器返回的详细错误信息
             try:
                 error_json = await response.json()
@@ -495,11 +500,11 @@ class LLMRequest:
                 logger.warning(f"检测到403错误，模型从 {old_model_name} 降级为 {self.model_name}")
 
                 # 对全局配置进行更新
-                if global_config.model.normal.get("name") == old_model_name:
-                    global_config.model.normal["name"] = self.model_name
+                if global_config.model.normal_chat_2.get("name") == old_model_name:
+                    global_config.model.normal_chat_2["name"] = self.model_name
                     logger.warning(f"将全局配置中的 llm_normal 模型临时降级至{self.model_name}")
-                if global_config.model.reasoning.get("name") == old_model_name:
-                    global_config.model.reasoning["name"] = self.model_name
+                if global_config.model.normal_chat_1.get("name") == old_model_name:
+                    global_config.model.normal_chat_1["name"] = self.model_name
                     logger.warning(f"将全局配置中的 llm_reasoning 模型临时降级至{self.model_name}")
 
                 if payload and "model" in payload:
@@ -599,8 +604,9 @@ class LLMRequest:
         new_params = dict(params)
 
         if self.model_name.lower() in self.MODELS_NEEDING_TRANSFORMATION:
-            # 删除 'temperature' 参数（如果存在）
-            new_params.pop("temperature", None)
+            # 删除 'temperature' 参数（如果存在），但避免删除我们在_build_payload中添加的自定义温度
+            if "temperature" in new_params and new_params["temperature"] == 0.7:
+                new_params.pop("temperature")
             # 如果存在 'max_tokens'，则重命名为 'max_completion_tokens'
             if "max_tokens" in new_params:
                 new_params["max_completion_tokens"] = new_params.pop("max_tokens")
@@ -630,6 +636,18 @@ class LLMRequest:
             "messages": messages,
             **params_copy,
         }
+
+        # 添加temp参数（如果不是默认值0.7）
+        if self.temp != 0.7:
+            payload["temperature"] = self.temp
+
+        # 添加enable_thinking参数（如果不是默认值False）
+        if not self.enable_thinking:
+            payload["enable_thinking"] = False
+
+        if self.thinking_budget != 4096:
+            payload["thinking_budget"] = self.thinking_budget
+
         if "max_tokens" not in payload and "max_completion_tokens" not in payload:
             payload["max_tokens"] = global_config.model.model_max_output_length
         # 如果 payload 中依然存在 max_tokens 且需要转换，在这里进行再次检查

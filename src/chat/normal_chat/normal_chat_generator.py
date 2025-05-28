@@ -3,7 +3,7 @@ import random
 from src.llm_models.utils_model import LLMRequest
 from src.config.config import global_config
 from src.chat.message_receive.message import MessageThinking
-from src.chat.focus_chat.heartflow_prompt_builder import prompt_builder
+from src.chat.normal_chat.normal_prompt import prompt_builder
 from src.chat.utils.utils import process_llm_response
 from src.chat.utils.timer_calculator import Timer
 from src.common.logger_manager import get_logger
@@ -17,20 +17,20 @@ class NormalChatGenerator:
     def __init__(self):
         # TODO: API-Adapter修改标记
         self.model_reasoning = LLMRequest(
-            model=global_config.model.reasoning,
-            temperature=0.7,
+            model=global_config.model.normal_chat_1,
+            # temperature=0.7,
             max_tokens=3000,
-            request_type="response_reasoning",
+            request_type="normal_chat_1",
         )
         self.model_normal = LLMRequest(
-            model=global_config.model.normal,
-            temperature=global_config.model.normal["temp"],
+            model=global_config.model.normal_chat_2,
+            # temperature=global_config.model.normal_chat_2["temp"],
             max_tokens=256,
-            request_type="response_reasoning",
+            request_type="normal_chat_2",
         )
 
         self.model_sum = LLMRequest(
-            model=global_config.model.summary, temperature=0.7, max_tokens=3000, request_type="relation"
+            model=global_config.model.memory_summary, temperature=0.7, max_tokens=3000, request_type="relation"
         )
         self.current_model_type = "r1"  # 默认使用 R1
         self.current_model_name = "unknown model"
@@ -38,7 +38,7 @@ class NormalChatGenerator:
     async def generate_response(self, message: MessageThinking, thinking_id: str) -> Optional[Union[str, List[str]]]:
         """根据当前模型类型选择对应的生成函数"""
         # 从global_config中获取模型概率值并选择模型
-        if random.random() < global_config.normal_chat.reasoning_model_probability:
+        if random.random() < global_config.normal_chat.normal_chat_first_probability:
             self.current_model_type = "深深地"
             current_model = self.model_reasoning
         else:

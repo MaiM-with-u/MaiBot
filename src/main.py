@@ -96,11 +96,6 @@ class MainSystem:
             personality_core=global_config.personality.personality_core,
             personality_sides=global_config.personality.personality_sides,
             identity_detail=global_config.identity.identity_detail,
-            height=global_config.identity.height,
-            weight=global_config.identity.weight,
-            age=global_config.identity.age,
-            gender=global_config.identity.gender,
-            appearance=global_config.identity.appearance,
         )
         logger.success("个体特征初始化成功")
 

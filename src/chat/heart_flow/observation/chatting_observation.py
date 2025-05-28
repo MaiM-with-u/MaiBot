@@ -1,5 +1,4 @@
 from datetime import datetime
-from src.llm_models.utils_model import LLMRequest
 from src.config.config import global_config
 import traceback
 from src.chat.utils.chat_message_builder import (
@@ -66,10 +65,6 @@ class ChattingObservation(Observation):
         self.oldest_messages = []
         self.oldest_messages_str = ""
         self.compressor_prompt = ""
-        # TODO: API-Adapter修改标记
-        self.model_summary = LLMRequest(
-            model=global_config.model.observation, temperature=0.7, max_tokens=300, request_type="chat_observation"
-        )
 
     async def initialize(self):
         self.is_group_chat, self.chat_target_info = await get_chat_type_and_target_info(self.chat_id)

@@ -62,7 +62,6 @@ class APIBotConfig:
     # focus_chat
     reply_trigger_threshold: float  # 回复触发阈值
     default_decay_rate_per_second: float  # 默认每秒衰减率
-    consecutive_no_reply_threshold: int  # 连续不回复阈值
 
     # compressed
     compressed_length: int  # 压缩长度

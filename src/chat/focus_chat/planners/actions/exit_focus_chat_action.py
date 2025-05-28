@@ -5,8 +5,6 @@ from src.chat.focus_chat.planners.actions.base_action import BaseAction, registe
 from typing import Tuple, List
 from src.chat.heart_flow.observation.observation import Observation
 from src.chat.message_receive.chat_stream import ChatStream
-from src.chat.heart_flow.heartflow import heartflow
-from src.chat.heart_flow.sub_heartflow import ChatState
 
 logger = get_logger("action_taken")
 
@@ -27,7 +25,7 @@ class ExitFocusChatAction(BaseAction):
         "当前内容不需要持续专注关注，你决定退出专注聊天",
         "聊天内容已经完成，你决定退出专注聊天",
     ]
-    default = True
+    default = False
 
     def __init__(
         self,
@@ -56,7 +54,6 @@ class ExitFocusChatAction(BaseAction):
         self.observations = observations
         self.log_prefix = log_prefix
         self._shutting_down = shutting_down
-        self.chat_id = chat_stream.stream_id
 
     async def handle_action(self) -> Tuple[bool, str]:
         """
@@ -74,23 +71,8 @@ class ExitFocusChatAction(BaseAction):
         try:
             # 转换状态
             status_message = ""
-            self.sub_heartflow = await heartflow.get_or_create_subheartflow(self.chat_id)
-            if self.sub_heartflow:
-                try:
-                    # 转换为normal_chat状态
-                    await self.sub_heartflow.change_chat_state(ChatState.CHAT)
-                    status_message = "已成功切换到普通聊天模式"
-                    logger.info(f"{self.log_prefix} {status_message}")
-                except Exception as e:
-                    error_msg = f"切换到普通聊天模式失败: {str(e)}"
-                    logger.error(f"{self.log_prefix} {error_msg}")
-                    return False, error_msg
-            else:
-                warning_msg = "未找到有效的sub heartflow实例，无法切换状态"
-                logger.warning(f"{self.log_prefix} {warning_msg}")
-                return False, warning_msg
-
-            return True, status_message
+            command = "stop_focus_chat"
+            return True, status_message, command
 
         except asyncio.CancelledError:
             logger.info(f"{self.log_prefix} 处理 'exit_focus_chat' 时等待被中断 (CancelledError)")
@@ -99,4 +81,4 @@ class ExitFocusChatAction(BaseAction):
             error_msg = f"处理 'exit_focus_chat' 时发生错误: {str(e)}"
             logger.error(f"{self.log_prefix} {error_msg}")
             logger.error(traceback.format_exc())
-            return False, error_msg
+            return False, "", ""

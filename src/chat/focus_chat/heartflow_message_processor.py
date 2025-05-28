@@ -205,8 +205,8 @@ class HeartFCMessageReceiver:
 
             # 6. 兴趣度计算与更新
             interested_rate, is_mentioned = await _calculate_interest(message)
-            await subheartflow.interest_chatting.increase_interest(value=interested_rate)
-            subheartflow.interest_chatting.add_interest_dict(message, interested_rate, is_mentioned)
+            # await subheartflow.interest_chatting.increase_interest(value=interested_rate)
+            subheartflow.add_interest_message(message, interested_rate, is_mentioned)
 
             # 7. 日志记录
             mes_name = chat.group_info.group_name if chat.group_info else "私聊"
@@ -219,7 +219,8 @@ class HeartFCMessageReceiver:
             )
 
             # 8. 关系处理
-            await _process_relationship(message)
+            if global_config.relationship.give_name:
+                await _process_relationship(message)
 
         except Exception as e:
             await _handle_error(e, "消息处理失败", message)

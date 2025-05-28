@@ -8,7 +8,6 @@ from src.chat.heart_flow.observation.hfcloop_observation import HFCloopObservati
 from src.chat.heart_flow.observation.chatting_observation import ChattingObservation
 from src.chat.message_receive.chat_stream import chat_manager
 from typing import Dict
-from src.llm_models.utils_model import LLMRequest
 from src.config.config import global_config
 import random
 
@@ -21,15 +20,11 @@ class ActionProcessor(BaseProcessor):
     用于处理Observation对象，将其转换为ObsInfo对象。
     """
 
-    log_prefix = "聊天信息处理"
+    log_prefix = "动作处理"
 
     def __init__(self):
         """初始化观察处理器"""
         super().__init__()
-        # TODO: API-Adapter修改标记
-        self.model_summary = LLMRequest(
-            model=global_config.model.observation, temperature=0.7, max_tokens=300, request_type="chat_observation"
-        )
 
     async def process_info(
         self,
@@ -56,45 +51,57 @@ class ActionProcessor(BaseProcessor):
             all_actions = None
             hfc_obs = None
             chat_obs = None
+
+            # 收集所有观察对象
             for obs in observations:
                 if isinstance(obs, HFCloopObservation):
                     hfc_obs = obs
                 if isinstance(obs, ChattingObservation):
                     chat_obs = obs
+
+            # 合并所有动作变更
+            merged_action_changes = {"add": [], "remove": []}
+            reasons = []
+
+            # 处理HFCloopObservation
             if hfc_obs:
                 obs = hfc_obs
-                # 创建动作信息
                 all_actions = obs.all_actions
                 action_changes = await self.analyze_loop_actions(obs)
                 if action_changes["add"] or action_changes["remove"]:
-                    action_info.set_action_changes(action_changes)
-                    # 设置变更原因
-                    reasons = []
+                    # 合并动作变更
+                    merged_action_changes["add"].extend(action_changes["add"])
+                    merged_action_changes["remove"].extend(action_changes["remove"])
+
+                    # 收集变更原因
                     if action_changes["add"]:
                         reasons.append(f"添加动作{action_changes['add']}因为检测到大量无回复")
                     if action_changes["remove"]:
                         reasons.append(f"移除动作{action_changes['remove']}因为检测到连续回复")
-                    action_info.set_reason(" | ".join(reasons))
+
+            # 处理ChattingObservation
             if chat_obs and all_actions is not None:
                 obs = chat_obs
-                action_changes = {"add": [], "remove": []}
                 # 检查动作的关联类型
                 chat_context = chat_manager.get_stream(obs.chat_id).context
+                type_mismatched_actions = []
+
                 for action_name in all_actions.keys():
                     data = all_actions[action_name]
                     if data.get("associated_types"):
                         if not chat_context.check_types(data["associated_types"]):
-                            action_changes["remove"].append(action_name)
+                            type_mismatched_actions.append(action_name)
                             logger.debug(f"{self.log_prefix} 动作 {action_name} 关联类型不匹配，移除该动作")
-                if len(action_changes["remove"]) > 0:
-                    action_info.set_action_changes(action_changes)
-                    # 设置变更原因
-                    reasons = []
-                    if action_info.get_reason():
-                        reasons.append(action_info.get_reason())
-                    if action_changes["remove"]:
-                        reasons.append(f"移除动作{action_changes['remove']}因为关联类型不匹配")
-                    action_info.set_reason(" | ".join(reasons))
+
+                if type_mismatched_actions:
+                    # 合并到移除列表中
+                    merged_action_changes["remove"].extend(type_mismatched_actions)
+                    reasons.append(f"移除动作{type_mismatched_actions}因为关联类型不匹配")
+
+            # 如果有任何动作变更，设置到action_info中
+            if merged_action_changes["add"] or merged_action_changes["remove"]:
+                action_info.set_action_changes(merged_action_changes)
+                action_info.set_reason(" | ".join(reasons))
 
             processed_infos.append(action_info)
 
@@ -128,8 +135,15 @@ class ActionProcessor(BaseProcessor):
             reply_sequence.append(action_type == "reply")
 
         # 检查no_reply比例
-        if len(recent_cycles) >= 5 and (no_reply_count / len(recent_cycles)) >= 0.8:
-            result["add"].append("exit_focus_chat")
+        print(f"no_reply_count: {no_reply_count}, len(recent_cycles): {len(recent_cycles)}")
+        # print(1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111)
+        if len(recent_cycles) >= (4 * global_config.focus_chat.exit_focus_threshold) and (
+            no_reply_count / len(recent_cycles)
+        ) >= (0.6 * global_config.focus_chat.exit_focus_threshold):
+            if global_config.chat.chat_mode == "auto":
+                result["add"].append("exit_focus_chat")
+                result["remove"].append("no_reply")
+                result["remove"].append("reply")
 
         # 获取最近三次的reply状态
         last_three = reply_sequence[-3:] if len(reply_sequence) >= 3 else reply_sequence

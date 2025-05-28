@@ -83,7 +83,7 @@ class ImageManager:
             current_timestamp = time.time()
             defaults = {"description": description, "timestamp": current_timestamp}
             desc_obj, created = ImageDescriptions.get_or_create(
-                hash=image_hash, type=description_type, defaults=defaults
+                image_description_hash=image_hash, type=description_type, defaults=defaults
             )
             if not created:  # 如果记录已存在，则更新
                 desc_obj.description = description
@@ -130,6 +130,7 @@ class ImageManager:
             # 根据配置决定是否保存图片
             if global_config.emoji.save_emoji:
                 # 生成文件名和路径
+                logger.debug(f"保存表情包: {image_hash}")
                 current_timestamp = time.time()
                 filename = f"{int(current_timestamp)}_{image_hash[:8]}.{image_format}"
                 emoji_dir = os.path.join(self.IMAGE_DIR, "emoji")
@@ -150,13 +151,13 @@ class ImageManager:
                         img_obj.save()
                     except Images.DoesNotExist:
                         Images.create(
-                            hash=image_hash,
+                            emoji_hash=image_hash,
                             path=file_path,
                             type="emoji",
                             description=description,
                             timestamp=current_timestamp,
                         )
-                    logger.trace(f"保存表情包元数据: {file_path}")
+                    # logger.debug(f"保存表情包元数据: {file_path}")
                 except Exception as e:
                     logger.error(f"保存表情包文件或元数据失败: {str(e)}")
 
@@ -223,7 +224,7 @@ class ImageManager:
                         img_obj.save()
                     except Images.DoesNotExist:
                         Images.create(
-                            hash=image_hash,
+                            emoji_hash=image_hash,
                             path=file_path,
                             type="image",
                             description=description,

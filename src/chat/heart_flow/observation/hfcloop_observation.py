@@ -84,10 +84,4 @@ class HFCloopObservation:
             else:
                 cycle_info_block += "\n你还没看过消息\n"
 
-        using_actions = self.action_manager.get_using_actions()
-        for action_name, action_info in using_actions.items():
-            action_description = action_info["description"]
-            cycle_info_block += f"\n你在聊天中可以使用{action_name}，这个动作的描述是{action_description}\n"
-        cycle_info_block += "注意，除了上述动作选项之外，你在群聊里不能做其他任何事情，这是你能力的边界\n"
-
         self.observe_info = cycle_info_block

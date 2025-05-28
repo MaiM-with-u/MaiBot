@@ -5,7 +5,7 @@ from src.common.logger_manager import get_logger
 from src.llm_models.utils_model import LLMRequest
 from src.config.config import global_config
 from src.chat.utils.chat_message_builder import get_raw_msg_by_timestamp_random, build_anonymous_messages
-from src.chat.focus_chat.heartflow_prompt_builder import Prompt, global_prompt_manager
+from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 import os
 import json
 
@@ -61,10 +61,10 @@ class ExpressionLearner:
     def __init__(self) -> None:
         # TODO: API-Adapter修改标记
         self.express_learn_model: LLMRequest = LLMRequest(
-            model=global_config.model.normal,
+            model=global_config.model.focus_expressor,
             temperature=0.1,
             max_tokens=256,
-            request_type="response_heartflow",
+            request_type="learn_expression",
         )
 
     async def get_expression_by_chat_id(self, chat_id: str) -> Tuple[List[Dict[str, str]], List[Dict[str, str]]]:

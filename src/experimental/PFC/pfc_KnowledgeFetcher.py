@@ -16,8 +16,8 @@ class KnowledgeFetcher:
     def __init__(self, private_name: str):
         # TODO: API-Adapter修改标记
         self.llm = LLMRequest(
-            model=global_config.model.normal,
-            temperature=global_config.model.normal["temp"],
+            model=global_config.model.utils,
+            temperature=global_config.model.utils["temp"],
             max_tokens=1000,
             request_type="knowledge_fetch",
         )

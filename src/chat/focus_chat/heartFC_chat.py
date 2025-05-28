@@ -3,7 +3,7 @@ import contextlib
 import time
 import traceback
 from collections import deque
-from typing import List, Optional, Dict, Any, Deque
+from typing import List, Optional, Dict, Any, Deque, Callable, Awaitable
 from src.chat.message_receive.chat_stream import ChatStream
 from src.chat.message_receive.chat_stream import chat_manager
 from rich.traceback import install
@@ -19,6 +19,7 @@ from src.chat.focus_chat.info_processors.working_memory_processor import Working
 from src.chat.focus_chat.info_processors.action_processor import ActionProcessor
 from src.chat.heart_flow.observation.hfcloop_observation import HFCloopObservation
 from src.chat.heart_flow.observation.working_observation import WorkingMemoryObservation
+from src.chat.heart_flow.observation.structure_observation import StructureObservation
 from src.chat.focus_chat.info_processors.tool_processor import ToolProcessor
 from src.chat.focus_chat.expressors.default_expressor import DefaultExpressor
 from src.chat.focus_chat.memory_activator import MemoryActivator
@@ -83,6 +84,7 @@ class HeartFChatting:
         self,
         chat_id: str,
         observations: list[Observation],
+        on_stop_focus_chat: Optional[Callable[[], Awaitable[None]]] = None,
     ):
         """
         HeartFChatting 初始化函数
@@ -90,6 +92,7 @@ class HeartFChatting:
         参数:
             chat_id: 聊天流唯一标识符(如stream_id)
             observations: 关联的观察列表
+            on_stop_focus_chat: 当收到stop_focus_chat命令时调用的回调函数
         """
         # 基础属性
         self.stream_id: str = chat_id  # 聊天流ID
@@ -97,6 +100,7 @@ class HeartFChatting:
         self.log_prefix: str = str(chat_id)  # Initial default, will be updated
         self.hfcloop_observation = HFCloopObservation(observe_id=self.stream_id)
         self.chatting_observation = observations[0]
+        self.structure_observation = StructureObservation(observe_id=self.stream_id)
 
         self.memory_activator = MemoryActivator()
         self.working_memory = WorkingMemory(chat_id=self.stream_id)
@@ -140,6 +144,9 @@ class HeartFChatting:
         self._cycle_history: Deque[CycleDetail] = deque(maxlen=10)  # 保留最近10个循环的信息
         self._current_cycle: Optional[CycleDetail] = None
         self._shutting_down: bool = False  # 关闭标志位
+
+        # 存储回调函数
+        self.on_stop_focus_chat = on_stop_focus_chat
 
     async def _initialize(self) -> bool:
         """
@@ -286,6 +293,19 @@ class HeartFChatting:
                         logger.debug(f"模板 {self.chat_stream.context.get_template_name()}")
                         loop_info = await self._observe_process_plan_action_loop(cycle_timers, thinking_id)
 
+                        print(loop_info["loop_action_info"]["command"])
+                        if loop_info["loop_action_info"]["command"] == "stop_focus_chat":
+                            logger.info(f"{self.log_prefix} 麦麦决定停止专注聊天")
+                            # 如果设置了回调函数，则调用它
+                            if self.on_stop_focus_chat:
+                                try:
+                                    await self.on_stop_focus_chat()
+                                    logger.info(f"{self.log_prefix} 成功调用回调函数处理停止专注聊天")
+                                except Exception as e:
+                                    logger.error(f"{self.log_prefix} 调用停止专注聊天回调函数时出错: {e}")
+                                    logger.error(traceback.format_exc())
+                            break
+
                     self._current_cycle.set_loop_info(loop_info)
 
                     self.hfcloop_observation.add_loop_info(self._current_cycle)
@@ -408,17 +428,19 @@ class HeartFChatting:
 
         return all_plan_info
 
-    async def _observe_process_plan_action_loop(self, cycle_timers: dict, thinking_id: str) -> tuple[bool, str]:
+    async def _observe_process_plan_action_loop(self, cycle_timers: dict, thinking_id: str) -> dict:
         try:
             with Timer("观察", cycle_timers):
                 # await self.observations[0].observe()
                 await self.chatting_observation.observe()
                 await self.working_observation.observe()
                 await self.hfcloop_observation.observe()
+                await self.structure_observation.observe()
                 observations: List[Observation] = []
                 observations.append(self.chatting_observation)
                 observations.append(self.working_observation)
                 observations.append(self.hfcloop_observation)
+                observations.append(self.structure_observation)
 
                 loop_observation_info = {
                     "observations": observations,
@@ -462,13 +484,14 @@ class HeartFChatting:
 
                 logger.info(f"{self.log_prefix} 麦麦决定'{action_str}', 原因'{reasoning}'")
 
-                success, reply_text = await self._handle_action(
+                success, reply_text, command = await self._handle_action(
                     action_type, reasoning, action_data, cycle_timers, thinking_id
                 )
 
                 loop_action_info = {
                     "action_taken": success,
                     "reply_text": reply_text,
+                    "command": command,
                 }
 
             loop_info = {
@@ -483,7 +506,12 @@ class HeartFChatting:
         except Exception as e:
             logger.error(f"{self.log_prefix} FOCUS聊天处理失败: {e}")
             logger.error(traceback.format_exc())
-            return {}
+            return {
+                "loop_observation_info": {},
+                "loop_processor_info": {},
+                "loop_plan_info": {},
+                "loop_action_info": {"action_taken": False, "reply_text": "", "command": ""},
+            }
 
     async def _handle_action(
         self,
@@ -492,7 +520,7 @@ class HeartFChatting:
         action_data: dict,
         cycle_timers: dict,
         thinking_id: str,
-    ) -> tuple[bool, str]:
+    ) -> tuple[bool, str, str]:
         """
         处理规划动作，使用动作工厂创建相应的动作处理器
 
@@ -504,36 +532,48 @@ class HeartFChatting:
             thinking_id: 思考ID
 
         返回:
-            tuple[bool, str]: (是否执行了动作, 思考消息ID)
+            tuple[bool, str, str]: (是否执行了动作, 思考消息ID, 命令)
         """
         try:
             # 使用工厂创建动作处理器实例
-            action_handler = self.action_manager.create_action(
-                action_name=action,
-                action_data=action_data,
-                reasoning=reasoning,
-                cycle_timers=cycle_timers,
-                thinking_id=thinking_id,
-                observations=self.all_observations,
-                expressor=self.expressor,
-                chat_stream=self.chat_stream,
-                log_prefix=self.log_prefix,
-                shutting_down=self._shutting_down,
-            )
+            try:
+                action_handler = self.action_manager.create_action(
+                    action_name=action,
+                    action_data=action_data,
+                    reasoning=reasoning,
+                    cycle_timers=cycle_timers,
+                    thinking_id=thinking_id,
+                    observations=self.all_observations,
+                    expressor=self.expressor,
+                    chat_stream=self.chat_stream,
+                    log_prefix=self.log_prefix,
+                    shutting_down=self._shutting_down,
+                )
+            except Exception as e:
+                logger.error(f"{self.log_prefix} 创建动作处理器时出错: {e}")
+                traceback.print_exc()
+                return False, "", ""
 
             if not action_handler:
                 logger.warning(f"{self.log_prefix} 未能创建动作处理器: {action}, 原因: {reasoning}")
-                return False, ""
+                return False, "", ""
 
             # 处理动作并获取结果
-            success, reply_text = await action_handler.handle_action()
-
-            return success, reply_text
+            result = await action_handler.handle_action()
+            if len(result) == 3:
+                success, reply_text, command = result
+            else:
+                success, reply_text = result
+                command = ""
+            logger.info(
+                f"{self.log_prefix} 麦麦决定'{action}', 原因'{reasoning}'，返回结果'{success}', '{reply_text}', '{command}'"
+            )
+            return success, reply_text, command
 
         except Exception as e:
             logger.error(f"{self.log_prefix} 处理{action}时出错: {e}")
             traceback.print_exc()
-            return False, ""
+            return False, "", ""
 
     async def shutdown(self):
         """优雅关闭HeartFChatting实例，取消活动循环任务"""

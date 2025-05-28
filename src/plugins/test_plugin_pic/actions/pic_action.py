@@ -153,7 +153,7 @@ class PicAction(PluginAction):
 
             if encode_success:
                 base64_image_string = encode_result
-                send_success = await self.send_message(type="emoji", data=base64_image_string)
+                send_success = await self.send_message(type="image", data=base64_image_string)
                 if send_success:
                     await self.send_message_by_expressor("图片表情已发送！")
                     return True, "图片表情已发送"

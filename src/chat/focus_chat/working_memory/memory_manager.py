@@ -33,7 +33,10 @@ class MemoryManager:
         self._id_map: Dict[str, MemoryItem] = {}
 
         self.llm_summarizer = LLMRequest(
-            model=global_config.model.summary, temperature=0.3, max_tokens=512, request_type="memory_summarization"
+            model=global_config.model.focus_working_memory,
+            temperature=0.3,
+            max_tokens=512,
+            request_type="memory_summarization",
         )
 
     @property

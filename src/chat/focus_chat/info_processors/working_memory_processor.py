@@ -61,10 +61,10 @@ class WorkingMemoryProcessor(BaseProcessor):
         self.subheartflow_id = subheartflow_id
 
         self.llm_model = LLMRequest(
-            model=global_config.model.sub_heartflow,
-            temperature=global_config.model.sub_heartflow["temp"],
+            model=global_config.model.focus_chat_mind,
+            temperature=global_config.model.focus_chat_mind["temp"],
             max_tokens=800,
-            request_type="working_memory",
+            request_type="focus_working_memory",
         )
 
         name = chat_manager.get_stream_name(self.subheartflow_id)

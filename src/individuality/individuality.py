@@ -1,6 +1,4 @@
 from typing import Optional
-
-from numpy import double
 from .personality import Personality
 from .identity import Identity
 from .expression_style import PersonalityExpression
@@ -27,11 +25,6 @@ class Individuality:
         personality_core: str,
         personality_sides: list,
         identity_detail: list,
-        height: int,
-        weight: double,
-        age: int,
-        gender: str,
-        appearance: str,
     ) -> None:
         """初始化个体特征
 
@@ -40,11 +33,6 @@ class Individuality:
             personality_core: 人格核心特点
             personality_sides: 人格侧面描述
             identity_detail: 身份细节描述
-            height: 身高（厘米）
-            weight: 体重（千克）
-            age: 年龄
-            gender: 性别
-            appearance: 外貌特征
         """
         # 初始化人格
         self.personality = Personality.initialize(
@@ -52,9 +40,7 @@ class Individuality:
         )
 
         # 初始化身份
-        self.identity = Identity.initialize(
-            identity_detail=identity_detail, height=height, weight=weight, age=age, gender=gender, appearance=appearance
-        )
+        self.identity = Identity(identity_detail=identity_detail)
 
         await self.express_style.extract_and_store_personality_expressions()
 
@@ -120,7 +106,7 @@ class Individuality:
         获取身份特征的prompt
 
         Args:
-            level (int): 详细程度 (1: 随机细节, 2: 所有细节+外貌年龄性别, 3: 同2)
+            level (int): 详细程度 (1: 随机细节, 2: 所有细节, 3: 同2)
             x_person (int, optional): 人称代词 (0: 无人称, 1: 我, 2: 你). 默认为 2.
 
         Returns:
@@ -145,23 +131,10 @@ class Individuality:
             identity_detail = list(self.identity.identity_detail)
             random.shuffle(identity_detail)
             if level == 1:
-                identity_parts.append(f"身份是{identity_detail[0]}")
+                identity_parts.append(f"{identity_detail[0]}")
             elif level >= 2:
                 details_str = "、".join(identity_detail)
-                identity_parts.append(f"身份是{details_str}")
-
-        # 根据level添加其他身份信息
-        if level >= 3:
-            if self.identity.appearance:
-                identity_parts.append(f"{self.identity.appearance}")
-            if self.identity.age > 0:
-                identity_parts.append(f"年龄大约{self.identity.age}岁")
-            if self.identity.gender:
-                identity_parts.append(f"性别是{self.identity.gender}")
-            if self.identity.height:
-                identity_parts.append(f"身高大约{self.identity.height}厘米")
-            if self.identity.weight:
-                identity_parts.append(f"体重大约{self.identity.weight}千克")
+                identity_parts.append(f"{details_str}")
 
         if identity_parts:
             details_str = "，".join(identity_parts)

@@ -26,7 +26,7 @@ class StructureObservation:
         for structured_info in self.structured_info:
             if structured_info.get("ttl") > 0:
                 structured_info["ttl"] -= 1
-            observed_structured_infos.append(structured_info)
-            logger.debug(f"观察到结构化信息仍旧在: {structured_info}")
+                observed_structured_infos.append(structured_info)
+                logger.debug(f"观察到结构化信息仍旧在: {structured_info}")
 
         self.structured_info = observed_structured_infos

@@ -73,7 +73,7 @@ class HeartFCSender:
             thinking_message = self.thinking_messages.get(chat_id, {}).get(message_id)
             return thinking_message.thinking_start_time if thinking_message else None
 
-    async def send_message(self, message: MessageSending, has_thinking=False, typing=False):
+    async def send_message(self, message: MessageSending, has_thinking=False, typing=False, set_reply=False):
         """
         处理、发送并存储一条消息。
 
@@ -97,7 +97,7 @@ class HeartFCSender:
         message_id = message.message_info.message_id
 
         try:
-            if has_thinking:
+            if set_reply:
                 _ = message.update_thinking_time()
 
                 # --- 条件应用 set_reply 逻辑 ---

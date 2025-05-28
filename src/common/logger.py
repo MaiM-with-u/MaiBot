@@ -663,11 +663,11 @@ PROCESSOR_STYLE_CONFIG = {
 
 PLANNER_STYLE_CONFIG = {
     "advanced": {
-        "console_format": "<level>{time:HH:mm:ss}</level> | <fg #4DCDFF>规划器</fg #4DCDFF> | <fg #4DCDFF>{message}</fg #4DCDFF>",
+        "console_format": "<level>{time:HH:mm:ss}</level> | <fg #069AFF>规划器</fg #069AFF> | <fg #069AFF>{message}</fg #069AFF>",
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 规划器 | {message}",
     },
     "simple": {
-        "console_format": "<level>{time:HH:mm:ss}</level> | <fg #4DCDFF>规划器</fg #4DCDFF> | <fg #4DCDFF>{message}</fg #4DCDFF>",
+        "console_format": "<level>{time:HH:mm:ss}</level> | <fg #069AFF>规划器</fg #069AFF> | <fg #069AFF>{message}</fg #069AFF>",
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 规划器 | {message}",
     },
 }

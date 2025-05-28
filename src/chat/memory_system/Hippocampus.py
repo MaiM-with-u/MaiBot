@@ -193,7 +193,6 @@ class MemoryGraph:
 class Hippocampus:
     def __init__(self):
         self.memory_graph = MemoryGraph()
-        self.llm_topic_judge = None
         self.model_summary = None
         self.entorhinal_cortex = None
         self.parahippocampal_gyrus = None
@@ -205,8 +204,7 @@ class Hippocampus:
         # 从数据库加载记忆图
         self.entorhinal_cortex.sync_memory_from_db()
         # TODO: API-Adapter修改标记
-        self.llm_topic_judge = LLMRequest(global_config.model.topic_judge, request_type="memory")
-        self.model_summary = LLMRequest(global_config.model.summary, request_type="memory")
+        self.model_summary = LLMRequest(global_config.model.memory_summary, request_type="memory")
 
     def get_all_node_names(self) -> list:
         """获取记忆图中所有节点的名字列表"""
@@ -344,7 +342,7 @@ class Hippocampus:
             # 使用LLM提取关键词
             topic_num = min(5, max(1, int(len(text) * 0.1)))  # 根据文本长度动态调整关键词数量
             # logger.info(f"提取关键词数量: {topic_num}")
-            topics_response = await self.llm_topic_judge.generate_response(self.find_topic_llm(text, topic_num))
+            topics_response = await self.model_summary.generate_response(self.find_topic_llm(text, topic_num))
 
             # 提取关键词
             keywords = re.findall(r"<([^>]+)>", topics_response[0])
@@ -528,12 +526,12 @@ class Hippocampus:
         if not keywords:
             return []
 
-        # logger.info(f"提取的关键词: {', '.join(keywords)}")
+        logger.info(f"提取的关键词: {', '.join(keywords)}")
 
         # 过滤掉不存在于记忆图中的关键词
         valid_keywords = [keyword for keyword in keywords if keyword in self.memory_graph.G]
         if not valid_keywords:
-            # logger.info("没有找到有效的关键词节点")
+            logger.info("没有找到有效的关键词节点")
             return []
 
         logger.debug(f"有效的关键词: {', '.join(valid_keywords)}")
@@ -699,7 +697,7 @@ class Hippocampus:
             # 使用LLM提取关键词
             topic_num = min(5, max(1, int(len(text) * 0.1)))  # 根据文本长度动态调整关键词数量
             # logger.info(f"提取关键词数量: {topic_num}")
-            topics_response = await self.llm_topic_judge.generate_response(self.find_topic_llm(text, topic_num))
+            topics_response = await self.model_summary.generate_response(self.find_topic_llm(text, topic_num))
 
             # 提取关键词
             keywords = re.findall(r"<([^>]+)>", topics_response[0])
@@ -1126,7 +1124,7 @@ class ParahippocampalGyrus:
 
         # 2. 使用LLM提取关键主题
         topic_num = self.hippocampus.calculate_topic_num(input_text, compress_rate)
-        topics_response = await self.hippocampus.llm_topic_judge.generate_response(
+        topics_response = await self.hippocampus.model_summary.generate_response(
             self.hippocampus.find_topic_llm(input_text, topic_num)
         )
 

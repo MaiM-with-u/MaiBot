@@ -28,7 +28,7 @@ class ChattingInfoProcessor(BaseProcessor):
         super().__init__()
         # TODO: API-Adapter修改标记
         self.model_summary = LLMRequest(
-            model=global_config.model.observation, temperature=0.7, max_tokens=300, request_type="chat_observation"
+            model=global_config.model.utils_small, temperature=0.7, max_tokens=300, request_type="chat_observation"
         )
 
     async def process_info(

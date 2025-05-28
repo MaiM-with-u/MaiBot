@@ -7,7 +7,7 @@ from src.chat.message_receive.chat_stream import chat_manager
 from src.chat.message_receive.message import MessageRecv
 from src.experimental.only_message_process import MessageProcessor
 from src.experimental.PFC.pfc_manager import PFCManager
-from src.chat.focus_chat.heartflow_message_revceiver import HeartFCMessageReceiver
+from src.chat.focus_chat.heartflow_message_processor import HeartFCMessageReceiver
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 from src.config.config import global_config
 

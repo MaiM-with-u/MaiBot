@@ -28,8 +28,6 @@ class ActionManager:
         self._registered_actions: Dict[str, ActionInfo] = {}
         # 当前正在使用的动作集合，默认加载默认动作
         self._using_actions: Dict[str, ActionInfo] = {}
-        # 临时备份原始使用中的动作
-        self._original_actions_backup: Optional[Dict[str, ActionInfo]] = None
 
         # 默认动作集，仅作为快照，用于恢复默认
         self._default_actions: Dict[str, ActionInfo] = {}
@@ -160,9 +158,9 @@ class ActionManager:
             Optional[BaseAction]: 创建的动作处理器实例，如果动作名称未注册则返回None
         """
         # 检查动作是否在当前使用的动作集中
-        if action_name not in self._using_actions:
-            logger.warning(f"当前不可用的动作类型: {action_name}")
-            return None
+        # if action_name not in self._using_actions:
+        # logger.warning(f"当前不可用的动作类型: {action_name}")
+        # return None
 
         handler_class = _ACTION_REGISTRY.get(action_name)
         if not handler_class:
@@ -278,22 +276,20 @@ class ActionManager:
         return True
 
     def temporarily_remove_actions(self, actions_to_remove: List[str]) -> None:
-        """临时移除使用集中的指定动作，备份原始使用集"""
-        if self._original_actions_backup is None:
-            self._original_actions_backup = self._using_actions.copy()
+        """临时移除使用集中的指定动作"""
         for name in actions_to_remove:
             self._using_actions.pop(name, None)
 
     def restore_actions(self) -> None:
-        """恢复之前备份的原始使用集"""
-        if self._original_actions_backup is not None:
-            self._using_actions = self._original_actions_backup.copy()
-            self._original_actions_backup = None
+        """恢复到默认动作集"""
+        logger.debug(
+            f"恢复动作集: 从 {list(self._using_actions.keys())} 恢复到默认动作集 {list(self._default_actions.keys())}"
+        )
+        self._using_actions = self._default_actions.copy()
 
     def restore_default_actions(self) -> None:
         """恢复默认动作集到使用集"""
         self._using_actions = self._default_actions.copy()
-        self._original_actions_backup = None
 
     def get_action(self, action_name: str) -> Optional[Type[BaseAction]]:
         """

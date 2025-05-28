@@ -27,7 +27,7 @@ logger = get_logger("normal_chat")
 
 
 class NormalChat:
-    def __init__(self, chat_stream: ChatStream, interest_dict: dict = None):
+    def __init__(self, chat_stream: ChatStream, interest_dict: dict = None, on_switch_to_focus_callback=None):
         """初始化 NormalChat 实例。只进行同步操作。"""
 
         # Basic info from chat_stream (sync)
@@ -49,6 +49,17 @@ class NormalChat:
         self.last_speak_time = 0
         self._chat_task: Optional[asyncio.Task] = None
         self._initialized = False  # Track initialization status
+
+        # 记录最近的回复内容，每项包含: {time, user_message, response, is_mentioned, is_reference_reply}
+        self.recent_replies = []
+        self.max_replies_history = 20  # 最多保存最近20条回复记录
+
+        # 添加回调函数，用于在满足条件时通知切换到focus_chat模式
+        self.on_switch_to_focus_callback = on_switch_to_focus_callback
+
+        # 最近回复检查相关
+        self._last_check_time = time.time()
+        self._check_interval = 10  # 每10秒检查一次是否需要切换到focus模式
 
     async def initialize(self):
         """异步初始化，获取聊天类型和目标信息。"""
@@ -197,6 +208,12 @@ class NormalChat:
                     logger.info(f"[{self.stream_name}] 兴趣监控任务被取消或置空，退出")
                     break
 
+                # 定期检查是否需要切换到focus模式
+                # current_time = time.time()
+                # if current_time - self._last_check_time > self._check_interval:
+                #     await self._check_switch_to_focus()
+                #     self._last_check_time = current_time
+
                 items_to_process = list(self.interest_dict.items())
                 if not items_to_process:
                     continue
@@ -312,6 +329,28 @@ class NormalChat:
             # 检查 first_bot_msg 是否为 None (例如思考消息已被移除的情况)
             if first_bot_msg:
                 info_catcher.catch_after_response(timing_results["消息发送"], response_set, first_bot_msg)
+
+                # 记录回复信息到最近回复列表中
+                reply_info = {
+                    "time": time.time(),
+                    "user_message": message.processed_plain_text,
+                    "user_info": {
+                        "user_id": message.message_info.user_info.user_id,
+                        "user_nickname": message.message_info.user_info.user_nickname,
+                    },
+                    "response": response_set,
+                    "is_mentioned": is_mentioned,
+                    "is_reference_reply": message.reply is not None,  # 判断是否为引用回复
+                    "timing": {k: round(v, 2) for k, v in timing_results.items()},
+                }
+                self.recent_replies.append(reply_info)
+                # 保持最近回复历史在限定数量内
+                if len(self.recent_replies) > self.max_replies_history:
+                    self.recent_replies = self.recent_replies[-self.max_replies_history :]
+
+                # 检查是否需要切换到focus模式
+                await self._check_switch_to_focus()
+
             else:
                 logger.warning(f"[{self.stream_name}] 思考消息 {thinking_id} 在发送前丢失，无法记录 info_catcher")
 
@@ -520,3 +559,49 @@ class NormalChat:
         except Exception as e:
             logger.error(f"[{self.stream_name}] 清理思考消息时出错: {e}")
             traceback.print_exc()
+
+    # 获取最近回复记录的方法
+    def get_recent_replies(self, limit: int = 10) -> List[dict]:
+        """获取最近的回复记录
+
+        Args:
+            limit: 最大返回数量，默认10条
+
+        Returns:
+            List[dict]: 最近的回复记录列表，每项包含：
+                time: 回复时间戳
+                user_message: 用户消息内容
+                user_info: 用户信息(user_id, user_nickname)
+                response: 回复内容
+                is_mentioned: 是否被提及(@)
+                is_reference_reply: 是否为引用回复
+                timing: 各阶段耗时
+        """
+        # 返回最近的limit条记录，按时间倒序排列
+        return sorted(self.recent_replies[-limit:], key=lambda x: x["time"], reverse=True)
+
+    async def _check_switch_to_focus(self) -> None:
+        """检查是否满足切换到focus模式的条件"""
+        if not self.on_switch_to_focus_callback:
+            return  # 如果没有设置回调函数，直接返回
+        current_time = time.time()
+
+        time_threshold = 120 / global_config.focus_chat.auto_focus_threshold
+        reply_threshold = 6 * global_config.focus_chat.auto_focus_threshold
+
+        one_minute_ago = current_time - time_threshold
+
+        # 统计1分钟内的回复数量
+        recent_reply_count = sum(1 for reply in self.recent_replies if reply["time"] > one_minute_ago)
+        # print(111111111111111333333333333333333333333331111111111111111111111111111111111)
+        # print(recent_reply_count)
+        # 如果1分钟内回复数量大于8，触发切换到focus模式
+        if recent_reply_count > reply_threshold:
+            logger.info(
+                f"[{self.stream_name}] 检测到1分钟内回复数量({recent_reply_count})大于{reply_threshold}，触发切换到focus模式"
+            )
+            try:
+                # 调用回调函数通知上层切换到focus模式
+                await self.on_switch_to_focus_callback()
+            except Exception as e:
+                logger.error(f"[{self.stream_name}] 触发切换到focus模式时出错: {e}\n{traceback.format_exc()}")

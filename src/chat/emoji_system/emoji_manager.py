@@ -149,7 +149,7 @@ class MaiEmoji:
                 emotion_str = ",".join(self.emotion) if self.emotion else ""
 
                 Emoji.create(
-                    hash=self.hash,
+                    emoji_hash=self.hash,
                     full_path=self.full_path,
                     format=self.format,
                     description=self.description,
@@ -367,12 +367,14 @@ class EmojiManager:
         return cls._instance
 
     def __init__(self) -> None:
-        self._initialized = None
+        if self._initialized:
+            return  # 如果已经初始化过，直接返回
+
         self._scan_task = None
 
         self.vlm = LLMRequest(model=global_config.model.vlm, temperature=0.3, max_tokens=1000, request_type="emoji")
         self.llm_emotion_judge = LLMRequest(
-            model=global_config.model.normal, max_tokens=600, request_type="emoji"
+            model=global_config.model.utils, max_tokens=600, request_type="emoji"
         )  # 更高的温度，更少的token（后续可以根据情绪来调整温度）
 
         self.emoji_num = 0
@@ -389,6 +391,7 @@ class EmojiManager:
             raise RuntimeError("数据库连接失败")
         _ensure_emoji_dir()
         Emoji.create_table(safe=True)  # Ensures table exists
+        self._initialized = True
 
     def _ensure_db(self) -> None:
         """确保数据库已初始化"""
@@ -467,7 +470,7 @@ class EmojiManager:
             selected_emoji, similarity, matched_emotion = random.choice(top_emojis)
 
             # 更新使用次数
-            self.record_usage(selected_emoji.emoji_hash)
+            self.record_usage(selected_emoji.hash)
 
             _time_end = time.time()
 
@@ -796,7 +799,7 @@ class EmojiManager:
 
                     # 删除选定的表情包
                     logger.info(f"[决策] 删除表情包: {emoji_to_delete.description}")
-                    delete_success = await self.delete_emoji(emoji_to_delete.emoji_hash)
+                    delete_success = await self.delete_emoji(emoji_to_delete.hash)
 
                     if delete_success:
                         # 修复：等待异步注册完成

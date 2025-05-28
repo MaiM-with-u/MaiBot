@@ -58,7 +58,7 @@ class PersonInfoManager:
         self.person_name_list = {}
         # TODO: API-Adapter修改标记
         self.qv_name_llm = LLMRequest(
-            model=global_config.model.normal,
+            model=global_config.model.utils,
             max_tokens=256,
             request_type="qv_name",
         )
@@ -104,10 +104,14 @@ class PersonInfoManager:
 
     def get_person_id_by_person_name(self, person_name: str):
         """根据用户名获取用户ID"""
-        document = db.person_info.find_one({"person_name": person_name})
-        if document:
-            return document["person_id"]
-        else:
+        try:
+            record = PersonInfo.get_or_none(PersonInfo.person_name == person_name)
+            if record:
+                return record.person_id
+            else:
+                return ""
+        except Exception as e:
+            logger.error(f"根据用户名 {person_name} 获取用户ID时出错 (Peewee): {e}")
             return ""
 
     @staticmethod
@@ -257,21 +261,19 @@ class PersonInfoManager:
         current_name_set = set(self.person_name_list.values())
 
         while current_try < max_retries:
-            prompt_personality = individuality.get_prompt(x_person=2, level=1)
+            # prompt_personality = individuality.get_prompt(x_person=2, level=1)
             bot_name = individuality.personality.bot_nickname
 
-            qv_name_prompt = f"你是{bot_name}，{prompt_personality}"
-            qv_name_prompt += f"现在你想给一个用户取一个昵称，用户是的qq昵称是{user_nickname}，"
+            qv_name_prompt = f"你是{bot_name}，一个伪装成人类的AI，你不能让别人发现这一点，"
+            qv_name_prompt += f"现在你想给一个用户取一个昵称，用户的qq昵称是{user_nickname}，"
             qv_name_prompt += f"用户的qq群昵称名是{user_cardname}，"
             if user_avatar:
                 qv_name_prompt += f"用户的qq头像是{user_avatar}，"
             if old_name:
                 qv_name_prompt += f"你之前叫他{old_name}，是因为{old_reason}，"
 
-            qv_name_prompt += f"\n其他取名的要求是：{request}，不要太浮夸"
-            qv_name_prompt += (
-                "\n请根据以上用户信息，想想你叫他什么比较好，不要太浮夸，请最好使用用户的qq昵称，可以稍作修改"
-            )
+            qv_name_prompt += f"\n其他取名的要求是：{request}，不要太浮夸，简短，"
+            qv_name_prompt += "\n请根据以上用户信息，想想你叫他什么比较好，不要太浮夸，请最好使用用户的qq昵称，可以稍作修改，优先使用原文。优先使用用户的qq昵称或者群昵称原文。"
 
             if existing_names_str:
                 qv_name_prompt += f"\n请注意，以下名称已被你尝试过或已知存在，请避免：{existing_names_str}。\n"
