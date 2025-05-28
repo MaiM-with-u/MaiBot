@@ -98,6 +98,15 @@ class ActionPlanner:
         action = "no_reply"  # 默认动作
         reasoning = "规划器初始化默认"
         action_data = {}
+        
+        # 初始化所有可能用到的变量，避免UnboundLocalError
+        observed_messages = []
+        observed_messages_str = ""
+        current_mind = ""
+        cycle_info = ""
+        self_info = ""
+        is_group_chat = True  # 默认为群聊
+        prompt = "未生成prompt"  # 初始化prompt变量
 
         try:
             # 获取观察信息
