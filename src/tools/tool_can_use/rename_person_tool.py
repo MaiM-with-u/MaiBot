@@ -38,7 +38,7 @@ class RenamePersonTool(BaseTool):
         request_context = function_args.get("message_content", "")  # 如果没有提供，则为空字符串
 
         if not person_name_to_find:
-            return {"name": self.name, "content": "Error: Must provide the nickname of the user to be renamed (person_name)."}
+            return {"name": self.name, "content": "错误：必须提供需要重命名的用户昵称 (person_name)。"}
 
         try:
             # 1. 根据昵称查找用户信息
@@ -49,7 +49,7 @@ class RenamePersonTool(BaseTool):
                 logger.info(f"未找到昵称为 '{person_name_to_find}' 的用户。")
                 return {
                     "name": self.name,
-                    "content": f"Cannot find user with nickname '{person_name_to_find}'. Please ensure you entered the nickname I previously gave to that user.",
+                    "content": f"找不到昵称为 '{person_name_to_find}' 的用户。请确保输入的是我之前为该用户取的昵称。",
                 }
 
             person_id = person_info.get("person_id")
@@ -58,8 +58,8 @@ class RenamePersonTool(BaseTool):
             user_avatar = person_info.get("user_avatar")
 
             if not person_id:
-                logger.error(f"Found user '{person_name_to_find}' but unable to get person_id")
-                return {"name": self.name, "content": f"Found user '{person_name_to_find}' but error occurred while getting internal ID."}
+                logger.error(f"找到了用户 '{person_name_to_find}' 但无法获取 person_id")
+                return {"name": self.name, "content": f"找到了用户 '{person_name_to_find}' 但获取内部ID时出错。"}
 
             # 2. 调用 qv_person_name 进行取名
             logger.debug(
@@ -79,7 +79,7 @@ class RenamePersonTool(BaseTool):
                 # reason = result.get("reason", "未提供理由")
                 logger.info(f"成功为用户 {person_id} 取了新昵称: {new_name}")
 
-                content = f"Successfully updated user {person_name_to_find}'s nickname to {new_name}"
+                content = f"已成功将用户 {person_name_to_find} 的备注名更新为 {new_name}"
                 logger.info(content)
                 return {"type": "info", "id": f"rename_success_{time.time()}", "content": content}
             else:
@@ -89,19 +89,19 @@ class RenamePersonTool(BaseTool):
                 if current_name and current_name != person_name_to_find:
                     return {
                         "name": self.name,
-                        "content": f"Encountered a small issue while trying to create a new nickname, but I have already updated '{person_name_to_find}''s nickname to '{current_name}'.",
+                        "content": f"尝试取新昵称时遇到一点小问题，但我已经将 '{person_name_to_find}' 的昵称更新为 '{current_name}' 了。",
                     }
                 else:
                     return {
                         "name": self.name,
-                        "content": f"Encountered a problem while trying to create a new nickname for '{person_name_to_find}', failed to generate successfully. May need to try again later.",
+                        "content": f"尝试为 '{person_name_to_find}' 取新昵称时遇到了问题，未能成功生成。可能需要稍后再试。",
                     }
 
         except Exception as e:
-            error_msg = f"Rename failed: {str(e)}"
+            error_msg = f"重命名失败: {str(e)}"
             logger.error(error_msg, exc_info=True)
             return {"type": "info_error", "id": f"rename_error_{time.time()}", "content": error_msg}
 
 
 # 注册工具
-#register_tool(RenamePersonTool)
+# register_tool(RenamePersonTool)
