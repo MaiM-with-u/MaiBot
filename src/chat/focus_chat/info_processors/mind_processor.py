@@ -22,43 +22,43 @@ logger = get_logger("processor")
 
 def init_prompt():
     group_prompt = """
-你的名字是{bot_name}
+Your name is {bot_name}
 {memory_str}
 {extra_info}
 {relation_prompt}
 {cycle_info_block}
-现在是{time_now}，你正在上网，和qq群里的网友们聊天，以下是正在进行的聊天内容：
+It is currently {time_now}, you are online, chatting with netizens in a QQ group, the following is the ongoing chat content:
 {chat_observe_info}
 
-以下是你之前对聊天的观察和规划，你的名字是{bot_name}：
+Below are your previous observations and plans for the chat, your name is {bot_name}:
 {last_mind}
 
-现在请你继续输出观察和规划，输出要求：
-1. 先关注未读新消息的内容和近期回复历史
-2. 根据新信息，修改和删除之前的观察和规划
-3. 根据聊天内容继续输出观察和规划
-4. 注意群聊的时间线索，话题由谁发起，进展状况如何，思考聊天的时间线。
-6. 语言简洁自然，不要分点，不要浮夸，不要修辞，仅输出思考内容就好"""
+Now please continue to output observations and plans, output requirements:
+1. First, pay attention to the content of unread new messages and recent reply history
+2. Based on new information, modify and delete previous observations and plans
+3. Continue to output observations and plans based on the chat content
+4. Pay attention to the timeline of the group chat, who initiated the topic, how it is progressing, and think about the timeline of the chat.
+6. The language should be concise and natural, without bullet points, exaggeration, or rhetoric, just output the thinking content."""
     Prompt(group_prompt, "sub_heartflow_prompt_before")
 
     private_prompt = """
-你的名字是{bot_name}
+Your name is {bot_name}
 {memory_str}
 {extra_info}
 {relation_prompt}
 {cycle_info_block}
-现在是{time_now}，你正在上网，和qq群里的网友们聊天，以下是正在进行的聊天内容：
+It is currently {time_now}, you are online, chatting with netizens in a QQ group, the following is the ongoing chat content:
 {chat_observe_info}
 
-以下是你之前对聊天的观察和规划，你的名字是{bot_name}：
+Below are your previous observations and plans for the chat, your name is {bot_name}:
 {last_mind}
 
-现在请你继续输出观察和规划，输出要求：
-1. 先关注未读新消息的内容和近期回复历史
-2. 根据新信息，修改和删除之前的观察和规划
-3. 根据聊天内容继续输出观察和规划
-4. 注意群聊的时间线索，话题由谁发起，进展状况如何，思考聊天的时间线。
-6. 语言简洁自然，不要分点，不要浮夸，不要修辞，仅输出思考内容就好"""
+Now please continue to output observations and plans, output requirements:
+1. First, pay attention to the content of unread new messages and recent reply history
+2. Based on new information, modify and delete previous observations and plans
+3. Continue to output observations and plans based on the chat content
+4. Pay attention to the timeline of the group chat, who initiated the topic, how it is progressing, and think about the timeline of the chat.
+6. The language should be concise and natural, without bullet points, exaggeration, or rhetoric, just output the thinking content."""
     Prompt(private_prompt, "sub_heartflow_prompt_private_before")
 
 
@@ -92,24 +92,24 @@ class MindProcessor(BaseProcessor):
             self.structured_info_str = ""
             return
 
-        lines = ["【信息】"]
+        lines = ["【Information】"]
         for item in self.structured_info:
             # 简化展示，突出内容和类型，包含TTL供调试
             type_str = item.get("type", "未知类型")
             content_str = item.get("content", "")
 
             if type_str == "info":
-                lines.append(f"刚刚: {content_str}")
+                lines.append(f"Just now: {content_str}")
             elif type_str == "memory":
                 lines.append(f"{content_str}")
             elif type_str == "comparison_result":
-                lines.append(f"数字大小比较结果: {content_str}")
+                lines.append(f"Number comparison result: {content_str}")
             elif type_str == "time_info":
                 lines.append(f"{content_str}")
             elif type_str == "lpmm_knowledge":
-                lines.append(f"你知道：{content_str}")
+                lines.append(f"You know: {content_str}")
             else:
-                lines.append(f"{type_str}的信息: {content_str}")
+                lines.append(f"{type_str} information: {content_str}")
 
         self.structured_info_str = "\n".join(lines)
         logger.debug(f"{self.log_prefix} 更新 structured_info_str: \n{self.structured_info_str}")
@@ -165,7 +165,7 @@ class MindProcessor(BaseProcessor):
 
         memory_str = ""
         if running_memorys:
-            memory_str = "以下是当前在聊天中，你回忆起的记忆：\n"
+            memory_str = "Here are the memories you recalled during the current chat:\n"
             for running_memory in running_memorys:
                 memory_str += f"{running_memory['topic']}: {running_memory['content']}\n"
 
@@ -214,7 +214,7 @@ class MindProcessor(BaseProcessor):
             chat_target_name=chat_target_name,
         )
 
-        content = "(不知道该想些什么...)"
+        content = "(Don't know what to think...)"
         try:
             content, _ = await self.llm_model.generate_response_async(prompt=prompt)
             if not content:
@@ -223,7 +223,7 @@ class MindProcessor(BaseProcessor):
             # 处理总体异常
             logger.error(f"{self.log_prefix} 执行LLM请求或处理响应时出错: {e}")
             logger.error(traceback.format_exc())
-            content = "思考过程中出现错误"
+            content = "Error occurred during thinking process"
 
         # 记录初步思考结果
         logger.debug(f"{self.log_prefix} 思考prompt: \n{prompt}\n")
