@@ -1,5 +1,5 @@
 import asyncio
-import statistics  # 导入 statistics 模块
+# import statistics  # 导入 statistics 模块
 import time
 import traceback
 from random import random
