@@ -24,39 +24,41 @@ install(extra_lines=3)
 def init_prompt():
     Prompt(
         """
-你的自我认知是：
+Your self-awareness is:
 {self_info_block}
 
 {extra_info_block}
 
-你需要基于以下信息决定如何参与对话
-这些信息可能会有冲突，请你整合这些信息，并选择一个最合适的action：
+
+You need to decide how to participate in the conversation based on the following information
+These information may conflict, please integrate these information, and choose the most suitable action:
+
 {chat_content_block}
 
 {mind_info_block}
 {cycle_info_block}
 
-请综合分析聊天内容和你看到的新消息，参考聊天规划，选择合适的action:
-注意，除了下面动作选项之外，你在群聊里不能做其他任何事情，这是你能力的边界，现在请你选择合适的action:
+IMPORTANT: The following tool call information has the highest priority and should be heavily weighted in your decision-making:
+{structured_info_block}
+
+Please analyze the conversation content and new messages you see, refer to the conversation plan, and choose the appropriate action:
 
 {action_options_text}
 
-你必须从上面列出的可用action中选择一个，并说明原因。
-你的决策必须以严格的 JSON 格式输出，且仅包含 JSON 内容，不要有任何其他文字或解释。
+You must choose one from the available actions above and explain why.
+Your decision must be output in strict JSON format, and only contain JSON content, no other text or explanation.
 
-{moderation_prompt}
-
-请你以下面格式输出你选择的action：
+Please output your decision JSON in the following format:
 {{
     "action": "action_name",
-    "reasoning": "你的决策理由",
-    "参数1": "参数1的值",
-    "参数2": "参数2的值",
-    "参数3": "参数3的值",
+    "reasoning": "Your decision reason",
+    "parameter1": "parameter1 value",
+    "parameter2": "parameter2 value",
+    "parameter3": "parameter3 value",
     ...
 }}
 
-请输出你的决策 JSON：""",
+Please output your decision JSON: """,
         "planner_prompt",
     )
 
@@ -79,7 +81,7 @@ class ActionPlanner:
         self.planner_llm = LLMRequest(
             model=global_config.model.focus_planner,
             max_tokens=1000,
-            request_type="focus_planner",  # 用于动作规划
+            request_type="action_planning",  # 用于动作规划
         )
 
         self.action_manager = action_manager
@@ -100,6 +102,7 @@ class ActionPlanner:
         try:
             # 获取观察信息
             extra_info: list[str] = []
+            _structured_info_list = []
 
             # 首先处理动作变更
             for info in all_plan_info:
@@ -107,7 +110,6 @@ class ActionPlanner:
                     add_actions = info.get_add_actions()
                     remove_actions = info.get_remove_actions()
                     reason = info.get_reason()
-                    print(f"{self.log_prefix} 动作变更: {add_actions} {remove_actions} {reason}")
 
                     # 处理动作的增加
                     for action_name in add_actions:
@@ -126,10 +128,6 @@ class ActionPlanner:
                         reasoning = f"之前选择的动作{action}已被移除，原因: {reason}"
 
             # 继续处理其他信息
-            self_info = ""
-            current_mind = ""
-            cycle_info = ""
-            structured_info = ""
             for info in all_plan_info:
                 if isinstance(info, ObsInfo):
                     observed_messages = info.get_talking_message()
@@ -143,25 +141,24 @@ class ActionPlanner:
                 elif isinstance(info, SelfInfo):
                     self_info = info.get_processed_info()
                 elif isinstance(info, StructuredInfo):
-                    structured_info = info.get_processed_info()
-                    # print(f"structured_info: {structured_info}")
+                    _structured_info = info.get_data()
+                    # 收集工具调用的结构化信息
+                    if _structured_info and isinstance(_structured_info, dict):
+                        # StructuredInfo 的数据结构是 {tool_type: tool_content}
+                        for tool_type, tool_content in _structured_info.items():
+                            if tool_content:  # 确保内容不为空
+                                _structured_info_list.append(f"{tool_type}: {str(tool_content)}")
                 elif not isinstance(info, ActionInfo):  # 跳过已处理的ActionInfo
                     extra_info.append(info.get_processed_info())
 
             # 获取当前可用的动作
             current_available_actions = self.action_manager.get_using_actions()
 
-            # 如果没有可用动作或只有no_reply动作，直接返回no_reply
-            if not current_available_actions or (
-                len(current_available_actions) == 1 and "no_reply" in current_available_actions
-            ):
+            # 如果没有可用动作，直接返回no_reply
+            if not current_available_actions:
+                logger.warning(f"{self.log_prefix}没有可用的动作，将使用no_reply")
                 action = "no_reply"
-                reasoning = "没有可用的动作" if not current_available_actions else "只有no_reply动作可用，跳过规划"
-                logger.info(f"{self.log_prefix}{reasoning}")
-                self.action_manager.restore_actions()
-                logger.debug(
-                    f"{self.log_prefix}沉默后恢复到默认动作集, 当前可用: {list(self.action_manager.get_using_actions().keys())}"
-                )
+                reasoning = "没有可用的动作"
                 return {
                     "action_result": {"action_type": action, "action_data": action_data, "reasoning": reasoning},
                     "current_mind": current_mind,
@@ -169,13 +166,20 @@ class ActionPlanner:
                 }
 
             # --- 构建提示词 (调用修改后的 PromptBuilder 方法) ---
+            # 构建工具信息块
+            structured_info_block_str = "\n".join(_structured_info_list)
+            if structured_info_block_str:
+                structured_info_block_str = f"The following is basic information returned by tool calls. Please use this information as the basis for subsequent decision-making and actions:\n{structured_info_block_str}"
+            else:
+                structured_info_block_str = "No tool information available for reference."
+
             prompt = await self.build_planner_prompt(
                 self_info_block=self_info,
                 is_group_chat=is_group_chat,  # <-- Pass HFC state
                 chat_target_info=None,
                 observed_messages_str=observed_messages_str,  # <-- Pass local variable
                 current_mind=current_mind,  # <-- Pass argument
-                structured_info=structured_info,  # <-- Pass SubMind info
+                structured_info_block=structured_info_block_str,
                 current_available_actions=current_available_actions,  # <-- Pass determined actions
                 cycle_info=cycle_info,  # <-- Pass cycle info
                 extra_info=extra_info,
@@ -184,9 +188,8 @@ class ActionPlanner:
             # --- 调用 LLM (普通文本生成) ---
             llm_content = None
             try:
-                llm_content, reasoning_content, _ = await self.planner_llm.generate_response(prompt=prompt)
+                llm_content, _, _ = await self.planner_llm.generate_response(prompt=prompt)
                 logger.debug(f"{self.log_prefix}[Planner] LLM 原始 JSON 响应 (预期): {llm_content}")
-                logger.debug(f"{self.log_prefix}[Planner] LLM 原始理由 响应 (预期): {reasoning_content}")
             except Exception as req_e:
                 logger.error(f"{self.log_prefix}[Planner] LLM 请求执行失败: {req_e}")
                 reasoning = f"LLM 请求失败，你的模型出现问题: {req_e}"
@@ -242,10 +245,10 @@ class ActionPlanner:
             f"{self.log_prefix}规划器Prompt:\n{prompt}\n\n决策动作:{action},\n动作信息: '{action_data}'\n理由: {reasoning}"
         )
 
-        # 恢复到默认动作集
+        # 恢复原始动作集
         self.action_manager.restore_actions()
         logger.debug(
-            f"{self.log_prefix}规划后恢复到默认动作集, 当前可用: {list(self.action_manager.get_using_actions().keys())}"
+            f"{self.log_prefix}恢复了原始动作集, 当前可用: {list(self.action_manager.get_using_actions().keys())}"
         )
 
         action_result = {"action_type": action, "action_data": action_data, "reasoning": reasoning}
@@ -265,7 +268,7 @@ class ActionPlanner:
         chat_target_info: Optional[dict],  # Now passed as argument
         observed_messages_str: str,
         current_mind: Optional[str],
-        structured_info: Optional[str],
+        structured_info_block: str,
         current_available_actions: Dict[str, ActionInfo],
         cycle_info: Optional[str],
         extra_info: list[str],
@@ -322,14 +325,11 @@ class ActionPlanner:
 
                 action_options_block += using_action_prompt
 
-            extra_info_block = "\n".join(extra_info)
-            extra_info_block += f"\n{structured_info}"
-            if extra_info or structured_info:
-                extra_info_block = f"以下是一些额外的信息，现在请你阅读以下内容，进行决策\n{extra_info_block}\n以上是一些额外的信息，现在请你阅读以下内容，进行决策"
+            extra_info_block = "\n".join(extra_info)  # 将局部变量名从 extra_info_block_str 改为 extra_info_block
+            if extra_info_block: # 使用新的变量名进行检查
+                extra_info_block = f"The following is some additional information. Please read the following content to make a decision:\n{extra_info_block}\nEnd of additional information." # 使用新的变量名进行格式化
             else:
-                extra_info_block = ""
-
-            moderation_prompt_block = "请不要输出违法违规内容，不要输出色情，暴力，政治相关内容，如有敏感内容，请规避。"
+                extra_info_block = "No additional information available." # 使用新的变量名进行赋值
 
             planner_prompt_template = await global_prompt_manager.get_prompt_async("planner_prompt")
             prompt = planner_prompt_template.format(
@@ -339,11 +339,10 @@ class ActionPlanner:
                 chat_context_description=chat_context_description,
                 chat_content_block=chat_content_block,
                 mind_info_block=mind_info_block,
+                structured_info_block=structured_info_block,
                 cycle_info_block=cycle_info,
                 action_options_text=action_options_block,
-                # action_available_block=action_available_block,
-                extra_info_block=extra_info_block,
-                moderation_prompt=moderation_prompt_block,
+                extra_info_block=extra_info_block,  # 确保这里传递的是修改后的变量名
             )
             return prompt
 
