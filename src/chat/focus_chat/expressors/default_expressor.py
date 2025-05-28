@@ -16,7 +16,7 @@ from src.chat.utils.info_catcher import info_catcher_manager
 from src.chat.heart_flow.utils_chat import get_chat_type_and_target_info
 from src.chat.message_receive.chat_stream import ChatStream
 from src.chat.focus_chat.hfc_utils import parse_thinking_id_to_timestamp
-from src.individuality.individuality import individuality
+# from src.individuality.individuality import individuality
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 from src.chat.utils.chat_message_builder import build_readable_messages, get_raw_msg_before_timestamp_with_chat
 import time
