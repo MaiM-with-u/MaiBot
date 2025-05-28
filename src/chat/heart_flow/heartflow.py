@@ -1,7 +1,6 @@
 from src.chat.heart_flow.sub_heartflow import SubHeartflow, ChatState
 from src.common.logger_manager import get_logger
 from typing import Any, Optional, List
-from src.chat.heart_flow.mai_state_manager import MaiStateInfo, MaiStateManager
 from src.chat.heart_flow.subheartflow_manager import SubHeartflowManager
 from src.chat.heart_flow.background_tasks import BackgroundTaskManager  # Import BackgroundTaskManager
 
@@ -16,17 +15,11 @@ class Heartflow:
     """
 
     def __init__(self):
-        # 状态管理相关
-        self.current_state: MaiStateInfo = MaiStateInfo()  # 当前状态信息
-        self.mai_state_manager: MaiStateManager = MaiStateManager()  # 状态决策管理器
-
         # 子心流管理 (在初始化时传入 current_state)
-        self.subheartflow_manager: SubHeartflowManager = SubHeartflowManager(self.current_state)
+        self.subheartflow_manager: SubHeartflowManager = SubHeartflowManager()
 
         # 后台任务管理器 (整合所有定时任务)
         self.background_task_manager: BackgroundTaskManager = BackgroundTaskManager(
-            mai_state_info=self.current_state,
-            mai_state_manager=self.mai_state_manager,
             subheartflow_manager=self.subheartflow_manager,
         )
 

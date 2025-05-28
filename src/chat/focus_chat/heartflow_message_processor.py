@@ -1,4 +1,3 @@
-import time
 import traceback
 from ..memory_system.Hippocampus import HippocampusManager
 from ...config.config import global_config
@@ -8,6 +7,7 @@ from ..utils.utils import is_mentioned_bot_in_message
 from src.chat.heart_flow.heartflow import heartflow
 from src.common.logger_manager import get_logger
 from ..message_receive.chat_stream import chat_manager
+import math
 
 # from ..message_receive.message_buffer import message_buffer
 from ..utils.timer_calculator import Timer
@@ -69,6 +69,15 @@ async def _calculate_interest(message: MessageRecv) -> Tuple[float, bool]:
             message.processed_plain_text,
             fast_retrieval=True,
         )
+        text_len = len(message.processed_plain_text)
+        # 根据文本长度调整兴趣度，长度越大兴趣度越高，但增长率递减，最低0.01，最高0.05
+        # 采用对数函数实现递减增长
+
+        base_interest = 0.01 + (0.05 - 0.01) * (math.log10(text_len + 1) / math.log10(1000 + 1))
+        base_interest = min(max(base_interest, 0.01), 0.05)
+
+        interested_rate += base_interest
+
         logger.trace(f"记忆激活率: {interested_rate:.2f}")
 
     if is_mentioned:
@@ -205,18 +214,12 @@ class HeartFCMessageReceiver:
 
             # 6. 兴趣度计算与更新
             interested_rate, is_mentioned = await _calculate_interest(message)
-            # await subheartflow.interest_chatting.increase_interest(value=interested_rate)
-            subheartflow.add_interest_message(message, interested_rate, is_mentioned)
+            subheartflow.add_message_to_normal_chat_cache(message, interested_rate, is_mentioned)
 
             # 7. 日志记录
             mes_name = chat.group_info.group_name if chat.group_info else "私聊"
-            current_time = time.strftime("%H:%M:%S", time.localtime(message.message_info.time))
-            logger.info(
-                f"[{current_time}][{mes_name}]"
-                f"{userinfo.user_nickname}:"
-                f"{message.processed_plain_text}"
-                f"[激活: {interested_rate:.1f}]"
-            )
+            # current_time = time.strftime("%H:%M:%S", time.localtime(message.message_info.time))
+            logger.info(f"[{mes_name}]{userinfo.user_nickname}:{message.processed_plain_text}")
 
             # 8. 关系处理
             if global_config.relationship.give_name:

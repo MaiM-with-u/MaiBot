@@ -2,25 +2,16 @@ import asyncio
 import traceback
 from typing import Optional, Coroutine, Callable, Any, List
 from src.common.logger_manager import get_logger
-from src.chat.heart_flow.mai_state_manager import MaiStateManager, MaiStateInfo
 from src.chat.heart_flow.subheartflow_manager import SubHeartflowManager
 from src.config.config import global_config
 
 logger = get_logger("background_tasks")
 
 
-# 新增兴趣评估间隔
-INTEREST_EVAL_INTERVAL_SECONDS = 5
-# 新增聊天超时检查间隔
-NORMAL_CHAT_TIMEOUT_CHECK_INTERVAL_SECONDS = 60
-# 新增状态评估间隔
-HF_JUDGE_STATE_UPDATE_INTERVAL_SECONDS = 20
 # 新增私聊激活检查间隔
 PRIVATE_CHAT_ACTIVATION_CHECK_INTERVAL_SECONDS = 5  # 与兴趣评估类似，设为5秒
 
 CLEANUP_INTERVAL_SECONDS = 1200
-STATE_UPDATE_INTERVAL_SECONDS = 60
-LOG_INTERVAL_SECONDS = 3
 
 
 async def _run_periodic_loop(
@@ -55,19 +46,13 @@ class BackgroundTaskManager:
 
     def __init__(
         self,
-        mai_state_info: MaiStateInfo,  # Needs current state info
-        mai_state_manager: MaiStateManager,
         subheartflow_manager: SubHeartflowManager,
     ):
-        self.mai_state_info = mai_state_info
-        self.mai_state_manager = mai_state_manager
         self.subheartflow_manager = subheartflow_manager
 
         # Task references
-        self._state_update_task: Optional[asyncio.Task] = None
         self._cleanup_task: Optional[asyncio.Task] = None
         self._hf_judge_state_update_task: Optional[asyncio.Task] = None
-        self._into_focus_task: Optional[asyncio.Task] = None
         self._private_chat_activation_task: Optional[asyncio.Task] = None  # 新增私聊激活任务引用
         self._tasks: List[Optional[asyncio.Task]] = []  # Keep track of all tasks
 
@@ -80,15 +65,7 @@ class BackgroundTaskManager:
         - 将任务引用保存到任务列表
         """
 
-        # 任务配置列表: (任务函数, 任务名称, 日志级别, 额外日志信息, 任务对象引用属性名)
-        task_configs = [
-            (
-                lambda: self._run_state_update_cycle(STATE_UPDATE_INTERVAL_SECONDS),
-                "debug",
-                f"聊天状态更新任务已启动 间隔:{STATE_UPDATE_INTERVAL_SECONDS}s",
-                "_state_update_task",
-            ),
-        ]
+        task_configs = []
 
         # 根据 chat_mode 条件添加其他任务
         if not (global_config.chat.chat_mode == "normal"):
@@ -108,12 +85,6 @@ class BackgroundTaskManager:
                         f"私聊激活检查任务已启动 间隔:{PRIVATE_CHAT_ACTIVATION_CHECK_INTERVAL_SECONDS}s",
                         "_private_chat_activation_task",
                     ),
-                    # (
-                    #     self._run_into_focus_cycle,
-                    #     "debug",  # 设为debug，避免过多日志
-                    #     f"专注评估任务已启动 间隔:{INTEREST_EVAL_INTERVAL_SECONDS}s",
-                    #     "_into_focus_task",
-                    # )
                 ]
             )
         else:
@@ -163,33 +134,7 @@ class BackgroundTaskManager:
         # 第三步：清空任务列表
         self._tasks = []  # 重置任务列表
 
-    async def _perform_state_update_work(self):
-        """执行状态更新工作"""
-        previous_status = self.mai_state_info.get_current_state()
-        next_state = self.mai_state_manager.check_and_decide_next_state(self.mai_state_info)
-
-        state_changed = False
-
-        if next_state is not None:
-            state_changed = self.mai_state_info.update_mai_status(next_state)
-
-            # 处理保持离线状态的特殊情况
-            if not state_changed and next_state == previous_status == self.mai_state_info.mai_status.OFFLINE:
-                self.mai_state_info.reset_state_timer()
-                logger.debug("[后台任务] 保持离线状态并重置计时器")
-                state_changed = True  # 触发后续处理
-
-        if state_changed:
-            current_state = self.mai_state_info.get_current_state()
-
-            # 状态转换处理
-
-            if (
-                current_state == self.mai_state_info.mai_status.OFFLINE
-                and previous_status != self.mai_state_info.mai_status.OFFLINE
-            ):
-                logger.info("检测到离线，停用所有子心流")
-                await self.subheartflow_manager.deactivate_all_subflows()
+        # 状态转换处理
 
     async def _perform_cleanup_work(self):
         """执行子心流清理任务
@@ -216,27 +161,10 @@ class BackgroundTaskManager:
         # 记录最终清理结果
         logger.info(f"[清理任务] 清理完成, 共停止 {stopped_count}/{len(flows_to_stop)} 个子心流")
 
-    # --- 新增兴趣评估工作函数 ---
-    # async def _perform_into_focus_work(self):
-    #     """执行一轮子心流兴趣评估与提升检查。"""
-    #     # 直接调用 subheartflow_manager 的方法，并传递当前状态信息
-    #     await self.subheartflow_manager.sbhf_normal_into_focus()
-
-    async def _run_state_update_cycle(self, interval: int):
-        await _run_periodic_loop(task_name="State Update", interval=interval, task_func=self._perform_state_update_work)
-
     async def _run_cleanup_cycle(self):
         await _run_periodic_loop(
             task_name="Subflow Cleanup", interval=CLEANUP_INTERVAL_SECONDS, task_func=self._perform_cleanup_work
         )
-
-    # --- 新增兴趣评估任务运行器 ---
-    # async def _run_into_focus_cycle(self):
-    #     await _run_periodic_loop(
-    #         task_name="Into Focus",
-    #         interval=INTEREST_EVAL_INTERVAL_SECONDS,
-    #         task_func=self._perform_into_focus_work,
-    #     )
 
     # 新增私聊激活任务运行器
     async def _run_private_chat_activation_cycle(self, interval: int):

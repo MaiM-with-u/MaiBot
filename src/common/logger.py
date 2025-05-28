@@ -271,7 +271,7 @@ CHAT_STYLE_CONFIG = {
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 见闻 | {message}",
     },
     "simple": {
-        "console_format": "<level>{time:HH:mm:ss}</level> | <green>见闻</green> | <green>{message}</green>",  # noqa: E501
+        "console_format": "<level>{time:HH:mm:ss}</level> | <fg #1AFF5E>见闻</fg #1AFF5E> | <fg #1AFF5E>{message}</fg #1AFF5E>",  # noqa: E501
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 见闻 | {message}",
     },
 }
@@ -288,7 +288,7 @@ NORMAL_CHAT_STYLE_CONFIG = {
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 一般水群 | {message}",
     },
     "simple": {
-        "console_format": "<level>{time:HH:mm:ss}</level> | <green>一般水群</green> | <green>{message}</green>",  # noqa: E501
+        "console_format": "<level>{time:HH:mm:ss}</level> | <fg #00B741>一般水群</fg #00B741> | <fg #00B741>{message}</fg #00B741>",  # noqa: E501
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 一般水群 | {message}",
     },
 }

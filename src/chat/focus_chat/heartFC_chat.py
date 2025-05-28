@@ -379,12 +379,14 @@ class HeartFChatting:
 
         for processor in self.processors:
             processor_name = processor.__class__.log_prefix
+
             # 用lambda包裹，便于传参
             async def run_with_timeout(proc=processor):
                 return await asyncio.wait_for(
                     proc.process_info(observations=observations, running_memorys=running_memorys),
-                    timeout=PROCESSOR_TIMEOUT
+                    timeout=PROCESSOR_TIMEOUT,
                 )
+
             task = asyncio.create_task(run_with_timeout())
             processor_tasks.append(task)
             task_to_name_map[task] = processor_name

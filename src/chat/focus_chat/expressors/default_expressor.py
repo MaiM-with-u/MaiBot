@@ -16,7 +16,6 @@ from src.chat.utils.info_catcher import info_catcher_manager
 from src.chat.heart_flow.utils_chat import get_chat_type_and_target_info
 from src.chat.message_receive.chat_stream import ChatStream
 from src.chat.focus_chat.hfc_utils import parse_thinking_id_to_timestamp
-# from src.individuality.individuality import individuality
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 from src.chat.utils.chat_message_builder import build_readable_messages, get_raw_msg_before_timestamp_with_chat
 import time
@@ -106,10 +105,7 @@ class DefaultExpressor:
             user_nickname=global_config.bot.nickname,
             platform=messageinfo.platform,
         )
-        # logger.debug(f"创建思考消息：{anchor_message}")
-        # logger.debug(f"创建思考消息chat：{chat}")
-        # logger.debug(f"创建思考消息bot_user_info：{bot_user_info}")
-        # logger.debug(f"创建思考消息messageinfo：{messageinfo}")
+
         thinking_message = MessageThinking(
             message_id=thinking_id,
             chat_stream=chat,
@@ -281,14 +277,8 @@ class DefaultExpressor:
         in_mind_reply,
         target_message,
     ) -> str:
-        # prompt_personality = individuality.get_prompt(x_person=0, level=2)
 
-        # Determine if it's a group chat
         is_group_chat = bool(chat_stream.group_info)
-
-        # Use sender_name passed from caller for private chat, otherwise use a default for group
-        # Default sender_name for group chat isn't used in the group prompt template, but set for consistency
-        # effective_sender_name = sender_name if not is_group_chat else "某人"
 
         message_list_before_now = get_raw_msg_before_timestamp_with_chat(
             chat_id=chat_stream.stream_id,
@@ -377,7 +367,11 @@ class DefaultExpressor:
         # --- 发送器 (Sender) --- #
 
     async def send_response_messages(
-        self, anchor_message: Optional[MessageRecv], response_set: List[Tuple[str, str]], thinking_id: str = "", display_message: str = ""
+        self,
+        anchor_message: Optional[MessageRecv],
+        response_set: List[Tuple[str, str]],
+        thinking_id: str = "",
+        display_message: str = "",
     ) -> Optional[MessageSending]:
         """发送回复消息 (尝试锚定到 anchor_message)，使用 HeartFCSender"""
         chat = self.chat_stream
@@ -412,10 +406,9 @@ class DefaultExpressor:
             # 为每个消息片段生成唯一ID
             type = msg_text[0]
             data = msg_text[1]
-            
+
             if global_config.experimental.debug_show_chat_mode and type == "text":
                 data += "ᶠ"
-            
 
             part_message_id = f"{thinking_id}_{i}"
             message_segment = Seg(type=type, data=data)

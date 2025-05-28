@@ -9,7 +9,6 @@ from src.chat.message_receive.message import MessageRecv
 from src.chat.message_receive.chat_stream import chat_manager
 from src.chat.focus_chat.heartFC_chat import HeartFChatting
 from src.chat.normal_chat.normal_chat import NormalChat
-from src.chat.heart_flow.mai_state_manager import MaiStateInfo
 from src.chat.heart_flow.chat_state_info import ChatState, ChatStateInfo
 from .utils_chat import get_chat_type_and_target_info
 from src.config.config import global_config
@@ -19,11 +18,11 @@ logger = get_logger("sub_heartflow")
 
 install(extra_lines=3)
 
+
 class SubHeartflow:
     def __init__(
         self,
         subheartflow_id,
-        mai_states: MaiStateInfo,
     ):
         """子心流初始化函数
 
@@ -35,9 +34,6 @@ class SubHeartflow:
         # 基础属性，两个值是一样的
         self.subheartflow_id = subheartflow_id
         self.chat_id = subheartflow_id
-
-        # 麦麦的状态
-        self.mai_states = mai_states
 
         # 这个聊天流的状态
         self.chat_state: ChatStateInfo = ChatStateInfo()
@@ -334,10 +330,10 @@ class SubHeartflow:
             return self.normal_chat_instance.get_recent_replies(limit)
         return []
 
-    def add_interest_message(self, message: MessageRecv, interest_value: float, is_mentioned: bool):
+    def add_message_to_normal_chat_cache(self, message: MessageRecv, interest_value: float, is_mentioned: bool):
         self.interest_dict[message.message_info.message_id] = (message, interest_value, is_mentioned)
         # 如果字典长度超过10，删除最旧的消息
-        if len(self.interest_dict) > 10:
+        if len(self.interest_dict) > 30:
             oldest_key = next(iter(self.interest_dict))
             self.interest_dict.pop(oldest_key)
 

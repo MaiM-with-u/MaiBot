@@ -1,5 +1,5 @@
 [inner]
-version = "2.5.0"
+version = "2.6.0"
 
 #----以下是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 #如果你想要修改配置文件，请在修改后将version的值进行变更
@@ -18,23 +18,31 @@ nickname = "麦麦"
 alias_names = ["麦叠", "牢麦"] #仅在 专注聊天 有效
 
 [personality]
-personality_core = "是一个积极向上的女大学生" # 建议20字以内，谁再写3000字小作文敲谁脑袋
+personality_core = "是一个积极向上的女大学生" # 建议50字以内
 personality_sides = [
     "用一句话或几句话描述人格的一些细节",
     "用一句话或几句话描述人格的一些细节",
     "用一句话或几句话描述人格的一些细节",
-]# 条数任意，不能为0
+]
+# 条数任意，不能为0
 
 # 身份特点
-[identity] #アイデンティティがない 生まれないらららら
+#アイデンティティがない 生まれないらららら
+[identity] 
 identity_detail = [
     "年龄为19岁",
     "是女孩子",
     "身高为160cm",
     "有橙色的短发",
 ]
-# 可以描述外贸，性别，身高，职业，属性等等描述
+# 可以描述外貌，性别，身高，职业，属性等等描述
 # 条数任意，不能为0
+
+[expression]
+# 表达方式
+expression_style = "描述麦麦说话的表达风格，表达习惯"
+enable_expression_learning = true # 是否启用表达学习，麦麦会学习人类说话风格
+learning_interval = 600 # 学习间隔 单位秒
 
 [relationship]
 give_name = true # 麦麦是否给其他人取名，关闭后无法使用禁言功能
@@ -69,15 +77,18 @@ normal_chat_first_probability = 0.3 # 麦麦回答时选择首要模型的概率
 max_context_size = 15 #上下文长度
 emoji_chance = 0.2 # 麦麦一般回复时使用表情包的概率，设置为1让麦麦自己决定发不发
 thinking_timeout = 120 # 麦麦最长思考时间，超过这个时间的思考会放弃（往往是api反应太慢）
-message_buffer = true # 启用消息缓冲器？启用此项以解决消息的拆分问题，但会使麦麦的回复延迟
 
 willing_mode = "classical" # 回复意愿模式 —— 经典模式：classical，mxp模式：mxp，自定义模式：custom（需要你自己实现）
+talk_frequency = 1 # 麦麦回复频率，一般为1，默认频率下，30分钟麦麦回复30条（约数）
+
 response_willing_amplifier = 1 # 麦麦回复意愿放大系数，一般为1
 response_interested_rate_amplifier = 1 # 麦麦回复兴趣度放大系数,听到记忆里的内容时放大系数
-down_frequency_rate = 3 # 降低回复频率的群组回复意愿降低系数 除法
+
 emoji_response_penalty = 0 # 表情包回复惩罚系数，设为0为不回复单个表情包，减少单独回复表情包的概率
 mentioned_bot_inevitable_reply = false # 提及 bot 必然回复
 at_bot_inevitable_reply = false # @bot 必然回复
+
+down_frequency_rate = 3 # 降低回复频率的群组回复意愿降低系数 除法
 talk_frequency_down_groups = []  #降低回复频率的群号码
 
 [focus_chat] #专注聊天
@@ -91,13 +102,6 @@ compress_length_limit = 5 #最多压缩份数，超过该数值的压缩上下�
 self_identify_processor = true # 是否启用自我识别处理器
 tool_use_processor = false # 是否启用工具使用处理器
 working_memory_processor = false # 是否启用工作记忆处理器
-
-[expression]
-# 表达方式
-expression_style = "描述麦麦说话的表达风格，表达习惯"
-enable_expression_learning = true # 是否启用表达学习
-learning_interval = 600 # 学习间隔 单位秒
-
 
 [emoji]
 max_reg_num = 40 # 表情包最大注册数量
@@ -163,25 +167,7 @@ max_length = 256 # 回复允许的最大长度
 max_sentence_num = 4 # 回复允许的最大句子数
 enable_kaomoji_protection = false # 是否启用颜文字保护
 
-[maim_message]
-auth_token = [] # 认证令牌，用于API验证，为空则不启用验证
-# 以下项目若要使用需要打开use_custom，并单独配置maim_message的服务器
-use_custom = false # 是否启用自定义的maim_message服务器，注意这需要设置新的端口，不能与.env重复
-host="127.0.0.1"
-port=8090
-mode="ws" # 支持ws和tcp两种模式
-use_wss = false # 是否使用WSS安全连接，只支持ws模式
-cert_file = "" # SSL证书文件路径，仅在use_wss=true时有效
-key_file = "" # SSL密钥文件路径，仅在use_wss=true时有效
 
-
-[telemetry] #发送统计信息，主要是看全球有多少只麦麦
-enable = true
-
-[experimental] #实验性功能
-debug_show_chat_mode = true # 是否在回复后显示当前聊天模式
-enable_friend_chat = false # 是否启用好友聊天
-pfc_chatting = false # 是否启用PFC聊天，该功能仅作用于私聊，与回复模式独立，在0.7.0暂时无效
 
 #下面的模型若使用硅基流动则不需要更改，使用ds官方则改成.env自定义的宏，使用自定义模型则选择定位相似的模型自己填写
 
@@ -332,6 +318,25 @@ pri_in = 2
 pri_out = 8
 
 
+
+[maim_message]
+auth_token = [] # 认证令牌，用于API验证，为空则不启用验证
+# 以下项目若要使用需要打开use_custom，并单独配置maim_message的服务器
+use_custom = false # 是否启用自定义的maim_message服务器，注意这需要设置新的端口，不能与.env重复
+host="127.0.0.1"
+port=8090
+mode="ws" # 支持ws和tcp两种模式
+use_wss = false # 是否使用WSS安全连接，只支持ws模式
+cert_file = "" # SSL证书文件路径，仅在use_wss=true时有效
+key_file = "" # SSL密钥文件路径，仅在use_wss=true时有效
+
+[telemetry] #发送统计信息，主要是看全球有多少只麦麦
+enable = true
+
+[experimental] #实验性功能
+debug_show_chat_mode = false # 是否在回复后显示当前聊天模式
+enable_friend_chat = false # 是否启用好友聊天
+pfc_chatting = false # 暂时无效
 
 
 

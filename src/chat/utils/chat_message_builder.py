@@ -10,6 +10,7 @@ from rich.traceback import install
 
 install(extra_lines=3)
 
+
 def get_raw_msg_by_timestamp(
     timestamp_start: float, timestamp_end: float, limit: int = 0, limit_mode: str = "latest"
 ) -> List[Dict[str, Any]]:
@@ -198,7 +199,7 @@ async def _build_readable_messages_internal(
             content = msg.get("display_message")
         else:
             content = msg.get("processed_plain_text", "")  # 默认空字符串
-            
+
         if "ᶠ" in content:
             content = content.replace("ᶠ", "")
         if "ⁿ" in content:
@@ -465,7 +466,7 @@ async def build_anonymous_messages(messages: List[Dict[str, Any]]) -> str:
             content = msg.get("display_message")
         else:
             content = msg.get("processed_plain_text", "")
-            
+
         if "ᶠ" in content:
             content = content.replace("ᶠ", "")
         if "ⁿ" in content:

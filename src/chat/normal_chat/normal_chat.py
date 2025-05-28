@@ -1,12 +1,9 @@
 import asyncio
-# import statistics  # 导入 statistics 模块
 import time
 import traceback
 from random import random
 from typing import List, Optional  # 导入 Optional
-
 from maim_message import UserInfo, Seg
-
 from src.common.logger_manager import get_logger
 from src.chat.heart_flow.utils_chat import get_chat_type_and_target_info
 from src.manager.mood_manager import mood_manager
@@ -21,6 +18,7 @@ from src.chat.message_receive.message_sender import message_manager
 from src.chat.utils.utils_image import image_path_to_base64
 from src.chat.emoji_system.emoji_manager import emoji_manager
 from src.chat.normal_chat.willing.willing_manager import willing_manager
+from src.chat.normal_chat.normal_chat_utils import get_recent_message_stats
 from src.config.config import global_config
 
 logger = get_logger("normal_chat")
@@ -40,6 +38,8 @@ class NormalChat:
         self.is_group_chat: bool = False
         self.chat_target_info: Optional[dict] = None
 
+        self.willing_amplifier = 1
+
         # Other sync initializations
         self.gpt = NormalChatGenerator()
         self.mood_manager = mood_manager
@@ -55,7 +55,6 @@ class NormalChat:
         self.on_switch_to_focus_callback = on_switch_to_focus_callback
 
         self._disabled = False  # 增加停用标志
-
 
     async def initialize(self):
         """异步初始化，获取聊天类型和目标信息。"""
@@ -209,10 +208,12 @@ class NormalChat:
                 for msg_id, (message, interest_value, is_mentioned) in items_to_process:
                     try:
                         # 处理消息
+                        self.adjust_reply_frequency()
+
                         await self.normal_response(
                             message=message,
                             is_mentioned=is_mentioned,
-                            interested_rate=interest_value,
+                            interested_rate=interest_value * self.willing_amplifier,
                             rewind_response=False,
                         )
                     except Exception as e:
@@ -228,26 +229,18 @@ class NormalChat:
         if self._disabled:
             logger.info(f"[{self.stream_name}] 已停用，忽略 normal_response。")
             return
-        # 检查收到的消息是否属于当前实例处理的 chat stream
-        if message.chat_stream.stream_id != self.stream_id:
-            logger.error(
-                f"[{self.stream_name}] normal_response 收到不匹配的消息 (来自 {message.chat_stream.stream_id})，预期 {self.stream_id}。已忽略。"
-            )
-            return
 
         timing_results = {}
-
         reply_probability = 1.0 if is_mentioned else 0.0  # 如果被提及，基础概率为1，否则需要意愿判断
 
         # 意愿管理器：设置当前message信息
-
         willing_manager.setup(message, self.chat_stream, is_mentioned, interested_rate)
 
         # 获取回复概率
-        is_willing = False
+        # is_willing = False
         # 仅在未被提及或基础概率不为1时查询意愿概率
         if reply_probability < 1:  # 简化逻辑，如果未提及 (reply_probability 为 0)，则获取意愿概率
-            is_willing = True
+            # is_willing = True
             reply_probability = await willing_manager.get_reply_probability(message.message_info.message_id)
 
             if message.message_info.additional_config:
@@ -257,13 +250,13 @@ class NormalChat:
 
         # 打印消息信息
         mes_name = self.chat_stream.group_info.group_name if self.chat_stream.group_info else "私聊"
-        current_time = time.strftime("%H:%M:%S", time.localtime(message.message_info.time))
+        # current_time = time.strftime("%H:%M:%S", time.localtime(message.message_info.time))
         # 使用 self.stream_id
-        willing_log = f"[回复意愿:{await willing_manager.get_willing(self.stream_id):.2f}]" if is_willing else ""
+        # willing_log = f"[激活值:{await willing_manager.get_willing(self.stream_id):.2f}]" if is_willing else ""
         logger.info(
-            f"[{current_time}][{mes_name}]"
+            f"[{mes_name}]"
             f"{message.message_info.user_info.user_nickname}:"  # 使用 self.chat_stream
-            f"{message.processed_plain_text}{willing_log}[概率:{reply_probability * 100:.1f}%]"
+            f"{message.processed_plain_text}[回复概率:{reply_probability * 100:.1f}%]"
         )
         do_reply = False
         response_set = None  # 初始化 response_set
@@ -312,7 +305,7 @@ class NormalChat:
                 return  # 不执行后续步骤
 
             logger.info(f"[{self.stream_name}] 回复内容: {response_set}")
-            
+
             if self._disabled:
                 logger.info(f"[{self.stream_name}] 已停用，忽略 normal_response。")
                 return
@@ -344,18 +337,14 @@ class NormalChat:
                     self.recent_replies = self.recent_replies[-self.max_replies_history :]
 
                 # 检查是否需要切换到focus模式
-                await self._check_switch_to_focus()
-
-            else:
-                logger.warning(f"[{self.stream_name}] 思考消息 {thinking_id} 在发送前丢失，无法记录 info_catcher")
+                if global_config.chat.chat_mode == "auto":
+                    await self._check_switch_to_focus()
 
             info_catcher.done_catch()
 
-            # 处理表情包 (不再需要传入 chat)
             with Timer("处理表情包", timing_results):
                 await self._handle_emoji(message, response_set[0])
 
-            # 更新关系情绪 (不再需要传入 chat)
             with Timer("关系更新", timing_results):
                 await self._update_relationship(message, response_set)
 
@@ -479,9 +468,6 @@ class NormalChat:
 
         # 统计1分钟内的回复数量
         recent_reply_count = sum(1 for reply in self.recent_replies if reply["time"] > one_minute_ago)
-        # print(111111111111111333333333333333333333333331111111111111111111111111111111111)
-        # print(recent_reply_count)
-        # 如果1分钟内回复数量大于8，触发切换到focus模式
         if recent_reply_count > reply_threshold:
             logger.info(
                 f"[{self.stream_name}] 检测到1分钟内回复数量({recent_reply_count})大于{reply_threshold}，触发切换到focus模式"
@@ -491,3 +477,27 @@ class NormalChat:
                 await self.on_switch_to_focus_callback()
             except Exception as e:
                 logger.error(f"[{self.stream_name}] 触发切换到focus模式时出错: {e}\n{traceback.format_exc()}")
+
+    def adjust_reply_frequency(self, duration: int = 10):
+        """
+        调整回复频率
+        """
+        # 获取最近30分钟内的消息统计
+        print(f"willing_amplifier: {self.willing_amplifier}")
+        stats = get_recent_message_stats(minutes=duration, chat_id=self.stream_id)
+        bot_reply_count = stats["bot_reply_count"]
+        print(f"[{self.stream_name}] 最近{duration}分钟内回复数量: {bot_reply_count}")
+        total_message_count = stats["total_message_count"]
+        print(f"[{self.stream_name}] 最近{duration}分钟内消息总数: {total_message_count}")
+
+        # 计算回复频率
+        _reply_frequency = bot_reply_count / total_message_count
+
+        # 如果回复频率低于0.5，增加回复概率
+        if bot_reply_count / duration < global_config.normal_chat.talk_frequency:
+            # differ = global_config.normal_chat.talk_frequency - reply_frequency
+            logger.info(f"[{self.stream_name}] 回复频率低于{global_config.normal_chat.talk_frequency}，增加回复概率")
+            self.willing_amplifier += 0.1
+        else:
+            logger.info(f"[{self.stream_name}] 回复频率高于{global_config.normal_chat.talk_frequency}，减少回复概率")
+            self.willing_amplifier -= 0.1

@@ -64,11 +64,12 @@ class NormalChatGenerator:
     async def _generate_response_with_model(self, message: MessageThinking, model: LLMRequest, thinking_id: str):
         info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
 
+        person_id = person_info_manager.get_person_id(
+            message.chat_stream.user_info.platform, message.chat_stream.user_info.user_id
+        )
 
-        person_id = person_info_manager.get_person_id(message.chat_stream.user_info.platform, message.chat_stream.user_info.user_id)
-        
         person_name = await person_info_manager.get_value(person_id, "person_name")
-        
+
         if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
             sender_name = (
                 f"[{message.chat_stream.user_info.user_nickname}]"
@@ -78,8 +79,7 @@ class NormalChatGenerator:
             sender_name = f"[{message.chat_stream.user_info.user_nickname}]（你叫ta{person_name}）"
         else:
             sender_name = f"用户({message.chat_stream.user_info.user_id})"
-            
-            
+
         # 构建prompt
         with Timer() as t_build_prompt:
             prompt = await prompt_builder.build_prompt(
