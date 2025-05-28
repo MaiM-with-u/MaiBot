@@ -343,7 +343,7 @@ class TelemetryConfig(ConfigBase):
 class ExperimentalConfig(ConfigBase):
     """实验功能配置类"""
 
-    debug_show_chat_mode: bool = True
+    debug_show_chat_mode: bool = False
     """是否在回复后显示当前聊天模式"""
 
     enable_friend_chat: bool = False
