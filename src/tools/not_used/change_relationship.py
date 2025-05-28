@@ -34,8 +34,8 @@ class RelationshipTool(BaseTool):
             changed_value = function_args.get("changed_value")
             reason = function_args.get("reason")
 
-            return {"content": f"Because you just {reason}, your relationship value with the person who sent [{text}] has changed by {changed_value}"}
+            return {"content": f"因为你刚刚因为{reason}，所以你和发[{text}]这条消息的人的关系值变化为{changed_value}"}
 
         except Exception as e:
-            logger.error(f"Error occurred while modifying relationship value: {str(e)}")
-            return {"content": f"Failed to modify relationship value: {str(e)}"}
+            logger.error(f"修改关系值时发生错误: {str(e)}")
+            return {"content": f"修改关系值失败: {str(e)}"}
