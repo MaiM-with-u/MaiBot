@@ -42,14 +42,14 @@ class SearchKnowledgeTool(BaseTool):
             if embedding:
                 knowledge_info = self.get_info_from_db(embedding, limit=3, threshold=threshold)
                 if knowledge_info:
-                    content = f"You know this knowledge: {knowledge_info}"
+                    content = f"你知道这些知识: {knowledge_info}"
                 else:
-                    content = f"You don't know much about {query}"
+                    content = f"你不太了解有关{query}的知识"
                 return {"type": "knowledge", "id": query, "content": content}
-            return {"type": "info", "id": query, "content": f"Unable to get embedding vector for '{query}', knowledge base failed"}
+            return {"type": "info", "id": query, "content": f"无法获取关于'{query}'的嵌入向量，你知识库炸了"}
         except Exception as e:
-            logger.error(f"Knowledge base search tool execution failed: {str(e)}")
-            return {"type": "info", "id": query, "content": f"Knowledge base search failed: {str(e)}"}
+            logger.error(f"知识库搜索工具执行失败: {str(e)}")
+            return {"type": "info", "id": query, "content": f"知识库搜索失败，炸了: {str(e)}"}
 
     @staticmethod
     def _cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
