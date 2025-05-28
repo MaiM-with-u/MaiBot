@@ -12,12 +12,12 @@ class ChangeMoodTool(BaseTool):
     """改变心情的工具"""
 
     name = "change_mood"
-    description = "根据收到的内容和自身回复的内容，改变心情,当你回复了别人的消息，你可以使用这个工具"
+    description = "Change mood based on received content and your own reply content, you can use this tool when you reply to someone's message"
     parameters = {
         "type": "object",
         "properties": {
-            "text": {"type": "string", "description": "引起你改变心情的文本"},
-            "response_set": {"type": "list", "description": "你对文本的回复"},
+            "text": {"type": "string", "description": "Text that causes you to change your mood"},
+            "response_set": {"type": "list", "description": "Your reply to the text"},
         },
         "required": ["text", "response_set"],
     }
@@ -39,16 +39,16 @@ class ChangeMoodTool(BaseTool):
             # gpt = ResponseGenerator()
 
             if response_set is None:
-                response_set = ["你还没有回复"]
+                response_set = ["You haven't replied yet"]
 
             _ori_response = ",".join(response_set)
             # _stance, emotion = await gpt._get_emotion_tags(ori_response, message_processed_plain_text)
-            emotion = "平静"
+            emotion = "calm"
             mood_manager.update_mood_from_emotion(emotion, global_config.mood.mood_intensity_factor)
-            return {"name": "change_mood", "content": f"你的心情刚刚变化了，现在的心情是: {emotion}"}
+            return {"name": "change_mood", "content": f"Your mood just changed, current mood is: {emotion}"}
         except Exception as e:
-            logger.error(f"心情改变工具执行失败: {str(e)}")
-            return {"name": "change_mood", "content": f"心情改变失败: {str(e)}"}
+            logger.error(f"Mood change tool execution failed: {str(e)}")
+            return {"name": "change_mood", "content": f"Mood change failed: {str(e)}"}
 
 
 # 注册工具
