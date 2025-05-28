@@ -14,12 +14,12 @@ class SearchKnowledgeFromLPMMTool(BaseTool):
     """从LPMM知识库中搜索相关信息的工具"""
 
     name = "lpmm_search_knowledge"
-    description = "从知识库中搜索相关信息，如果你需要知识，就使用这个工具"
+    description = "Search relevant information from knowledge base, use this tool if you need knowledge"
     parameters = {
         "type": "object",
         "properties": {
-            "query": {"type": "string", "description": "搜索查询关键词"},
-            "threshold": {"type": "number", "description": "相似度阈值，0.0到1.0之间"},
+            "query": {"type": "string", "description": "Search query keywords"},
+            "threshold": {"type": "number", "description": "Similarity threshold, between 0.0 and 1.0"},
         },
         "required": ["query"],
     }
@@ -43,17 +43,17 @@ class SearchKnowledgeFromLPMMTool(BaseTool):
                 knowledge_info = qa_manager.get_knowledge(query)
                 logger.debug(f"知识库查询结果: {knowledge_info}")
                 if knowledge_info:
-                    content = f"你知道这些知识: {knowledge_info}"
+                    content = f"You know this knowledge: {knowledge_info}"
                 else:
-                    content = f"你不太了解有关{query}的知识"
+                    content = f"You don't know much about {query}"
                 return {"type": "lpmm_knowledge", "id": query, "content": content}
-            # 如果获取嵌入失败
-            return {"type": "info", "id": query, "content": f"无法获取关于'{query}'的嵌入向量，你lpmm知识库炸了"}
+            # If embedding retrieval fails
+            return {"type": "info", "id": query, "content": f"Unable to get embedding vector for '{query}', your lpmm knowledge base failed"}
         except Exception as e:
             logger.error(f"知识库搜索工具执行失败: {str(e)}")
             # 在其他异常情况下，确保 id 仍然是 query (如果它被定义了)
             query_id = query if "query" in locals() else "unknown_query"
-            return {"type": "info", "id": query_id, "content": f"lpmm知识库搜索失败，炸了: {str(e)}"}
+            return {"type": "info", "id": query_id, "content": f"lpmm knowledge base search failed: {str(e)}"}
 
     # def get_info_from_db(
     #     self, query_embedding: list, limit: int = 1, threshold: float = 0.5, return_raw: bool = False
@@ -139,18 +139,18 @@ class SearchKnowledgeFromLPMMTool(BaseTool):
     def _format_results(self, results: list) -> str:
         """格式化结果"""
         if not results:
-            return "未找到相关知识。"
+            return "No relevant knowledge found."
 
-        formatted_string = "我找到了一些相关知识：\n"
+        formatted_string = "I found some relevant knowledge:\n"
         for i, result in enumerate(results):
             # chunk_id = result.get("chunk_id")
             text = result.get("text", "")
-            source = result.get("source", "未知来源")
-            source_type = result.get("source_type", "未知类型")
+            source = result.get("source", "Unknown source")
+            source_type = result.get("source_type", "Unknown type")
             similarity = result.get("similarity", 0.0)
 
             formatted_string += (
-                f"{i + 1}. (相似度: {similarity:.2f}) 类型: {source_type}, 来源: {source} \n内容片段: {text}\n\n"
+                f"{i + 1}. (Similarity: {similarity:.2f}) Type: {source_type}, Source: {source} \nContent fragment: {text}\n\n"
             )
             # 暂时去掉chunk_id
             # formatted_string += f"{i + 1}. (相似度: {similarity:.2f}) 类型: {source_type}, 来源: {source}, Chunk ID: {chunk_id} \n内容片段: {text}\n\n"
