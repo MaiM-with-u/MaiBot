@@ -39,16 +39,16 @@ class ChangeMoodTool(BaseTool):
             # gpt = ResponseGenerator()
 
             if response_set is None:
-                response_set = ["You haven't replied yet"]
+                response_set = ["你还没有回复"]
 
             _ori_response = ",".join(response_set)
             # _stance, emotion = await gpt._get_emotion_tags(ori_response, message_processed_plain_text)
-            emotion = "calm"
+            emotion = "平静"
             mood_manager.update_mood_from_emotion(emotion, global_config.mood.mood_intensity_factor)
-            return {"name": "change_mood", "content": f"Your mood just changed, current mood is: {emotion}"}
+            return {"name": "change_mood", "content": f"你的心情刚刚变化了，现在的心情是: {emotion}"}
         except Exception as e:
-            logger.error(f"Mood change tool execution failed: {str(e)}")
-            return {"name": "change_mood", "content": f"Mood change failed: {str(e)}"}
+            logger.error(f"心情改变工具执行失败: {str(e)}")
+            return {"name": "change_mood", "content": f"心情改变失败: {str(e)}"}
 
 
 # 注册工具
