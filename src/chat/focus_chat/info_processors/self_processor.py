@@ -22,26 +22,24 @@ logger = get_logger("processor")
 def init_prompt():
     indentify_prompt = """
 {name_block}
-你是一个AI，但是你伪装成了一个人类，你的人格是，{prompt_personality}
+You are an AI, but you disguise yourself as a human. Your personality is: {prompt_personality}.
 {indentify_block}
 
 {relation_prompt}
 {memory_str}
 
-现在是{time_now}，你正在上网，和qq群里的网友们聊天，以下是正在进行的聊天内容：
+It is now {time_now}, you are online, chatting with netizens in the QQ group. The following is the ongoing chat content:
 {chat_observe_info}
 
-现在请你根据现有的信息，思考自我认同：请严格遵守以下规则
-1. 请严格参考最上方的人设，适当参考记忆和当前聊天内容，不要被记忆和当前聊天内容中相反的内容误导
-2. 你是一个什么样的人,你和群里的人关系如何
-3. 你的形象是什么
-4. 思考有没有人提到你，或者图片与你有关
-5. 你的自我认同是否有助于你的回答，如果你需要自我相关的信息来帮你参与聊天，请输出，否则请输出十几个字的简短自我认同
-6. 一般情况下不用输出自我认同，只需要输出十几个字的简短自我认同就好，除非有明显需要自我认同的场景
+Now please think about your self-identity based on the existing information:
+1. What kind of person are you, and what is your relationship with people in the group?
+2. What is your image?
+3. Think about whether anyone mentioned you, or if any images are related to you.
+4. Does your self-identity help with your response? If you need self-related information to help you participate in the chat, please output it; otherwise, please output a brief self-identity of more than ten words.
+5. Generally, you don't need to output self-identity, just output a brief self-identity of more than ten words, unless there is an obvious scenario that requires self-identity.
 
-输出内容平淡一些，说中文，不要浮夸，平淡一些。
-请注意不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )。只输出自我认同内容，记得明确说明这是你的自我认同。
-
+The output content should be plain, speak in Chinese, don't be exaggerated, be plain.
+Please do not output redundant content (including prefixes and suffixes, colons and quotation marks, parentheses (), emoticons, @ or @ etc.). Only output self-identity content, remember to clearly state that this is your self-identity.
 """
     Prompt(indentify_prompt, "indentify_prompt")
 
@@ -58,7 +56,7 @@ class SelfProcessor(BaseProcessor):
             model=global_config.model.focus_self_recognize,
             temperature=global_config.model.focus_self_recognize["temp"],
             max_tokens=800,
-            request_type="focus_self_identify",
+            request_type="self_identify",
         )
 
         name = chat_manager.get_stream_name(self.subheartflow_id)
@@ -102,23 +100,11 @@ class SelfProcessor(BaseProcessor):
                 tuple: (current_mind, past_mind, prompt) 当前想法、过去的想法列表和使用的prompt
         """
 
-        for observation in observations:
-            if isinstance(observation, ChattingObservation):
-                is_group_chat = observation.is_group_chat
-                chat_target_info = observation.chat_target_info
-                chat_target_name = "对方"  # 私聊默认名称
-                person_list = observation.person_list
-
         memory_str = ""
         if running_memorys:
             memory_str = "以下是当前在聊天中，你回忆起的记忆：\n"
             for running_memory in running_memorys:
                 memory_str += f"{running_memory['topic']}: {running_memory['content']}\n"
-
-        relation_prompt = ""
-        for person in person_list:
-            if len(person) >= 3 and person[0] and person[1]:
-                relation_prompt += await relationship_manager.build_relationship_info(person, is_id=True)
 
         if observations is None:
             observations = []
@@ -148,16 +134,9 @@ class SelfProcessor(BaseProcessor):
         personality_block = individuality.get_personality_prompt(x_person=2, level=2)
         identity_block = individuality.get_identity_prompt(x_person=2, level=2)
 
-        if is_group_chat:
-            relation_prompt_init = "在这个群聊中，你：\n"
-        else:
-            relation_prompt_init = ""
+        relation_prompt = ""
         for person in person_list:
             relation_prompt += await relationship_manager.build_relationship_info(person, is_id=True)
-        if relation_prompt:
-            relation_prompt = relation_prompt_init + relation_prompt
-        else:
-            relation_prompt = relation_prompt_init + "没有特别在意的人\n"
 
         prompt = (await global_prompt_manager.get_prompt_async("indentify_prompt")).format(
             name_block=name_block,
@@ -168,8 +147,6 @@ class SelfProcessor(BaseProcessor):
             time_now=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
             chat_observe_info=chat_observe_info,
         )
-
-        # print(prompt)
 
         content = ""
         try:
