@@ -10,12 +10,12 @@ class GetMemoryTool(BaseTool):
     """从记忆系统中获取相关记忆的工具"""
 
     name = "get_memory"
-    description = "使用工具从记忆系统中获取相关记忆"
+    description = "Use tool to retrieve relevant memories from the memory system"
     parameters = {
         "type": "object",
         "properties": {
-            "topic": {"type": "string", "description": "要查询的相关主题,用逗号隔开"},
-            "max_memory_num": {"type": "integer", "description": "最大返回记忆数量"},
+            "topic": {"type": "string", "description": "Related topics to query, separated by commas"},
+            "max_memory_num": {"type": "integer", "description": "Maximum number of memories to return"},
         },
         "required": ["topic"],
     }
@@ -47,17 +47,17 @@ class GetMemoryTool(BaseTool):
                     memory_info += memory[1] + "\n"
 
             if memory_info:
-                content = f"你记得这些事情: {memory_info}\n"
-                content += "以上是你的回忆，不一定是目前聊天里的人说的，也不一定是现在发生的事情，请记住。\n"
+                content = f"You remember these things: {memory_info}\n"
+                content += "The above are your memories, not necessarily what people in the current chat said, nor necessarily what is happening now, please remember.\n"
 
             else:
-                content = f"{topic}的记忆，你记不太清"
+                content = f"Memories about {topic}, you don't remember clearly"
 
             return {"type": "memory", "id": topic_list, "content": content}
         except Exception as e:
-            logger.error(f"记忆获取工具执行失败: {str(e)}")
-            # 在失败时也保持格式一致，但id可能不适用或设为None/Error
-            return {"type": "memory_error", "id": topic_list, "content": f"记忆获取失败: {str(e)}"}
+            logger.error(f"Memory retrieval tool execution failed: {str(e)}")
+            # Keep format consistent on failure, but id may not apply or be set to None/Error
+            return {"type": "memory_error", "id": topic_list, "content": f"Memory retrieval failed: {str(e)}"}
 
 
 # 注册工具
