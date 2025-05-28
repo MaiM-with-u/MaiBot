@@ -33,16 +33,16 @@ class CompareNumbersTool(BaseTool):
             num2 = function_args.get("num2")
 
             if num1 > num2:
-                result = f"{num1} is greater than {num2}"
+                result = f"{num1} 大于 {num2}"
             elif num1 < num2:
-                result = f"{num1} is less than {num2}"
+                result = f"{num1} 小于 {num2}"
             else:
-                result = f"{num1} is equal to {num2}"
+                result = f"{num1} 等于 {num2}"
 
             return {"type": "comparison_result", "id": f"{num1}_vs_{num2}", "content": result}
         except Exception as e:
-            logger.error(f"Failed to compare numbers: {str(e)}")
-            return {"type": "info", "id": f"{num1}_vs_{num2}", "content": f"Failed to compare numbers: {str(e)}"}
+            logger.error(f"比较数字失败: {str(e)}")
+            return {"type": "info", "id": f"{num1}_vs_{num2}", "content": f"比较数字失败，炸了: {str(e)}"}
 
 
 # 注册工具
