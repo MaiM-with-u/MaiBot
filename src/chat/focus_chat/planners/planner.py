@@ -315,7 +315,7 @@ class ActionPlanner:
             extra_info_block = "\n".join(extra_info)
             extra_info_block += f"\n{structured_info}"
             if extra_info or structured_info:
-                extra_info_block = f"以下是一些额外的信息，现在请你阅读以下内容，进行决策\n{extra_info_block}\n以上是一些额外的信息，现在请你阅读以下内容，进行决策"
+                extra_info_block = f"以下是一些额外的信息，这些信息的地位较高，进行决策\n{extra_info_block}\n以上是一些额外的信息，现在请你阅读以下内容，进行决策"
             else:
                 extra_info_block = ""
 
