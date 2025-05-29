@@ -12,8 +12,8 @@ class MuteAction(PluginAction):
     action_name = "mute_action"
     action_description = "如果某人违反了公序良俗，或者别人戳你太多，或者某人刷屏，一定要禁言某人，如果你很生气，可以禁言某人，可以自选禁言时长，视严重程度而定。"
     action_parameters = {
-        "target": "禁言对象，输入你要禁言的对象的名字，必填",
-        "duration": "禁言时长，输入你要禁言的时长（秒），单位为秒，必填，必须为数字",
+        "target": "禁言对象，必填,输入你要禁言的对象的名字",
+        "duration": "禁言时长，必填，输入你要禁言的时长（秒），单位为秒，必须为数字",
         "reason": "禁言理由，可选",
     }
     action_require = [
@@ -24,8 +24,8 @@ class MuteAction(PluginAction):
         "当你想回避某个话题时使用",
     ]
     default = True  # 默认动作，是否手动添加到使用集
-    # associated_types = ["command", "text"]
-    associated_types = ["text"]
+    associated_types = ["command", "text"]
+    # associated_types = ["text"]
 
     async def process(self) -> Tuple[bool, str]:
         """处理群聊禁言动作"""

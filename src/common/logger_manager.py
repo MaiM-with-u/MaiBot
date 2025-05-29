@@ -9,7 +9,6 @@ from src.common.logger import (
     RELATION_STYLE_CONFIG,
     CONFIG_STYLE_CONFIG,
     HEARTFLOW_STYLE_CONFIG,
-    LLM_STYLE_CONFIG,
     CHAT_STYLE_CONFIG,
     EMOJI_STYLE_CONFIG,
     SUB_HEARTFLOW_STYLE_CONFIG,
@@ -20,7 +19,7 @@ from src.common.logger import (
     PERSON_INFO_STYLE_CONFIG,
     WILLING_STYLE_CONFIG,
     PFC_ACTION_PLANNER_STYLE_CONFIG,
-    MAI_STATE_CONFIG,
+    STATISTIC_STYLE_CONFIG,
     NORMAL_CHAT_STYLE_CONFIG,
     FOCUS_CHAT_STYLE_CONFIG,
     LPMM_STYLE_CONFIG,
@@ -47,6 +46,8 @@ from src.common.logger import (
     INIT_STYLE_CONFIG,
     INTEREST_CHAT_STYLE_CONFIG,
     API_SERVER_STYLE_CONFIG,
+    NORMAL_CHAT_RESPONSE_STYLE_CONFIG,
+    EXPRESS_STYLE_CONFIG,
 )
 
 # 可根据实际需要补充更多模块配置
@@ -60,7 +61,7 @@ MODULE_LOGGER_CONFIGS = {
     "relation": RELATION_STYLE_CONFIG,  # 关系
     "config": CONFIG_STYLE_CONFIG,  # 配置
     "heartflow": HEARTFLOW_STYLE_CONFIG,  # 麦麦大脑袋
-    "llm": LLM_STYLE_CONFIG,  # 麦麦组织语言
+    "normal_chat_response": NORMAL_CHAT_RESPONSE_STYLE_CONFIG,  # 麦麦组织语言
     "chat": CHAT_STYLE_CONFIG,  # 见闻
     "emoji": EMOJI_STYLE_CONFIG,  # 表情包
     "sub_heartflow": SUB_HEARTFLOW_STYLE_CONFIG,  # 麦麦水群
@@ -71,7 +72,7 @@ MODULE_LOGGER_CONFIGS = {
     "person_info": PERSON_INFO_STYLE_CONFIG,  # 人物信息
     "willing": WILLING_STYLE_CONFIG,  # 意愿
     "pfc_action_planner": PFC_ACTION_PLANNER_STYLE_CONFIG,  # PFC私聊规划
-    "mai_state": MAI_STATE_CONFIG,  # 麦麦状态
+    "statistic": STATISTIC_STYLE_CONFIG,  # 麦麦统计
     "lpmm": LPMM_STYLE_CONFIG,  # LPMM
     "hfc": HFC_STYLE_CONFIG,  # HFC
     "observation": OBSERVATION_STYLE_CONFIG,  # 聊天观察
@@ -98,6 +99,7 @@ MODULE_LOGGER_CONFIGS = {
     "api": API_SERVER_STYLE_CONFIG,  # API服务器
     "normal_chat": NORMAL_CHAT_STYLE_CONFIG,  # 一般水群
     "focus_chat": FOCUS_CHAT_STYLE_CONFIG,  # 专注水群
+    "expressor": EXPRESS_STYLE_CONFIG,  # 麦麦表达
     # ...如有更多模块，继续添加...
 }
 

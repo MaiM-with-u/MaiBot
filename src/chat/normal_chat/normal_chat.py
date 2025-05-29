@@ -39,6 +39,7 @@ class NormalChat:
         self.chat_target_info: Optional[dict] = None
 
         self.willing_amplifier = 1
+        self.start_time = time.time()
 
         # Other sync initializations
         self.gpt = NormalChatGenerator()
@@ -64,7 +65,7 @@ class NormalChat:
         self.is_group_chat, self.chat_target_info = await get_chat_type_and_target_info(self.stream_id)
         self.stream_name = chat_manager.get_stream_name(self.stream_id) or self.stream_id
         self._initialized = True
-        logger.info(f"[{self.stream_name}] NormalChat 实例 initialize 完成 (异步部分)。")
+        logger.debug(f"[{self.stream_name}] NormalChat 初始化完成 (异步部分)。")
 
     # 改为实例方法
     async def _create_thinking_message(self, message: MessageRecv, timestamp: Optional[float] = None) -> str:
@@ -208,7 +209,10 @@ class NormalChat:
                 for msg_id, (message, interest_value, is_mentioned) in items_to_process:
                     try:
                         # 处理消息
-                        self.adjust_reply_frequency()
+                        if time.time() - self.start_time > 600:
+                            self.adjust_reply_frequency(duration=600 / 60)
+                        else:
+                            self.adjust_reply_frequency(duration=(time.time() - self.start_time) / 60)
 
                         await self.normal_response(
                             message=message,
@@ -256,7 +260,7 @@ class NormalChat:
         logger.info(
             f"[{mes_name}]"
             f"{message.message_info.user_info.user_nickname}:"  # 使用 self.chat_stream
-            f"{message.processed_plain_text}[回复概率:{reply_probability * 100:.1f}%]"
+            f"{message.processed_plain_text}[兴趣:{interested_rate:.2f}][回复概率:{reply_probability * 100:.1f}%]"
         )
         do_reply = False
         response_set = None  # 初始化 response_set
@@ -304,7 +308,7 @@ class NormalChat:
                 willing_manager.delete(message.message_info.message_id)
                 return  # 不执行后续步骤
 
-            logger.info(f"[{self.stream_name}] 回复内容: {response_set}")
+            # logger.info(f"[{self.stream_name}] 回复内容: {response_set}")
 
             if self._disabled:
                 logger.info(f"[{self.stream_name}] 已停用，忽略 normal_response。")
@@ -357,7 +361,7 @@ class NormalChat:
             trigger_msg = message.processed_plain_text
             response_msg = " ".join(response_set)
             logger.info(
-                f"[{self.stream_name}] 触发消息: {trigger_msg[:20]}... | 推理消息: {response_msg[:20]}... | 性能计时: {timing_str}"
+                f"[{self.stream_name}]回复消息: {trigger_msg[:30]}... | 回复内容: {response_msg[:30]}... | 计时: {timing_str}"
             )
         elif not do_reply:
             # 不回复处理
@@ -376,7 +380,7 @@ class NormalChat:
         self._disabled = False  # 启动时重置停用标志
 
         if self._chat_task is None or self._chat_task.done():
-            logger.info(f"[{self.stream_name}] 开始处理兴趣消息...")
+            # logger.info(f"[{self.stream_name}] 开始处理兴趣消息...")
             polling_task = asyncio.create_task(self._reply_interested_message())
             polling_task.add_done_callback(lambda t: self._handle_task_completion(t))
             self._chat_task = polling_task
@@ -483,21 +487,39 @@ class NormalChat:
         调整回复频率
         """
         # 获取最近30分钟内的消息统计
-        print(f"willing_amplifier: {self.willing_amplifier}")
+
         stats = get_recent_message_stats(minutes=duration, chat_id=self.stream_id)
         bot_reply_count = stats["bot_reply_count"]
-        print(f"[{self.stream_name}] 最近{duration}分钟内回复数量: {bot_reply_count}")
+
         total_message_count = stats["total_message_count"]
-        print(f"[{self.stream_name}] 最近{duration}分钟内消息总数: {total_message_count}")
+        if total_message_count == 0:
+            return
+        logger.debug(
+            f"[{self.stream_name}]({self.willing_amplifier}) 最近{duration}分钟 回复数量: {bot_reply_count}，消息总数: {total_message_count}"
+        )
 
         # 计算回复频率
         _reply_frequency = bot_reply_count / total_message_count
 
+        differ = global_config.normal_chat.talk_frequency - (bot_reply_count / duration)
+
         # 如果回复频率低于0.5，增加回复概率
-        if bot_reply_count / duration < global_config.normal_chat.talk_frequency:
-            # differ = global_config.normal_chat.talk_frequency - reply_frequency
-            logger.info(f"[{self.stream_name}] 回复频率低于{global_config.normal_chat.talk_frequency}，增加回复概率")
-            self.willing_amplifier += 0.1
-        else:
-            logger.info(f"[{self.stream_name}] 回复频率高于{global_config.normal_chat.talk_frequency}，减少回复概率")
-            self.willing_amplifier -= 0.1
+        if differ > 0.1:
+            mapped = 1 + (differ - 0.1) * 4 / 0.9
+            mapped = max(1, min(5, mapped))
+            logger.info(
+                f"[{self.stream_name}] 回复频率低于{global_config.normal_chat.talk_frequency}，增加回复概率，differ={differ:.3f}，映射值={mapped:.2f}"
+            )
+            self.willing_amplifier += mapped * 0.1  # 你可以根据实际需要调整系数
+        elif differ < -0.1:
+            mapped = 1 - (differ + 0.1) * 4 / 0.9
+            mapped = max(1, min(5, mapped))
+            logger.info(
+                f"[{self.stream_name}] 回复频率高于{global_config.normal_chat.talk_frequency}，减少回复概率，differ={differ:.3f}，映射值={mapped:.2f}"
+            )
+            self.willing_amplifier -= mapped * 0.1
+
+        if self.willing_amplifier > 5:
+            self.willing_amplifier = 5
+        elif self.willing_amplifier < 0.1:
+            self.willing_amplifier = 0.1

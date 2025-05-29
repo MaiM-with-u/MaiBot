@@ -78,18 +78,13 @@ class SubHeartflow:
         logger.debug(
             f"SubHeartflow {self.chat_id} initialized: is_group={self.is_group_chat}, target_info={self.chat_target_info}"
         )
-        # --- End using utility function ---
-
-        # Initialize interest system (existing logic)
-        # await self.interest_chatting.initialize()
-        # logger.debug(f"{self.log_prefix} InterestChatting 实例已初始化。")
 
         # 根据配置决定初始状态
         if global_config.chat.chat_mode == "focus":
-            logger.info(f"{self.log_prefix} 配置为 focus 模式，将直接尝试进入 FOCUSED 状态。")
+            logger.debug(f"{self.log_prefix} 配置为 focus 模式，将直接尝试进入 FOCUSED 状态。")
             await self.change_chat_state(ChatState.FOCUSED)
         else:  # "auto" 或其他模式保持原有逻辑或默认为 NORMAL
-            logger.info(f"{self.log_prefix} 配置为 auto 或其他模式，将尝试进入 NORMAL 状态。")
+            logger.debug(f"{self.log_prefix} 配置为 auto 或其他模式，将尝试进入 NORMAL 状态。")
             await self.change_chat_state(ChatState.NORMAL)
 
     def update_last_chat_state_time(self):
@@ -115,6 +110,8 @@ class SubHeartflow:
         确保 HeartFChatting 已停止。
         """
         await self._stop_heart_fc_chat()  # 确保 专注聊天已停止
+
+        self.interest_dict.clear()
 
         log_prefix = self.log_prefix
         try:
@@ -281,9 +278,9 @@ class SubHeartflow:
             self.update_last_chat_state_time()
             self.history_chat_state.append((current_state, self.chat_state_last_time))
 
-            logger.info(
-                f"{log_prefix} 麦麦的聊天状态从 {current_state.value} （持续了 {int(self.chat_state_last_time)} 秒） 变更为 {new_state.value}"
-            )
+            # logger.info(
+            # f"{log_prefix} 麦麦的聊天状态从 {current_state.value} （持续了 {int(self.chat_state_last_time)} 秒） 变更为 {new_state.value}"
+            # )
 
             self.chat_state.chat_status = new_state
             self.chat_state_last_time = 0

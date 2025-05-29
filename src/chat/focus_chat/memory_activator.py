@@ -107,11 +107,11 @@ class MemoryActivator:
             cached_keywords=cached_keywords_str,
         )
 
-        logger.debug(f"prompt: {prompt}")
+        # logger.debug(f"prompt: {prompt}")
 
         response = await self.summary_model.generate_response(prompt)
 
-        logger.debug(f"response: {response}")
+        # logger.debug(f"response: {response}")
 
         # 只取response的第一个元素（字符串）
         response_str = response[0]
@@ -127,7 +127,7 @@ class MemoryActivator:
 
             # 添加新的关键词到缓存
             self.cached_keywords.update(keywords)
-            logger.debug(f"更新关键词缓存: {self.cached_keywords}")
+            logger.debug(f"当前激活的记忆关键词: {self.cached_keywords}")
 
         # 调用记忆系统获取相关记忆
         related_memory = await HippocampusManager.get_instance().get_memory_from_topic(

@@ -234,9 +234,8 @@ class DefaultExpressor:
 
                     # logger.info(f"{self.log_prefix}\nPrompt:\n{prompt}\n---------------------------\n")
 
-                    logger.info(f"想要表达：{in_mind_reply}")
-                    logger.info(f"理由：{reason}")
-                    logger.info(f"生成回复: {content}\n")
+                    logger.info(f"想要表达：{in_mind_reply}||理由：{reason}")
+                    logger.info(f"最终回复: {content}\n")
 
                 info_catcher.catch_after_llm_generated(
                     prompt=prompt, response=content, reasoning_content=reasoning_content, model_name=model_name

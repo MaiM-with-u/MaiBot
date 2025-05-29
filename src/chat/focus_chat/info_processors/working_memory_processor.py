@@ -93,7 +93,7 @@ class WorkingMemoryProcessor(BaseProcessor):
                     # chat_info_truncate = observation.talking_message_str_truncate
 
             if not working_memory:
-                logger.warning(f"{self.log_prefix} 没有找到工作记忆对象")
+                logger.debug(f"{self.log_prefix} 没有找到工作记忆对象")
                 mind_info = MindInfo()
                 return [mind_info]
         except Exception as e:
@@ -127,7 +127,7 @@ class WorkingMemoryProcessor(BaseProcessor):
         # 调用LLM处理记忆
         content = ""
         try:
-            logger.debug(f"{self.log_prefix} 处理工作记忆的prompt: {prompt}")
+            # logger.debug(f"{self.log_prefix} 处理工作记忆的prompt: {prompt}")
 
             content, _ = await self.llm_model.generate_response_async(prompt=prompt)
             if not content:
@@ -180,7 +180,7 @@ class WorkingMemoryProcessor(BaseProcessor):
             working_memory_info.add_working_memory(memory_str)
             logger.debug(f"{self.log_prefix} 取得工作记忆: {memory_str}")
         else:
-            logger.warning(f"{self.log_prefix} 没有找到工作记忆")
+            logger.debug(f"{self.log_prefix} 没有找到工作记忆")
 
         # 根据聊天内容添加新记忆
         if new_memory:

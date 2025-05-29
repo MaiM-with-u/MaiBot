@@ -635,7 +635,7 @@ class EmojiManager:
         """获取所有表情包并初始化为MaiEmoji类对象，更新 self.emoji_objects"""
         try:
             self._ensure_db()
-            logger.info("[数据库] 开始加载所有表情包记录 (Peewee)...")
+            logger.debug("[数据库] 开始加载所有表情包记录 (Peewee)...")
 
             emoji_peewee_instances = Emoji.select()
             emoji_objects, load_errors = _to_emoji_objects(emoji_peewee_instances)

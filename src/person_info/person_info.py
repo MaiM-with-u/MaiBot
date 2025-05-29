@@ -425,13 +425,13 @@ class PersonInfoManager:
 
         return result
 
-    @staticmethod
-    async def del_all_undefined_field():
-        """删除所有项里的未定义字段 - 对于Peewee (SQL)，此操作通常不适用，因为模式是固定的。"""
-        logger.info(
-            "del_all_undefined_field: 对于使用Peewee的SQL数据库，此操作通常不适用或不需要，因为表结构是预定义的。"
-        )
-        return
+    # @staticmethod
+    # async def del_all_undefined_field():
+    #     """删除所有项里的未定义字段 - 对于Peewee (SQL)，此操作通常不适用，因为模式是固定的。"""
+    #     logger.info(
+    #         "del_all_undefined_field: 对于使用Peewee的SQL数据库，此操作通常不适用或不需要，因为表结构是预定义的。"
+    #     )
+    #     return
 
     @staticmethod
     async def get_specific_value_list(

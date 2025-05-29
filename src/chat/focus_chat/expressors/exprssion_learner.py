@@ -204,19 +204,21 @@ class ExpressionLearner:
         random_msg: Optional[List[Dict[str, Any]]] = get_raw_msg_by_timestamp_random(
             current_time - 3600 * 24, current_time, limit=num
         )
-        if not random_msg:
+        # print(random_msg)
+        if not random_msg or random_msg == []:
             return None
         # 转化成str
         chat_id: str = random_msg[0]["chat_id"]
         # random_msg_str: str = await build_readable_messages(random_msg, timestamp_mode="normal")
         random_msg_str: str = await build_anonymous_messages(random_msg)
-
+        # print(f"random_msg_str:{random_msg_str}")
+        
         prompt: str = await global_prompt_manager.format_prompt(
             prompt,
             chat_str=random_msg_str,
         )
 
-        # logger.info(f"学习{type_str}的prompt: {prompt}")
+        logger.debug(f"学习{type_str}的prompt: {prompt}")
 
         try:
             response, _ = await self.express_learn_model.generate_response_async(prompt)
@@ -224,7 +226,7 @@ class ExpressionLearner:
             logger.error(f"学习{type_str}失败: {e}")
             return None
 
-        logger.info(f"学习{type_str}的response: {response}")
+        logger.debug(f"学习{type_str}的response: {response}")
 
         expressions: List[Tuple[str, str, str]] = self.parse_expression_response(response, chat_id)
 

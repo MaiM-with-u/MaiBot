@@ -130,6 +130,7 @@ class ActionPlanner:
             current_mind = ""
             cycle_info = ""
             structured_info = ""
+            is_group_chat = True
             for info in all_plan_info:
                 if isinstance(info, ObsInfo):
                     observed_messages = info.get_talking_message()

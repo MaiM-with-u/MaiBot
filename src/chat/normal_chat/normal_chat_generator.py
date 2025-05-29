@@ -11,7 +11,7 @@ from src.chat.utils.info_catcher import info_catcher_manager
 from src.person_info.person_info import person_info_manager
 
 
-logger = get_logger("llm")
+logger = get_logger("normal_chat_response")
 
 
 class NormalChatGenerator:
@@ -40,25 +40,25 @@ class NormalChatGenerator:
         """根据当前模型类型选择对应的生成函数"""
         # 从global_config中获取模型概率值并选择模型
         if random.random() < global_config.normal_chat.normal_chat_first_probability:
-            self.current_model_type = "深深地"
             current_model = self.model_reasoning
+            self.current_model_name = current_model.model_name
         else:
-            self.current_model_type = "浅浅的"
             current_model = self.model_normal
+            self.current_model_name = current_model.model_name
 
         logger.info(
-            f"{self.current_model_type}思考:{message.processed_plain_text[:30] + '...' if len(message.processed_plain_text) > 30 else message.processed_plain_text}"
+            f"{self.current_model_name}思考:{message.processed_plain_text[:30] + '...' if len(message.processed_plain_text) > 30 else message.processed_plain_text}"
         )  # noqa: E501
 
         model_response = await self._generate_response_with_model(message, current_model, thinking_id)
 
         if model_response:
-            logger.info(f"{global_config.bot.nickname}的回复是：{model_response}")
+            logger.debug(f"{global_config.bot.nickname}的原始回复是：{model_response}")
             model_response = await self._process_response(model_response)
 
             return model_response
         else:
-            logger.info(f"{self.current_model_type}思考，失败")
+            logger.info(f"{self.current_model_name}思考，失败")
             return None
 
     async def _generate_response_with_model(self, message: MessageThinking, model: LLMRequest, thinking_id: str):

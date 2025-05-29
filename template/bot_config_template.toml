@@ -15,7 +15,7 @@ version = "2.6.0"
 [bot]
 qq_account = 1145141919810
 nickname = "麦麦"
-alias_names = ["麦叠", "牢麦"] #仅在 专注聊天 有效
+alias_names = ["麦叠", "牢麦"]
 
 [personality]
 personality_core = "是一个积极向上的女大学生" # 建议50字以内
@@ -65,10 +65,9 @@ ban_words = [
     ]
 
 ban_msgs_regex = [
-    # 需要过滤的消息（原始消息）匹配的正则表达式，匹配到的消息将被过滤（支持CQ码），若不了解正则表达式请勿修改
+    # 需要过滤的消息（原始消息）匹配的正则表达式，匹配到的消息将被过滤，若不了解正则表达式请勿修改
     #"https?://[^\\s]+", # 匹配https链接
     #"\\d{4}-\\d{2}-\\d{2}", # 匹配日期
-    # "\\[CQ:at,qq=\\d+\\]" # 匹配@
 ]
 
 [normal_chat] #普通聊天
@@ -95,7 +94,7 @@ talk_frequency_down_groups = []  #降低回复频率的群号码
 think_interval = 3 # 思考间隔 单位秒，可以有效减少消耗
 
 observation_context_size = 15 # 观察到的最长上下文大小,建议15，太短太长都会导致脑袋尖尖
-compressed_length = 5 # 不能大于chat.observation_context_size,心流上下文压缩的最短压缩长度，超过心流观察到的上下文长度，会压缩，最短压缩长度为5
+compressed_length = 5 # 不能大于observation_context_size,心流上下文压缩的最短压缩长度，超过心流观察到的上下文长度，会压缩，最短压缩长度为5
 compress_length_limit = 5 #最多压缩份数，超过该数值的压缩上下文会被删除
 
 [focus_chat_processor] # 专注聊天处理器，打开可以实现更多功能，但是会增加token消耗
@@ -215,7 +214,7 @@ pri_out = 0.35
 #嵌入模型
 [model.embedding]
 name = "BAAI/bge-m3"
-provider = "DEV"
+provider = "SILICONFLOW"
 pri_in = 0
 pri_out = 0
 

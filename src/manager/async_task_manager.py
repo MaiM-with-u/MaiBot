@@ -103,7 +103,7 @@ class AsyncTaskManager:
             )  # 添加完成回调函数-用户自定义，或默认的FallBack
 
             self.tasks[task.task_name] = task_inst  # 将任务添加到任务列表
-            logger.info(f"已启动任务 '{task.task_name}'")
+            logger.debug(f"已启动任务 '{task.task_name}'")
 
     def get_tasks_status(self) -> Dict[str, Dict[str, str]]:
         """

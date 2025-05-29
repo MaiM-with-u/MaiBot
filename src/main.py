@@ -45,7 +45,7 @@ class MainSystem:
         # 其他初始化任务
         await asyncio.gather(self._init_components())
 
-        logger.success("系统初始化完成")
+        logger.debug("系统初始化完成")
 
     async def _init_components(self):
         """初始化其他组件"""
@@ -73,7 +73,7 @@ class MainSystem:
         await async_task_manager.add_task(MoodPrintTask())
 
         # 检查并清除person_info冗余字段，启动个人习惯推断
-        await person_info_manager.del_all_undefined_field()
+        # await person_info_manager.del_all_undefined_field()
         asyncio.create_task(person_info_manager.personal_habit_deduction())
 
         # 启动愿望管理器
@@ -142,29 +142,30 @@ class MainSystem:
         """记忆遗忘任务"""
         while True:
             await asyncio.sleep(global_config.memory.forget_memory_interval)
-            print("\033[1;32m[记忆遗忘]\033[0m 开始遗忘记忆...")
+            logger.info("[记忆遗忘] 开始遗忘记忆...")
             await HippocampusManager.get_instance().forget_memory(
                 percentage=global_config.memory.memory_forget_percentage
             )
-            print("\033[1;32m[记忆遗忘]\033[0m 记忆遗忘完成")
+            logger.info("[记忆遗忘] 记忆遗忘完成")
 
     @staticmethod
     async def consolidate_memory_task():
         """记忆整合任务"""
         while True:
             await asyncio.sleep(global_config.memory.consolidate_memory_interval)
-            print("\033[1;32m[记忆整合]\033[0m 开始整合记忆...")
+            logger.info("[记忆整合] 开始整合记忆...")
             await HippocampusManager.get_instance().consolidate_memory()
-            print("\033[1;32m[记忆整合]\033[0m 记忆整合完成")
+            logger.info("[记忆整合] 记忆整合完成")
 
     @staticmethod
     async def learn_and_store_expression_task():
         """学习并存储表达方式任务"""
         while True:
             await asyncio.sleep(global_config.expression.learning_interval)
-            print("\033[1;32m[表达方式学习]\033[0m 开始学习表达方式...")
-            await expression_learner.learn_and_store_expression()
-            print("\033[1;32m[表达方式学习]\033[0m 表达方式学习完成")
+            if global_config.expression.enable_expression_learning: 
+                logger.info("[表达方式学习] 开始学习表达方式...")
+                await expression_learner.learn_and_store_expression()
+                logger.info("[表达方式学习] 表达方式学习完成")
 
     # async def print_mood_task(self):
     #     """打印情绪状态"""

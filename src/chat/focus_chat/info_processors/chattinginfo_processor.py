@@ -96,6 +96,7 @@ class ChattingInfoProcessor(BaseProcessor):
 
     async def chat_compress(self, obs: ChattingObservation):
         if obs.compressor_prompt:
+            summary = ""
             try:
                 summary_result, _, _ = await self.model_summary.generate_response(obs.compressor_prompt)
                 summary = "没有主题的闲聊"  # 默认值

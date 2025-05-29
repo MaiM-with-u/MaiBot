@@ -87,8 +87,6 @@ class BackgroundTaskManager:
                     ),
                 ]
             )
-        else:
-            logger.info("聊天模式为 normal，跳过启动清理任务、私聊激活任务和专注评估任务")
 
         # 统一启动所有任务
         for task_func, log_level, log_msg, task_attr_name in task_configs:

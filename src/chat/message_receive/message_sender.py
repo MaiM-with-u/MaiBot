@@ -223,8 +223,9 @@ class MessageManager:
             #     f"[message.apply_set_reply_logic:{message.apply_set_reply_logic},message.is_head:{message.is_head},thinking_messages_count:{thinking_messages_count},thinking_messages_length:{thinking_messages_length},message.is_private_message():{message.is_private_message()}]"
             # )
             if (
-                message.apply_set_reply_logic  # 检查标记
-                and message.is_head
+                # message.apply_set_reply_logic  # 检查标记
+                # and message.is_head
+                message.is_head
                 and (thinking_messages_count > 3 or thinking_messages_length > 200)
                 and not message.is_private_message()
             ):

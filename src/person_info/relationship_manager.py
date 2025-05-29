@@ -56,14 +56,14 @@ class RelationshipManager:
                 self.positive_feedback_value = 0
 
         if abs(self.positive_feedback_value) > 1:
-            logger.info(f"触发mood变更增益，当前增益系数：{self.gain_coefficient[abs(self.positive_feedback_value)]}")
+            logger.debug(f"触发mood变更增益，当前增益系数：{self.gain_coefficient[abs(self.positive_feedback_value)]}")
 
     def mood_feedback(self, value):
         """情绪反馈"""
         mood_manager = self.mood_manager
         mood_gain = mood_manager.current_mood.valence**2 * math.copysign(1, value * mood_manager.current_mood.valence)
         value += value * mood_gain
-        logger.info(f"当前relationship增益系数：{mood_gain:.3f}")
+        logger.debug(f"当前relationship增益系数：{mood_gain:.3f}")
         return value
 
     def feedback_to_mood(self, mood_value):

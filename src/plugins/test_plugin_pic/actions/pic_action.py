@@ -22,7 +22,7 @@ class PicAction(PluginAction):
     """根据描述使用火山引擎HTTP API生成图片的动作处理类"""
 
     action_name = "pic_action"
-    action_description = "可以根据特定的描述，使用火山引擎模型生成并发送一张图片 (通过HTTP API)"
+    action_description = "可以根据特定的描述，生成并发送一张图片，如果没提供描述，就根据聊天内容生成"
     action_parameters = {
         "description": "图片描述，输入你想要生成并发送的图片的描述，必填",
         "size": "图片尺寸，例如 '1024x1024' (可选, 默认从配置或 '1024x1024')",
@@ -31,7 +31,7 @@ class PicAction(PluginAction):
         "当有人要求你生成并发送一张图片时使用",
         "当有人让你画一张图时使用",
     ]
-    default = False
+    default = True
     action_config_file_name = "pic_action_config.toml"
 
     def __init__(

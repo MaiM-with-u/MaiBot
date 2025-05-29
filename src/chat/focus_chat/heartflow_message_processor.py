@@ -1,18 +1,21 @@
-import traceback
-from ..memory_system.Hippocampus import HippocampusManager
-from ...config.config import global_config
-from ..message_receive.message import MessageRecv
-from ..message_receive.storage import MessageStorage
-from ..utils.utils import is_mentioned_bot_in_message
+from src.chat.memory_system.Hippocampus import HippocampusManager
+from src.config.config import global_config
+from src.chat.message_receive.message import MessageRecv
+from src.chat.message_receive.storage import MessageStorage
 from src.chat.heart_flow.heartflow import heartflow
+from src.chat.message_receive.chat_stream import chat_manager, ChatStream
+from src.chat.utils.utils import is_mentioned_bot_in_message
+from src.chat.utils.timer_calculator import Timer
 from src.common.logger_manager import get_logger
-from ..message_receive.chat_stream import chat_manager
+from src.person_info.relationship_manager import relationship_manager
+
 import math
+import re
+import traceback
+from typing import Optional, Tuple, Dict, Any
+from maim_message import UserInfo
 
 # from ..message_receive.message_buffer import message_buffer
-from ..utils.timer_calculator import Timer
-from src.person_info.relationship_manager import relationship_manager
-from typing import Optional, Tuple, Dict, Any
 
 logger = get_logger("chat")
 
@@ -109,7 +112,7 @@ async def _calculate_interest(message: MessageRecv) -> Tuple[float, bool]:
 #     return "seglist"
 
 
-def _check_ban_words(text: str, chat, userinfo) -> bool:
+def _check_ban_words(text: str, chat: ChatStream, userinfo: UserInfo) -> bool:
     """检查消息是否包含过滤词
 
     Args:
@@ -129,7 +132,7 @@ def _check_ban_words(text: str, chat, userinfo) -> bool:
     return False
 
 
-def _check_ban_regex(text: str, chat, userinfo) -> bool:
+def _check_ban_regex(text: str, chat: ChatStream, userinfo: UserInfo) -> bool:
     """检查消息是否匹配过滤正则表达式
 
     Args:
@@ -141,7 +144,7 @@ def _check_ban_regex(text: str, chat, userinfo) -> bool:
         bool: 是否匹配过滤正则
     """
     for pattern in global_config.message_receive.ban_msgs_regex:
-        if pattern.search(text):
+        if re.search(pattern, text):
             chat_name = chat.group_info.group_name if chat.group_info else "私聊"
             logger.info(f"[{chat_name}]{userinfo.user_nickname}:{text}")
             logger.info(f"[正则表达式过滤]消息匹配到{pattern}，filtered")

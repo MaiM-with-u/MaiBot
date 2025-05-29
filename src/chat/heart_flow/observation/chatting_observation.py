@@ -179,7 +179,7 @@ class ChattingObservation(Observation):
             "processed_plain_text": find_msg.get("processed_plain_text"),
         }
         find_rec_msg = MessageRecv(message_dict)
-        logger.debug(f"锚定消息处理后：find_rec_msg: {find_rec_msg}")
+        # logger.debug(f"锚定消息处理后：find_rec_msg: {find_rec_msg}")
         return find_rec_msg
 
     async def observe(self):

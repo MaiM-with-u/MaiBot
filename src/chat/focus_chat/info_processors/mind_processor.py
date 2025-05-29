@@ -227,7 +227,7 @@ class MindProcessor(BaseProcessor):
 
         # 记录初步思考结果
         logger.debug(f"{self.log_prefix} 思考prompt: \n{prompt}\n")
-        logger.info(f"{self.log_prefix} 思考结果: {content}")
+        logger.info(f"{self.log_prefix} 聊天规划: {content}")
         self.update_current_mind(content)
 
         return content
