@@ -457,7 +457,7 @@ async def build_anonymous_messages(messages: List[Dict[str, Any]]) -> str:
             return "SELF"
         try:
             person_id = person_info_manager.get_person_id(platform, user_id)
-        except Exception as _e:
+        except Exception :
             person_id = None
         if not person_id:
             return "?"
@@ -472,7 +472,7 @@ async def build_anonymous_messages(messages: List[Dict[str, Any]]) -> str:
             # user_info = msg.get("user_info", {})
             platform = msg.get("chat_info_platform")
             user_id = msg.get("user_id")
-            _timestamp = msg.get("time")
+            # _timestamp = msg.get("time")
             # print(f"msg:{msg}")
             # print(f"platform:{platform}")
             # print(f"user_id:{user_id}")
