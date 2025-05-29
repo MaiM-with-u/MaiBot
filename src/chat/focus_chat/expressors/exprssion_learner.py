@@ -64,7 +64,7 @@ class ExpressionLearner:
             model=global_config.model.focus_expressor,
             temperature=0.1,
             max_tokens=256,
-            request_type="learn_expression",
+            request_type="expressor.learner",
         )
 
     async def get_expression_by_chat_id(self, chat_id: str) -> Tuple[List[Dict[str, str]], List[Dict[str, str]]]:
@@ -212,7 +212,7 @@ class ExpressionLearner:
         # random_msg_str: str = await build_readable_messages(random_msg, timestamp_mode="normal")
         random_msg_str: str = await build_anonymous_messages(random_msg)
         # print(f"random_msg_str:{random_msg_str}")
-        
+
         prompt: str = await global_prompt_manager.format_prompt(
             prompt,
             chat_str=random_msg_str,

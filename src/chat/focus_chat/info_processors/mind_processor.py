@@ -14,6 +14,7 @@ from .base_processor import BaseProcessor
 from src.chat.focus_chat.info.mind_info import MindInfo
 from typing import List, Optional
 from src.chat.heart_flow.observation.hfcloop_observation import HFCloopObservation
+from src.chat.heart_flow.observation.actions_observation import ActionObservation
 from typing import Dict
 from src.chat.focus_chat.info.info_base import InfoBase
 
@@ -29,6 +30,8 @@ def init_prompt():
 {cycle_info_block}
 现在是{time_now}，你正在上网，和qq群里的网友们聊天，以下是正在进行的聊天内容：
 {chat_observe_info}
+
+{action_observe_info}
 
 以下是你之前对聊天的观察和规划，你的名字是{bot_name}：
 {last_mind}
@@ -49,6 +52,8 @@ def init_prompt():
 {cycle_info_block}
 现在是{time_now}，你正在上网，和qq群里的网友们聊天，以下是正在进行的聊天内容：
 {chat_observe_info}
+
+{action_observe_info}
 
 以下是你之前对聊天的观察和规划，你的名字是{bot_name}：
 {last_mind}
@@ -74,7 +79,7 @@ class MindProcessor(BaseProcessor):
             model=global_config.model.focus_chat_mind,
             temperature=global_config.model.focus_chat_mind["temp"],
             max_tokens=800,
-            request_type="focus_chat_mind",
+            request_type="focus.processor.chat_mind",
         )
 
         self.current_mind = ""
@@ -191,6 +196,8 @@ class MindProcessor(BaseProcessor):
                 person_list = observation.person_list
             if isinstance(observation, HFCloopObservation):
                 hfcloop_observe_info = observation.get_observe_info()
+            if isinstance(observation, ActionObservation):
+                action_observe_info = observation.get_observe_info()
 
         # ---------- 3. 准备个性化数据 ----------
         # 获取个性化信息
@@ -211,6 +218,7 @@ class MindProcessor(BaseProcessor):
             chat_observe_info=chat_observe_info,
             last_mind=previous_mind,
             cycle_info_block=hfcloop_observe_info,
+            action_observe_info=action_observe_info,
             chat_target_name=chat_target_name,
         )
 

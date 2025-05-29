@@ -34,6 +34,7 @@ def init_prompt():
 {relation_prompt}
 {prompt_info}
 {chat_target}
+现在时间是：{now_time}
 {chat_talking_prompt}
 现在"{sender_name}"说的:{message_txt}。引起了你的注意，你想要在群里发言或者回复这条消息。\n
 你的网名叫{bot_name}，有人也叫你{bot_other_names}，{prompt_personality}。
@@ -221,6 +222,8 @@ class PromptBuilder:
 
         logger.debug("开始构建 normal prompt")
 
+        now_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
         # --- Choose template and format based on chat type ---
         if is_group_chat:
             template_name = "reasoning_prompt_main"
@@ -249,6 +252,7 @@ class PromptBuilder:
                 prompt_ger=prompt_ger,
                 # moderation_prompt=await global_prompt_manager.get_prompt_async("moderation_prompt"),
                 moderation_prompt=moderation_prompt_block,
+                now_time=now_time,
             )
         else:
             template_name = "reasoning_prompt_private_main"
@@ -273,6 +277,7 @@ class PromptBuilder:
                 prompt_ger=prompt_ger,
                 # moderation_prompt=await global_prompt_manager.get_prompt_async("moderation_prompt"),
                 moderation_prompt=moderation_prompt_block,
+                now_time=now_time,
             )
         # --- End choosing template ---
 

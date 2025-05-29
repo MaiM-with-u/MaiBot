@@ -64,7 +64,7 @@ class WorkingMemoryProcessor(BaseProcessor):
             model=global_config.model.focus_chat_mind,
             temperature=global_config.model.focus_chat_mind["temp"],
             max_tokens=800,
-            request_type="focus_working_memory",
+            request_type="focus.processor.working_memory",
         )
 
         name = chat_manager.get_stream_name(self.subheartflow_id)

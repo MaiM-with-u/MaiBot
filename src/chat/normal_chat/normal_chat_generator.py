@@ -21,13 +21,13 @@ class NormalChatGenerator:
             model=global_config.model.normal_chat_1,
             # temperature=0.7,
             max_tokens=3000,
-            request_type="normal_chat_1",
+            request_type="normal.chat_1",
         )
         self.model_normal = LLMRequest(
             model=global_config.model.normal_chat_2,
             # temperature=global_config.model.normal_chat_2["temp"],
             max_tokens=256,
-            request_type="normal_chat_2",
+            request_type="normal.chat_2",
         )
 
         self.model_sum = LLMRequest(

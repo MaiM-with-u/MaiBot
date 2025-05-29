@@ -451,13 +451,13 @@ async def build_anonymous_messages(messages: List[Dict[str, Any]]) -> str:
     def get_anon_name(platform, user_id):
         # print(f"get_anon_name: platform:{platform}, user_id:{user_id}")
         # print(f"global_config.bot.qq_account:{global_config.bot.qq_account}")
-        
+
         if user_id == global_config.bot.qq_account:
             # print("SELF11111111111111")
             return "SELF"
         try:
             person_id = person_info_manager.get_person_id(platform, user_id)
-        except Exception as e:
+        except Exception as _e:
             person_id = None
         if not person_id:
             return "?"
@@ -472,7 +472,7 @@ async def build_anonymous_messages(messages: List[Dict[str, Any]]) -> str:
             # user_info = msg.get("user_info", {})
             platform = msg.get("chat_info_platform")
             user_id = msg.get("user_id")
-            timestamp = msg.get("time")
+            _timestamp = msg.get("time")
             # print(f"msg:{msg}")
             # print(f"platform:{platform}")
             # print(f"user_id:{user_id}")
@@ -488,11 +488,11 @@ async def build_anonymous_messages(messages: List[Dict[str, Any]]) -> str:
                 content = content.replace("ⁿ", "")
 
             # if not all([platform, user_id, timestamp is not None]):
-                # continue
+            # continue
 
             anon_name = get_anon_name(platform, user_id)
             # print(f"anon_name:{anon_name}")
-            
+
             # 处理 回复<aaa:bbb>
             reply_pattern = r"回复<([^:<>]+):([^:<>]+)>"
             match = re.search(reply_pattern, content)
@@ -514,7 +514,7 @@ async def build_anonymous_messages(messages: List[Dict[str, Any]]) -> str:
                 new_content = ""
                 last_end = 0
                 for m in at_matches:
-                    new_content += content[last_end:m.start()]
+                    new_content += content[last_end : m.start()]
                     bbb = m.group(2)
                     try:
                         anon_at = get_anon_name(platform, bbb)

@@ -70,7 +70,10 @@ class MemoryActivator:
     def __init__(self):
         # TODO: API-Adapter修改标记
         self.summary_model = LLMRequest(
-            model=global_config.model.memory_summary, temperature=0.7, max_tokens=50, request_type="chat_observation"
+            model=global_config.model.memory_summary,
+            temperature=0.7,
+            max_tokens=50,
+            request_type="focus.memory_activator",
         )
         self.running_memory = []
         self.cached_keywords = set()  # 用于缓存历史关键词

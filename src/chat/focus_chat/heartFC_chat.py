@@ -16,16 +16,19 @@ from src.chat.focus_chat.info.info_base import InfoBase
 from src.chat.focus_chat.info_processors.chattinginfo_processor import ChattingInfoProcessor
 from src.chat.focus_chat.info_processors.mind_processor import MindProcessor
 from src.chat.focus_chat.info_processors.working_memory_processor import WorkingMemoryProcessor
-from src.chat.focus_chat.info_processors.action_processor import ActionProcessor
+
+# from src.chat.focus_chat.info_processors.action_processor import ActionProcessor
 from src.chat.heart_flow.observation.hfcloop_observation import HFCloopObservation
 from src.chat.heart_flow.observation.working_observation import WorkingMemoryObservation
 from src.chat.heart_flow.observation.structure_observation import StructureObservation
+from src.chat.heart_flow.observation.actions_observation import ActionObservation
 from src.chat.focus_chat.info_processors.tool_processor import ToolProcessor
 from src.chat.focus_chat.expressors.default_expressor import DefaultExpressor
 from src.chat.focus_chat.memory_activator import MemoryActivator
 from src.chat.focus_chat.info_processors.base_processor import BaseProcessor
 from src.chat.focus_chat.info_processors.self_processor import SelfProcessor
 from src.chat.focus_chat.planners.planner import ActionPlanner
+from src.chat.focus_chat.planners.modify_actions import ActionModifier
 from src.chat.focus_chat.planners.action_manager import ActionManager
 from src.chat.focus_chat.working_memory.working_memory import WorkingMemory
 from src.config.config import global_config
@@ -41,7 +44,7 @@ PROCESSOR_CLASSES = {
     "ToolProcessor": (ToolProcessor, "tool_use_processor"),
     "WorkingMemoryProcessor": (WorkingMemoryProcessor, "working_memory_processor"),
     "SelfProcessor": (SelfProcessor, "self_identify_processor"),
-    "ActionProcessor": (ActionProcessor, "action_processor"),  # 这个处理器不需要配置键名，默认启用
+    # "ActionProcessor": (ActionProcessor, "action_processor"),  # 这个处理器不需要配置键名，默认启用
 }
 
 
@@ -129,8 +132,10 @@ class HeartFChatting:
         self.expressor = DefaultExpressor(chat_id=self.stream_id)
         self.action_manager = ActionManager()
         self.action_planner = ActionPlanner(log_prefix=self.log_prefix, action_manager=self.action_manager)
+        self.action_modifier = ActionModifier(action_manager=self.action_manager)
+        self.action_observation = ActionObservation(observe_id=self.stream_id)
 
-        self.hfcloop_observation.set_action_manager(self.action_manager)
+        self.action_observation.set_action_manager(self.action_manager)
 
         self.all_observations = observations
 
@@ -335,7 +340,9 @@ class HeartFChatting:
                 for pname, ptime in processor_time_costs.items():
                     formatted_ptime = f"{ptime * 1000:.2f}毫秒" if ptime < 1 else f"{ptime:.2f}秒"
                     processor_time_strings.append(f"{pname}: {formatted_ptime}")
-                processor_time_log = ("\n各处理器耗时: " + "; ".join(processor_time_strings)) if processor_time_strings else ""
+                processor_time_log = (
+                    ("\n各处理器耗时: " + "; ".join(processor_time_strings)) if processor_time_strings else ""
+                )
 
                 logger.info(
                     f"{self.log_prefix} 第{self._current_cycle.cycle_id}次思考,"
@@ -470,8 +477,16 @@ class HeartFChatting:
             with Timer("回忆", cycle_timers):
                 running_memorys = await self.memory_activator.activate_memory(observations)
 
+            with Timer("调整动作", cycle_timers):
+                # 处理特殊的观察
+                await self.action_modifier.modify_actions(observations=observations, running_memorys=running_memorys)
+                await self.action_observation.observe()
+                observations.append(self.action_observation)
+
             with Timer("执行 信息处理器", cycle_timers):
-                all_plan_info, processor_time_costs = await self._process_processors(observations, running_memorys, cycle_timers)
+                all_plan_info, processor_time_costs = await self._process_processors(
+                    observations, running_memorys, cycle_timers
+                )
 
                 loop_processor_info = {
                     "all_plan_info": all_plan_info,

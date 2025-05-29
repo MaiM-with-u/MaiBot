@@ -22,12 +22,15 @@ class PicAction(PluginAction):
     """根据描述使用火山引擎HTTP API生成图片的动作处理类"""
 
     action_name = "pic_action"
-    action_description = "可以根据特定的描述，生成并发送一张图片，如果没提供描述，就根据聊天内容生成"
+    action_description = (
+        "可以根据特定的描述，生成并发送一张图片，如果没提供描述，就根据聊天内容生成,你可以立刻画好，不用等待"
+    )
     action_parameters = {
         "description": "图片描述，输入你想要生成并发送的图片的描述，必填",
         "size": "图片尺寸，例如 '1024x1024' (可选, 默认从配置或 '1024x1024')",
     }
     action_require = [
+        "当有人让你画东西时使用，你可以立刻画好，不用等待",
         "当有人要求你生成并发送一张图片时使用",
         "当有人让你画一张图时使用",
     ]
@@ -44,6 +47,8 @@ class PicAction(PluginAction):
         **kwargs,
     ):
         super().__init__(action_data, reasoning, cycle_timers, thinking_id, global_config, **kwargs)
+
+        logger.info(f"{self.log_prefix} 开始绘图！原因是：{self.reasoning}")
 
         http_base_url = self.config.get("base_url")
         http_api_key = self.config.get("volcano_generate_api_key")

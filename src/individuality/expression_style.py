@@ -36,7 +36,7 @@ class PersonalityExpression:
             model=global_config.model.focus_expressor,
             temperature=0.1,
             max_tokens=256,
-            request_type="learn_expression",
+            request_type="expressor.learner",
         )
         self.meta_file_path = os.path.join("data", "expression", "personality", "expression_style_meta.json")
         self.expressions_file_path = os.path.join("data", "expression", "personality", "expressions.json")

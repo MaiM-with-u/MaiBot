@@ -62,10 +62,21 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> tuple[bool, float]:
                 f"消息中包含不合理的设置 is_mentioned: {message.message_info.additional_config.get('is_mentioned')}"
             )
 
+    if global_config.bot.nickname in message.processed_plain_text:
+        is_mentioned = True
+
+    for alias_name in global_config.bot.alias_names:
+        if alias_name in message.processed_plain_text:
+            is_mentioned = True
+
     # 判断是否被@
     if re.search(rf"@<(.+?):{global_config.bot.qq_account}>", message.processed_plain_text):
         is_at = True
         is_mentioned = True
+
+    # print(f"message.processed_plain_text: {message.processed_plain_text}")
+    # print(f"is_mentioned: {is_mentioned}")
+    # print(f"is_at: {is_at}")
 
     if is_at and global_config.normal_chat.at_bot_inevitable_reply:
         reply_probability = 1.0

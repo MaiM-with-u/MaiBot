@@ -13,9 +13,9 @@ version = "2.6.0"
 #----以上是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 
 [bot]
-qq_account = 1145141919810
-nickname = "麦麦"
-alias_names = ["麦叠", "牢麦"]
+qq_account = 1145141919810 # 麦麦的QQ账号
+nickname = "麦麦" # 麦麦的昵称
+alias_names = ["麦叠", "牢麦"] # 麦麦的别名
 
 [personality]
 personality_core = "是一个积极向上的女大学生" # 建议50字以内
@@ -84,8 +84,8 @@ response_willing_amplifier = 1 # 麦麦回复意愿放大系数，一般为1
 response_interested_rate_amplifier = 1 # 麦麦回复兴趣度放大系数,听到记忆里的内容时放大系数
 
 emoji_response_penalty = 0 # 表情包回复惩罚系数，设为0为不回复单个表情包，减少单独回复表情包的概率
-mentioned_bot_inevitable_reply = false # 提及 bot 必然回复
-at_bot_inevitable_reply = false # @bot 必然回复
+mentioned_bot_inevitable_reply = true # 提及 bot 必然回复
+at_bot_inevitable_reply = true # @bot 必然回复
 
 down_frequency_rate = 3 # 降低回复频率的群组回复意愿降低系数 除法
 talk_frequency_down_groups = []  #降低回复频率的群号码
@@ -93,14 +93,14 @@ talk_frequency_down_groups = []  #降低回复频率的群号码
 [focus_chat] #专注聊天
 think_interval = 3 # 思考间隔 单位秒，可以有效减少消耗
 
-observation_context_size = 15 # 观察到的最长上下文大小,建议15，太短太长都会导致脑袋尖尖
-compressed_length = 5 # 不能大于observation_context_size,心流上下文压缩的最短压缩长度，超过心流观察到的上下文长度，会压缩，最短压缩长度为5
-compress_length_limit = 5 #最多压缩份数，超过该数值的压缩上下文会被删除
+observation_context_size = 16 # 观察到的最长上下文大小,建议15，太短太长都会导致脑袋尖尖
+compressed_length = 8 # 不能大于observation_context_size,心流上下文压缩的最短压缩长度，超过心流观察到的上下文长度，会压缩，最短压缩长度为5
+compress_length_limit = 4 #最多压缩份数，超过该数值的压缩上下文会被删除
 
 [focus_chat_processor] # 专注聊天处理器，打开可以实现更多功能，但是会增加token消耗
 self_identify_processor = true # 是否启用自我识别处理器
 tool_use_processor = false # 是否启用工具使用处理器
-working_memory_processor = false # 是否启用工作记忆处理器
+working_memory_processor = false # 是否启用工作记忆处理器，不稳定，消耗量大
 
 [emoji]
 max_reg_num = 40 # 表情包最大注册数量

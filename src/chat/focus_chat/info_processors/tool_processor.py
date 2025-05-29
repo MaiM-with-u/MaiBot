@@ -50,7 +50,7 @@ class ToolProcessor(BaseProcessor):
         self.llm_model = LLMRequest(
             model=global_config.model.focus_tool_use,
             max_tokens=500,
-            request_type="focus_tool",
+            request_type="focus.processor.tool",
         )
         self.structured_info = []
 

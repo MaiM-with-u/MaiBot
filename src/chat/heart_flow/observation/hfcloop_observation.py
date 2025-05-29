@@ -3,7 +3,6 @@
 from datetime import datetime
 from src.common.logger_manager import get_logger
 from src.chat.focus_chat.heartFC_Cycleinfo import CycleDetail
-from src.chat.focus_chat.planners.action_manager import ActionManager
 from typing import List
 # Import the new utility function
 
@@ -17,19 +16,12 @@ class HFCloopObservation:
         self.observe_id = observe_id
         self.last_observe_time = datetime.now().timestamp()  # 初始化为当前时间
         self.history_loop: List[CycleDetail] = []
-        self.action_manager: ActionManager = None
-
-        self.all_actions = {}
 
     def get_observe_info(self):
         return self.observe_info
 
     def add_loop_info(self, loop_info: CycleDetail):
         self.history_loop.append(loop_info)
-
-    def set_action_manager(self, action_manager: ActionManager):
-        self.action_manager = action_manager
-        self.all_actions = self.action_manager.get_registered_actions()
 
     async def observe(self):
         recent_active_cycles: List[CycleDetail] = []

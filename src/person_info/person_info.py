@@ -60,7 +60,7 @@ class PersonInfoManager:
         self.qv_name_llm = LLMRequest(
             model=global_config.model.utils,
             max_tokens=256,
-            request_type="qv_name",
+            request_type="relation.qv_name",
         )
         try:
             db.connect(reuse_if_open=True)

@@ -1,0 +1,497 @@
+[config]
+bot_config_path = "config/bot_config.toml"
+
+[editor]
+window_width = 1000
+window_height = 800
+save_delay = 1.0
+
+[[editor.quick_settings.items]]
+name = "性格细节"
+description = "麦麦性格的细节描述，条数任意，不能为0"
+path = "personality.personality_sides"
+type = "list"
+
+[[editor.quick_settings.items]]
+name = "身份细节"
+description = "麦麦的身份特征描述，可以描述外貌、性别、身高、职业、属性等"
+path = "identity.identity_detail"
+type = "list"
+
+[[editor.quick_settings.items]]
+name = "表达风格"
+description = "麦麦说话的表达风格，表达习惯"
+path = "expression.expression_style"
+type = "text"
+
+[[editor.quick_settings.items]]
+name = "聊天模式"
+description = "麦麦的聊天模式：normal（普通模式）、focus（专注模式）、auto（自动模式）"
+path = "chat.chat_mode"
+type = "text"
+
+[[editor.quick_settings.items]]
+name = "退出专注阈值"
+description = "自动退出专注聊天的阈值，越低越容易退出专注聊天"
+path = "chat.exit_focus_threshold"
+type = "number"
+
+[[editor.quick_settings.items]]
+name = "偷取表情包"
+description = "是否偷取表情包，让麦麦可以发送她保存的这些表情包"
+path = "emoji.steal_emoji"
+type = "bool"
+
+[[editor.quick_settings.items]]
+name = "核心性格"
+description = "麦麦的核心性格描述，建议50字以内"
+path = "personality.personality_core"
+type = "text"
+
+[[editor.quick_settings.items]]
+name = "自动专注阈值"
+description = "自动切换到专注聊天的阈值，越低越容易进入专注聊天"
+path = "chat.auto_focus_threshold"
+type = "number"
+
+[[editor.quick_settings.items]]
+name = "自我识别处理器"
+description = "是否启用自我识别处理器"
+path = "focus_chat_processor.self_identify_processor"
+type = "bool"
+
+[[editor.quick_settings.items]]
+name = "工具使用处理器"
+description = "是否启用工具使用处理器"
+path = "focus_chat_processor.tool_use_processor"
+type = "bool"
+
+[[editor.quick_settings.items]]
+name = "工作记忆处理器"
+description = "是否启用工作记忆处理器，不稳定，消耗量大"
+path = "focus_chat_processor.working_memory_processor"
+type = "bool"
+
+[translations.sections.inner]
+name = "版本"
+description = "麦麦的内部配置，包含版本号等信息。此部分仅供显示，不可编辑。"
+
+[translations.sections.bot]
+name = "麦麦bot配置"
+description = "麦麦的基本配置，包括QQ号、昵称和别名等基础信息"
+
+[translations.sections.personality]
+name = "人格"
+description = "麦麦的性格设定，包括核心性格（建议50字以内）和细节描述"
+
+[translations.sections.identity]
+name = "身份特点"
+description = "麦麦的身份特征，包括年龄、性别、外貌等描述，可以描述外貌、性别、身高、职业、属性等"
+
+[translations.sections.expression]
+name = "表达方式"
+description = "麦麦的表达方式和学习设置，包括表达风格和表达学习功能"
+
+[translations.sections.relationship]
+name = "关系"
+description = "麦麦与用户的关系设置，包括取名功能等"
+
+[translations.sections.chat]
+name = "聊天模式"
+description = "麦麦的聊天模式和行为设置，包括普通模式、专注模式和自动模式"
+
+[translations.sections.message_receive]
+name = "消息接收"
+description = "消息过滤和接收设置，可以根据规则过滤特定消息"
+
+[translations.sections.normal_chat]
+name = "普通聊天配置"
+description = "普通聊天模式下的行为设置，包括回复概率、上下文长度、表情包使用等"
+
+[translations.sections.focus_chat]
+name = "专注聊天配置"
+description = "专注聊天模式下的行为设置，包括思考间隔、上下文大小等"
+
+[translations.sections.focus_chat_processor]
+name = "专注聊天处理器"
+description = "专注聊天模式下的处理器设置，包括自我识别、工具使用、工作记忆等功能"
+
+[translations.sections.emoji]
+name = "表情包"
+description = "表情包相关的设置，包括最大注册数量、替换策略、检查间隔等"
+
+[translations.sections.memory]
+name = "记忆"
+description = "麦麦的记忆系统设置，包括记忆构建、遗忘、整合等参数"
+
+[translations.sections.mood]
+name = "情绪"
+description = "麦麦的情绪系统设置，仅在普通聊天模式下有效"
+
+[translations.sections.keyword_reaction]
+name = "关键词反应"
+description = "针对特定关键词作出反应的设置，仅在普通聊天模式下有效"
+
+[translations.sections.chinese_typo]
+name = "错别字生成器"
+description = "中文错别字生成器的设置，可以控制错别字生成的概率"
+
+[translations.sections.response_splitter]
+name = "回复分割器"
+description = "回复分割器的设置，用于控制回复的长度和句子数量"
+
+[translations.sections.model]
+name = "模型"
+description = "各种AI模型的设置，包括组件模型、普通聊天模型、专注聊天模型等"
+
+[translations.sections.maim_message]
+name = "消息服务"
+description = "消息服务的设置，包括认证令牌、服务器配置等"
+
+[translations.sections.telemetry]
+name = "遥测"
+description = "统计信息发送设置，用于统计全球麦麦的数量"
+
+[translations.sections.experimental]
+name = "实验功能"
+description = "实验性功能的设置，包括调试显示、好友聊天等功能"
+
+[translations.items.version]
+name = "版本号"
+description = "麦麦的版本号，格式：主版本号.次版本号.修订号。主版本号用于不兼容的API修改，次版本号用于向下兼容的功能性新增，修订号用于向下兼容的问题修正"
+
+[translations.items.qq_account]
+name = "QQ账号"
+description = "麦麦的QQ账号"
+
+[translations.items.nickname]
+name = "昵称"
+description = "麦麦的昵称"
+
+[translations.items.alias_names]
+name = "别名"
+description = "麦麦的其他称呼"
+
+[translations.items.personality_core]
+name = "核心性格"
+description = "麦麦的核心性格描述，建议50字以内"
+
+[translations.items.personality_sides]
+name = "性格细节"
+description = "麦麦性格的细节描述，条数任意，不能为0"
+
+[translations.items.identity_detail]
+name = "身份细节"
+description = "麦麦的身份特征描述，可以描述外貌、性别、身高、职业、属性等，条数任意，不能为0"
+
+[translations.items.expression_style]
+name = "表达风格"
+description = "麦麦说话的表达风格，表达习惯"
+
+[translations.items.enable_expression_learning]
+name = "启用表达学习"
+description = "是否启用表达学习功能，麦麦会学习人类说话风格"
+
+[translations.items.learning_interval]
+name = "学习间隔"
+description = "表达学习的间隔时间（秒）"
+
+[translations.items.give_name]
+name = "取名功能"
+description = "麦麦是否给其他人取名，关闭后无法使用禁言功能"
+
+[translations.items.chat_mode]
+name = "聊天模式"
+description = "麦麦的聊天模式：normal（普通模式，token消耗较低）、focus（专注模式，token消耗较高）、auto（自动模式，根据消息内容自动切换）"
+
+[translations.items.auto_focus_threshold]
+name = "自动专注阈值"
+description = "自动切换到专注聊天的阈值，越低越容易进入专注聊天"
+
+[translations.items.exit_focus_threshold]
+name = "退出专注阈值"
+description = "自动退出专注聊天的阈值，越低越容易退出专注聊天"
+
+[translations.items.ban_words]
+name = "禁用词"
+description = "需要过滤的词语列表"
+
+[translations.items.ban_msgs_regex]
+name = "禁用消息正则"
+description = "需要过滤的消息正则表达式，匹配到的消息将被过滤"
+
+[translations.items.normal_chat_first_probability]
+name = "首要模型概率"
+description = "麦麦回答时选择首要模型的概率（与之相对的，次要模型的概率为1 - normal_chat_first_probability）"
+
+[translations.items.max_context_size]
+name = "最大上下文长度"
+description = "聊天上下文的最大长度"
+
+[translations.items.emoji_chance]
+name = "表情包概率"
+description = "麦麦一般回复时使用表情包的概率，设置为1让麦麦自己决定发不发"
+
+[translations.items.thinking_timeout]
+name = "思考超时"
+description = "麦麦最长思考时间，超过这个时间的思考会放弃（往往是api反应太慢）"
+
+[translations.items.willing_mode]
+name = "回复意愿模式"
+description = "回复意愿的计算模式：经典模式（classical）、mxp模式（mxp）、自定义模式（custom）"
+
+[translations.items.talk_frequency]
+name = "回复频率"
+description = "麦麦回复频率，一般为1，默认频率下，30分钟麦麦回复30条（约数）"
+
+[translations.items.response_willing_amplifier]
+name = "回复意愿放大系数"
+description = "麦麦回复意愿放大系数，一般为1"
+
+[translations.items.response_interested_rate_amplifier]
+name = "兴趣度放大系数"
+description = "麦麦回复兴趣度放大系数，听到记忆里的内容时放大系数"
+
+[translations.items.emoji_response_penalty]
+name = "表情包回复惩罚"
+description = "表情包回复惩罚系数，设为0为不回复单个表情包，减少单独回复表情包的概率"
+
+[translations.items.mentioned_bot_inevitable_reply]
+name = "提及必回"
+description = "被提及时是否必然回复"
+
+[translations.items.at_bot_inevitable_reply]
+name = "@必回"
+description = "被@时是否必然回复"
+
+[translations.items.down_frequency_rate]
+name = "降低频率系数"
+description = "降低回复频率的群组回复意愿降低系数（除法）"
+
+[translations.items.talk_frequency_down_groups]
+name = "降低频率群组"
+description = "需要降低回复频率的群组列表"
+
+[translations.items.think_interval]
+name = "思考间隔"
+description = "思考的时间间隔（秒），可以有效减少消耗"
+
+[translations.items.observation_context_size]
+name = "观察上下文大小"
+description = "观察到的最长上下文大小，建议15，太短太长都会导致脑袋尖尖"
+
+[translations.items.compressed_length]
+name = "压缩长度"
+description = "不能大于observation_context_size，心流上下文压缩的最短压缩长度，超过心流观察到的上下文长度会压缩，最短压缩长度为5"
+
+[translations.items.compress_length_limit]
+name = "压缩限制"
+description = "最多压缩份数，超过该数值的压缩上下文会被删除"
+
+[translations.items.self_identify_processor]
+name = "自我识别处理器"
+description = "是否启用自我识别处理器"
+
+[translations.items.tool_use_processor]
+name = "工具使用处理器"
+description = "是否启用工具使用处理器"
+
+[translations.items.working_memory_processor]
+name = "工作记忆处理器"
+description = "是否启用工作记忆处理器，不稳定，消耗量大"
+
+[translations.items.max_reg_num]
+name = "最大注册数"
+description = "表情包最大注册数量"
+
+[translations.items.do_replace]
+name = "启用替换"
+description = "开启则在达到最大数量时删除（替换）表情包，关闭则达到最大数量时不会继续收集表情包"
+
+[translations.items.check_interval]
+name = "检查间隔"
+description = "检查表情包（注册，破损，删除）的时间间隔（分钟）"
+
+[translations.items.save_pic]
+name = "保存图片"
+description = "是否保存表情包图片"
+
+[translations.items.cache_emoji]
+name = "缓存表情包"
+description = "是否缓存表情包"
+
+[translations.items.steal_emoji]
+name = "偷取表情包"
+description = "是否偷取表情包，让麦麦可以发送她保存的这些表情包"
+
+[translations.items.content_filtration]
+name = "内容过滤"
+description = "是否启用表情包过滤，只有符合该要求的表情包才会被保存"
+
+[translations.items.filtration_prompt]
+name = "过滤要求"
+description = "表情包过滤要求，只有符合该要求的表情包才会被保存"
+
+[translations.items.memory_build_interval]
+name = "记忆构建间隔"
+description = "记忆构建间隔（秒），间隔越低，麦麦学习越多，但是冗余信息也会增多"
+
+[translations.items.memory_build_distribution]
+name = "记忆构建分布"
+description = "记忆构建分布，参数：分布1均值，标准差，权重，分布2均值，标准差，权重"
+
+[translations.items.memory_build_sample_num]
+name = "采样数量"
+description = "采样数量，数值越高记忆采样次数越多"
+
+[translations.items.memory_build_sample_length]
+name = "采样长度"
+description = "采样长度，数值越高一段记忆内容越丰富"
+
+[translations.items.memory_compress_rate]
+name = "记忆压缩率"
+description = "记忆压缩率，控制记忆精简程度，建议保持默认，调高可以获得更多信息，但是冗余信息也会增多"
+
+[translations.items.forget_memory_interval]
+name = "记忆遗忘间隔"
+description = "记忆遗忘间隔（秒），间隔越低，麦麦遗忘越频繁，记忆更精简，但更难学习"
+
+[translations.items.memory_forget_time]
+name = "遗忘时间"
+description = "多长时间后的记忆会被遗忘（小时）"
+
+[translations.items.memory_forget_percentage]
+name = "遗忘比例"
+description = "记忆遗忘比例，控制记忆遗忘程度，越大遗忘越多，建议保持默认"
+
+[translations.items.consolidate_memory_interval]
+name = "记忆整合间隔"
+description = "记忆整合间隔（秒），间隔越低，麦麦整合越频繁，记忆更精简"
+
+[translations.items.consolidation_similarity_threshold]
+name = "整合相似度阈值"
+description = "相似度阈值"
+
+[translations.items.consolidation_check_percentage]
+name = "整合检查比例"
+description = "检查节点比例"
+
+[translations.items.memory_ban_words]
+name = "记忆禁用词"
+description = "不希望记忆的词，已经记忆的不会受到影响"
+
+[translations.items.mood_update_interval]
+name = "情绪更新间隔"
+description = "情绪更新间隔（秒），仅在普通聊天模式下有效"
+
+[translations.items.mood_decay_rate]
+name = "情绪衰减率"
+description = "情绪衰减率"
+
+[translations.items.mood_intensity_factor]
+name = "情绪强度因子"
+description = "情绪强度因子"
+
+[translations.items.enable]
+name = "启用关键词反应"
+description = "关键词反应功能的总开关，仅在普通聊天模式下有效"
+
+[translations.items.chinese_typo_enable]
+name = "启用错别字"
+description = "是否启用中文错别字生成器"
+
+[translations.items.error_rate]
+name = "错误率"
+description = "单字替换概率"
+
+[translations.items.min_freq]
+name = "最小字频"
+description = "最小字频阈值"
+
+[translations.items.tone_error_rate]
+name = "声调错误率"
+description = "声调错误概率"
+
+[translations.items.word_replace_rate]
+name = "整词替换率"
+description = "整词替换概率"
+
+[translations.items.splitter_enable]
+name = "启用分割器"
+description = "是否启用回复分割器"
+
+[translations.items.max_length]
+name = "最大长度"
+description = "回复允许的最大长度"
+
+[translations.items.max_sentence_num]
+name = "最大句子数"
+description = "回复允许的最大句子数"
+
+[translations.items.enable_kaomoji_protection]
+name = "启用颜文字保护"
+description = "是否启用颜文字保护"
+
+[translations.items.model_max_output_length]
+name = "最大输出长度"
+description = "模型单次返回的最大token数"
+
+[translations.items.auth_token]
+name = "认证令牌"
+description = "用于API验证的令牌列表，为空则不启用验证"
+
+[translations.items.use_custom]
+name = "使用自定义"
+description = "是否启用自定义的maim_message服务器，注意这需要设置新的端口，不能与.env重复"
+
+[translations.items.host]
+name = "主机地址"
+description = "服务器主机地址"
+
+[translations.items.port]
+name = "端口"
+description = "服务器端口"
+
+[translations.items.mode]
+name = "模式"
+description = "连接模式：ws或tcp"
+
+[translations.items.use_wss]
+name = "使用WSS"
+description = "是否使用WSS安全连接，只支持ws模式"
+
+[translations.items.cert_file]
+name = "证书文件"
+description = "SSL证书文件路径，仅在use_wss=true时有效"
+
+[translations.items.key_file]
+name = "密钥文件"
+description = "SSL密钥文件路径，仅在use_wss=true时有效"
+
+[translations.items.telemetry_enable]
+name = "启用遥测"
+description = "是否发送统计信息，主要是看全球有多少只麦麦"
+
+[translations.items.debug_show_chat_mode]
+name = "显示聊天模式"
+description = "是否在回复后显示当前聊天模式"
+
+[translations.items.enable_friend_chat]
+name = "启用好友聊天"
+description = "是否启用好友聊天功能"
+
+[translations.items.pfc_chatting]
+name = "PFC聊天"
+description = "暂时无效"
+
+[translations.items."response_splitter.enable"]
+name = "启用分割器"
+description = "是否启用回复分割器"
+
+[translations.items."chinese_typo.enable"]
+name = "启用错别字"
+description = "是否启用中文错别字生成器"
+
+[translations.items."keyword_reaction.enable"]
+name = "启用关键词反应"
+description = "关键词反应功能的总开关，仅在普通聊天模式下有效"

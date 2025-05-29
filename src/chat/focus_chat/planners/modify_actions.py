@@ -1,8 +1,5 @@
 from typing import List, Optional, Any
 from src.chat.heart_flow.observation.observation import Observation
-from src.chat.focus_chat.info.info_base import InfoBase
-from src.chat.focus_chat.info.action_info import ActionInfo
-from .base_processor import BaseProcessor
 from src.common.logger_manager import get_logger
 from src.chat.heart_flow.observation.hfcloop_observation import HFCloopObservation
 from src.chat.heart_flow.observation.chatting_observation import ChattingObservation
@@ -10,11 +7,12 @@ from src.chat.message_receive.chat_stream import chat_manager
 from typing import Dict
 from src.config.config import global_config
 import random
+from src.chat.focus_chat.planners.action_manager import ActionManager
 
-logger = get_logger("processor")
+logger = get_logger("action_manager")
 
 
-class ActionProcessor(BaseProcessor):
+class ActionModifier:
     """动作处理器
 
     用于处理Observation对象，将其转换为ObsInfo对象。
@@ -22,33 +20,24 @@ class ActionProcessor(BaseProcessor):
 
     log_prefix = "动作处理"
 
-    def __init__(self):
+    def __init__(self, action_manager: ActionManager):
         """初始化观察处理器"""
-        super().__init__()
+        self.action_manager = action_manager
+        self.all_actions = self.action_manager.get_registered_actions()
 
-    async def process_info(
+    async def modify_actions(
         self,
         observations: Optional[List[Observation]] = None,
         running_memorys: Optional[List[Dict]] = None,
         **kwargs: Any,
-    ) -> List[InfoBase]:
-        """处理Observation对象
-
-        Args:
-            infos: InfoBase对象列表
-            observations: 可选的Observation对象列表
-            **kwargs: 其他可选参数
-
-        Returns:
-            List[InfoBase]: 处理后的ObsInfo实例列表
-        """
+    ):
         # print(f"observations: {observations}")
-        processed_infos = []
+        # processed_infos = []
 
         # 处理Observation对象
         if observations:
-            action_info = ActionInfo()
-            all_actions = None
+            # action_info = ActionInfo()
+            # all_actions = None
             hfc_obs = None
             chat_obs = None
 
@@ -66,7 +55,7 @@ class ActionProcessor(BaseProcessor):
             # 处理HFCloopObservation
             if hfc_obs:
                 obs = hfc_obs
-                all_actions = obs.all_actions
+                all_actions = self.all_actions
                 action_changes = await self.analyze_loop_actions(obs)
                 if action_changes["add"] or action_changes["remove"]:
                     # 合并动作变更
@@ -74,13 +63,13 @@ class ActionProcessor(BaseProcessor):
                     merged_action_changes["remove"].extend(action_changes["remove"])
 
                     # 收集变更原因
-                    if action_changes["add"]:
-                        reasons.append(f"添加动作{action_changes['add']}因为检测到大量无回复")
-                    if action_changes["remove"]:
-                        reasons.append(f"移除动作{action_changes['remove']}因为检测到连续回复")
+                    # if action_changes["add"]:
+                    #     reasons.append(f"添加动作{action_changes['add']}因为检测到大量无回复")
+                    # if action_changes["remove"]:
+                    #     reasons.append(f"移除动作{action_changes['remove']}因为检测到连续回复")
 
             # 处理ChattingObservation
-            if chat_obs and all_actions is not None:
+            if chat_obs:
                 obs = chat_obs
                 # 检查动作的关联类型
                 chat_context = chat_manager.get_stream(obs.chat_id).context
@@ -98,14 +87,23 @@ class ActionProcessor(BaseProcessor):
                     merged_action_changes["remove"].extend(type_mismatched_actions)
                     reasons.append(f"移除动作{type_mismatched_actions}因为关联类型不匹配")
 
+            for action_name in merged_action_changes["add"]:
+                if action_name in self.action_manager.get_registered_actions():
+                    self.action_manager.add_action_to_using(action_name)
+                    logger.debug(f"{self.log_prefix} 添加动作: {action_name}, 原因: {reasons}")
+
+            for action_name in merged_action_changes["remove"]:
+                self.action_manager.remove_action_from_using(action_name)
+                logger.debug(f"{self.log_prefix} 移除动作: {action_name}, 原因: {reasons}")
+
             # 如果有任何动作变更，设置到action_info中
-            if merged_action_changes["add"] or merged_action_changes["remove"]:
-                action_info.set_action_changes(merged_action_changes)
-                action_info.set_reason(" | ".join(reasons))
+            # if merged_action_changes["add"] or merged_action_changes["remove"]:
+            #     action_info.set_action_changes(merged_action_changes)
+            #     action_info.set_reason(" | ".join(reasons))
 
-            processed_infos.append(action_info)
+            # processed_infos.append(action_info)
 
-        return processed_infos
+        # return processed_infos
 
     async def analyze_loop_actions(self, obs: HFCloopObservation) -> Dict[str, List[str]]:
         """分析最近的循环内容并决定动作的增减

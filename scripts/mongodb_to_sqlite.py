@@ -199,7 +199,7 @@ class MongoToSQLiteMigrator:
                     "timestamp": "timestamp",
                 },
                 enable_validation=True,  # 禁用数据验证"
-                unique_fields=["user_id", "prompt_tokens","completion_tokens","total_tokens","cost"],  # 组合唯一性
+                unique_fields=["user_id", "prompt_tokens", "completion_tokens", "total_tokens", "cost"],  # 组合唯一性
             ),
             # 消息迁移配置
             MigrationConfig(

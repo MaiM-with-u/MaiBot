@@ -79,7 +79,7 @@ class DefaultExpressor:
             model=global_config.model.focus_expressor,
             # temperature=global_config.model.focus_expressor["temp"],
             max_tokens=256,
-            request_type="focus_expressor",
+            request_type="focus.expressor",
         )
         self.heart_fc_sender = HeartFCSender()
 

@@ -58,7 +58,7 @@ class SelfProcessor(BaseProcessor):
             model=global_config.model.focus_self_recognize,
             temperature=global_config.model.focus_self_recognize["temp"],
             max_tokens=800,
-            request_type="focus_self_identify",
+            request_type="focus.processor.self_identify",
         )
 
         name = chat_manager.get_stream_name(self.subheartflow_id)
