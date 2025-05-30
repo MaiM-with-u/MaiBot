@@ -13,12 +13,12 @@ class SearchKnowledgeTool(BaseTool):
     """从知识库中搜索相关信息的工具"""
 
     name = "search_knowledge"
-    description = "使用工具从知识库中搜索相关信息"
+    description = "Use tool to search relevant information from the knowledge base"
     parameters = {
         "type": "object",
         "properties": {
-            "query": {"type": "string", "description": "搜索查询关键词"},
-            "threshold": {"type": "number", "description": "相似度阈值，0.0到1.0之间"},
+            "query": {"type": "string", "description": "Search query keywords"},
+            "threshold": {"type": "number", "description": "Similarity threshold, between 0.0 and 1.0"},
         },
         "required": ["query"],
     }

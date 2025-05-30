@@ -276,6 +276,7 @@ class DefaultExpressor:
         in_mind_reply,
         target_message,
     ) -> str:
+
         is_group_chat = bool(chat_stream.group_info)
 
         message_list_before_now = get_raw_msg_before_timestamp_with_chat(

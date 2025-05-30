@@ -12,12 +12,12 @@ class ChangeMoodTool(BaseTool):
     """改变心情的工具"""
 
     name = "change_mood"
-    description = "根据收到的内容和自身回复的内容，改变心情,当你回复了别人的消息，你可以使用这个工具"
+    description = "Change mood based on received content and your own reply content, you can use this tool when you reply to someone's message"
     parameters = {
         "type": "object",
         "properties": {
-            "text": {"type": "string", "description": "引起你改变心情的文本"},
-            "response_set": {"type": "list", "description": "你对文本的回复"},
+            "text": {"type": "string", "description": "Text that causes you to change your mood"},
+            "response_set": {"type": "list", "description": "Your reply to the text"},
         },
         "required": ["text", "response_set"],
     }

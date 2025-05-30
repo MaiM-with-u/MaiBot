@@ -9,12 +9,12 @@ class CompareNumbersTool(BaseTool):
     """比较两个数大小的工具"""
 
     name = "compare_numbers"
-    description = "使用工具 比较两个数的大小，返回较大的数"
+    description = "Compare two numbers and determine their relationship (greater than, less than, or equal). Returns comparison result and the larger number if they are not equal."
     parameters = {
         "type": "object",
         "properties": {
-            "num1": {"type": "number", "description": "第一个数字"},
-            "num2": {"type": "number", "description": "第二个数字"},
+            "num1": {"type": "number", "description": "The first number to compare."},
+            "num2": {"type": "number", "description": "The second number to compare."},
         },
         "required": ["num1", "num2"],
     }

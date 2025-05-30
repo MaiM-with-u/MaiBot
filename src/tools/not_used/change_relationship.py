@@ -8,13 +8,13 @@ logger = get_logger("relationship_tool")
 
 class RelationshipTool(BaseTool):
     name = "change_relationship"
-    description = "根据收到的文本和回复内容，修改与特定用户的关系值，当你回复了别人的消息，你可以使用这个工具"
+    description = "Modify relationship value with specific user based on received text and reply content, you can use this tool when you reply to someone's message"
     parameters = {
         "type": "object",
         "properties": {
-            "text": {"type": "string", "description": "收到的文本"},
-            "changed_value": {"type": "number", "description": "变更值"},
-            "reason": {"type": "string", "description": "变更原因"},
+            "text": {"type": "string", "description": "Received text"},
+            "changed_value": {"type": "number", "description": "Change value"},
+            "reason": {"type": "string", "description": "Reason for change"},
         },
         "required": ["text", "changed_value", "reason"],
     }

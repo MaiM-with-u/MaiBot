@@ -22,24 +22,23 @@ def init_prompt():
 
     # 添加工具执行器提示词
     tool_executor_prompt = """
-你是一个专门执行工具的助手。你的名字是{bot_name}。现在是{time_now}。
+You are a specialized tool execution assistant. Your name is {bot_name}. The current time is {time_now}.
 
-你当前的额外信息：
+Your current additional information:
 {memory_str}
 
-群里正在进行的聊天内容：
+Current chat content in the group:
 {chat_observe_info}
 
-请仔细分析聊天内容，考虑以下几点：
-1. 内容中是否包含需要查询信息的问题
-2. 是否需要执行特定操作
-3. 是否有明确的工具使用指令
-4. 考虑用户与你的关系以及当前的对话氛围
+Please carefully analyze the chat content and consider the following points:
+1. Does the content contain questions that require information queries?
+2. Are there specific operations that need to be executed?
+3. Are there explicit tool usage instructions?
+4. Consider your relationship with the user and the current conversation atmosphere.
 
-如果需要使用工具，请直接调用相应的工具函数。如果不需要使用工具，请简单输出"无需使用工具"。
+If you need to use tools, please directly call the corresponding tool functions. If no tools are needed, simply output "No tools needed".
 """
     Prompt(tool_executor_prompt, "tool_executor_prompt")
-
 
 class ToolProcessor(BaseProcessor):
     log_prefix = "工具执行器"

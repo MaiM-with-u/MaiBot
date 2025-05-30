@@ -13,12 +13,12 @@ class SearchKnowledgeFromLPMMTool(BaseTool):
     """从LPMM知识库中搜索相关信息的工具"""
 
     name = "lpmm_search_knowledge"
-    description = "从知识库中搜索相关信息，如果你需要知识，就使用这个工具"
+    description = "Search relevant information from knowledge base, use this tool if you need knowledge"
     parameters = {
         "type": "object",
         "properties": {
-            "query": {"type": "string", "description": "搜索查询关键词"},
-            "threshold": {"type": "number", "description": "相似度阈值，0.0到1.0之间"},
+            "query": {"type": "string", "description": "Search query keywords"},
+            "threshold": {"type": "number", "description": "Similarity threshold, between 0.0 and 1.0"},
         },
         "required": ["query"],
     }

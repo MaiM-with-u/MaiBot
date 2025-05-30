@@ -10,12 +10,12 @@ class GetMemoryTool(BaseTool):
     """从记忆系统中获取相关记忆的工具"""
 
     name = "get_memory"
-    description = "使用工具从记忆系统中获取相关记忆"
+    description = "Use tool to retrieve relevant memories from the memory system"
     parameters = {
         "type": "object",
         "properties": {
-            "topic": {"type": "string", "description": "要查询的相关主题,用逗号隔开"},
-            "max_memory_num": {"type": "integer", "description": "最大返回记忆数量"},
+            "topic": {"type": "string", "description": "Related topics to query, separated by commas"},
+            "max_memory_num": {"type": "integer", "description": "Maximum number of memories to return"},
         },
         "required": ["topic"],
     }
