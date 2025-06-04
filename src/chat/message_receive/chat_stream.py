@@ -157,7 +157,7 @@ class ChatManager:
             message.message_info.group_info,
         )
         self.last_messages[stream_id] = message
-        logger.debug(f"注册消息到聊天流: {stream_id}")
+        # logger.debug(f"注册消息到聊天流: {stream_id}")
 
     @staticmethod
     def _generate_stream_id(platform: str, user_info: UserInfo, group_info: Optional[GroupInfo] = None) -> str:

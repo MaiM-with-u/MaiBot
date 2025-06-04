@@ -7,10 +7,11 @@ from src.config.config import global_config
 from src.chat.utils.chat_message_builder import get_raw_msg_by_timestamp_random, build_anonymous_messages
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 import os
+from src.chat.message_receive.chat_stream import chat_manager
 import json
 
 
-MAX_EXPRESSION_COUNT = 100
+MAX_EXPRESSION_COUNT = 300
 
 logger = get_logger("expressor")
 
@@ -129,9 +130,22 @@ class ExpressionLearner:
             type_str = "句法特点"
         else:
             raise ValueError(f"Invalid type: {type}")
-        logger.info(f"开始学习{type_str}...")
-        learnt_expressions: Optional[List[Tuple[str, str, str]]] = await self.learn_expression(type, num)
-        logger.info(f"学习到{len(learnt_expressions) if learnt_expressions else 0}条{type_str}")
+        # logger.info(f"开始学习{type_str}...")
+        res = await self.learn_expression(type, num)
+
+        if res is None:
+            return []
+        learnt_expressions, chat_id = res
+
+        chat_stream = chat_manager.get_stream(chat_id)
+        if chat_stream.group_info:
+            group_name = chat_stream.group_info.group_name
+        else:
+            group_name = f"{chat_stream.user_info.user_nickname}的私聊"
+        learnt_expressions_str = ""
+        for _chat_id, situation, style in learnt_expressions:
+            learnt_expressions_str += f"{situation}->{style}\n"
+        logger.info(f"在 {group_name} 学习到{type_str}:\n{learnt_expressions_str}")
         # learnt_expressions: List[(chat_id, situation, style)]
 
         if not learnt_expressions:
@@ -188,7 +202,7 @@ class ExpressionLearner:
                 json.dump(old_data, f, ensure_ascii=False, indent=2)
         return learnt_expressions
 
-    async def learn_expression(self, type: str, num: int = 10) -> Optional[List[Tuple[str, str, str]]]:
+    async def learn_expression(self, type: str, num: int = 10) -> Optional[Tuple[List[Tuple[str, str, str]], str]]:
         """选择从当前到最近1小时内的随机num条消息，然后学习这些消息的表达方式
 
         Args:
@@ -212,7 +226,7 @@ class ExpressionLearner:
             return None
         # 转化成str
         chat_id: str = random_msg[0]["chat_id"]
-        # random_msg_str: str = await build_readable_messages(random_msg, timestamp_mode="normal")
+        # random_msg_str: str = build_readable_messages(random_msg, timestamp_mode="normal")
         random_msg_str: str = await build_anonymous_messages(random_msg)
         # print(f"random_msg_str:{random_msg_str}")
 
@@ -233,7 +247,7 @@ class ExpressionLearner:
 
         expressions: List[Tuple[str, str, str]] = self.parse_expression_response(response, chat_id)
 
-        return expressions
+        return expressions, chat_id
 
     def parse_expression_response(self, response: str, chat_id: str) -> List[Tuple[str, str, str]]:
         """

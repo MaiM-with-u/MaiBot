@@ -8,7 +8,6 @@ from src.common.logger_manager import get_logger
 from src.chat.heart_flow.utils_chat import get_chat_type_and_target_info
 from src.manager.mood_manager import mood_manager
 from src.chat.message_receive.chat_stream import ChatStream, chat_manager
-from src.person_info.relationship_manager import relationship_manager
 from src.chat.utils.info_catcher import info_catcher_manager
 from src.chat.utils.timer_calculator import Timer
 from src.chat.utils.prompt_builder import global_prompt_manager
@@ -20,6 +19,11 @@ from src.chat.emoji_system.emoji_manager import emoji_manager
 from src.chat.normal_chat.willing.willing_manager import willing_manager
 from src.chat.normal_chat.normal_chat_utils import get_recent_message_stats
 from src.config.config import global_config
+from src.chat.focus_chat.planners.action_manager import ActionManager
+from src.chat.normal_chat.normal_chat_planner import NormalChatPlanner
+from src.chat.normal_chat.normal_chat_action_modifier import NormalChatActionModifier
+from src.chat.normal_chat.normal_chat_expressor import NormalChatExpressor
+from src.chat.focus_chat.replyer.default_replyer import DefaultReplyer
 
 logger = get_logger("normal_chat")
 
@@ -35,8 +39,7 @@ class NormalChat:
         # Interest dict
         self.interest_dict = interest_dict
 
-        self.is_group_chat: bool = False
-        self.chat_target_info: Optional[dict] = None
+        self.is_group_chat, self.chat_target_info = get_chat_type_and_target_info(self.stream_id)
 
         self.willing_amplifier = 1
         self.start_time = time.time()
@@ -47,6 +50,12 @@ class NormalChat:
         self.start_time = time.time()
         self._chat_task: Optional[asyncio.Task] = None
         self._initialized = False  # Track initialization status
+
+        # Planner相关初始化
+        self.action_manager = ActionManager()
+        self.planner = NormalChatPlanner(self.stream_name, self.action_manager)
+        self.action_modifier = NormalChatActionModifier(self.action_manager, self.stream_id, self.stream_name)
+        self.enable_planner = global_config.normal_chat.enable_planner  # 从配置中读取是否启用planner
 
         # 记录最近的回复内容，每项包含: {time, user_message, response, is_mentioned, is_reference_reply}
         self.recent_replies = []
@@ -61,9 +70,15 @@ class NormalChat:
         """异步初始化，获取聊天类型和目标信息。"""
         if self._initialized:
             return
-
-        self.is_group_chat, self.chat_target_info = await get_chat_type_and_target_info(self.stream_id)
+        
         self.stream_name = chat_manager.get_stream_name(self.stream_id) or self.stream_id
+
+        # 初始化Normal Chat专用表达器
+        self.expressor = NormalChatExpressor(self.chat_stream, self.stream_name)
+        self.replyer = DefaultReplyer(chat_id=self.stream_id)
+
+        self.replyer.chat_stream = self.chat_stream
+
         self._initialized = True
         logger.debug(f"[{self.stream_name}] NormalChat 初始化完成 (异步部分)。")
 
@@ -79,7 +94,7 @@ class NormalChat:
         )
 
         thinking_time_point = round(time.time(), 2)
-        thinking_id = "mt" + str(thinking_time_point)
+        thinking_id = "tid" + str(thinking_time_point)
         thinking_message = MessageThinking(
             message_id=thinking_id,
             chat_stream=self.chat_stream,
@@ -150,7 +165,7 @@ class NormalChat:
         if random() < global_config.normal_chat.emoji_chance:
             emoji_raw = await emoji_manager.get_emoji_for_text(response)
             if emoji_raw:
-                emoji_path, description = emoji_raw
+                emoji_path, description, _emotion = emoji_raw
                 emoji_cq = image_path_to_base64(emoji_path)
 
                 thinking_time_point = round(message.message_info.time, 2)
@@ -174,19 +189,19 @@ class NormalChat:
                 await message_manager.add_message(bot_message)
 
     # 改为实例方法 (虽然它只用 message.chat_stream, 但逻辑上属于实例)
-    async def _update_relationship(self, message: MessageRecv, response_set):
-        """更新关系情绪"""
-        ori_response = ",".join(response_set)
-        stance, emotion = await self.gpt._get_emotion_tags(ori_response, message.processed_plain_text)
-        user_info = message.message_info.user_info
-        platform = user_info.platform
-        await relationship_manager.calculate_update_relationship_value(
-            user_info,
-            platform,
-            label=emotion,
-            stance=stance,  # 使用 self.chat_stream
-        )
-        self.mood_manager.update_mood_from_emotion(emotion, global_config.mood.mood_intensity_factor)
+    # async def _update_relationship(self, message: MessageRecv, response_set):
+    #     """更新关系情绪"""
+    #     ori_response = ",".join(response_set)
+    #     stance, emotion = await self.gpt._get_emotion_tags(ori_response, message.processed_plain_text)
+    #     user_info = message.message_info.user_info
+    #     platform = user_info.platform
+    #     await relationship_manager.calculate_update_relationship_value(
+    #         user_info,
+    #         platform,
+    #         label=emotion,
+    #         stance=stance,  # 使用 self.chat_stream
+    #     )
+    #     self.mood_manager.update_mood_from_emotion(emotion, global_config.mood.mood_intensity_factor)
 
     async def _reply_interested_message(self) -> None:
         """
@@ -218,7 +233,6 @@ class NormalChat:
                             message=message,
                             is_mentioned=is_mentioned,
                             interested_rate=interest_value * self.willing_amplifier,
-                            rewind_response=False,
                         )
                     except Exception as e:
                         logger.error(f"[{self.stream_name}] 处理兴趣消息{msg_id}时出错: {e}\n{traceback.format_exc()}")
@@ -226,16 +240,14 @@ class NormalChat:
                         self.interest_dict.pop(msg_id, None)
 
     # 改为实例方法, 移除 chat 参数
-    async def normal_response(
-        self, message: MessageRecv, is_mentioned: bool, interested_rate: float, rewind_response: bool = False
-    ) -> None:
+    async def normal_response(self, message: MessageRecv, is_mentioned: bool, interested_rate: float) -> None:
         # 新增：如果已停用，直接返回
         if self._disabled:
             logger.info(f"[{self.stream_name}] 已停用，忽略 normal_response。")
             return
 
         timing_results = {}
-        reply_probability = 1.0 if is_mentioned else 0.0  # 如果被提及，基础概率为1，否则需要意愿判断
+        reply_probability = 1.0 if is_mentioned and global_config.normal_chat.mentioned_bot_inevitable_reply else 0.0  # 如果被提及，且开启了提及必回复，则基础概率为1，否则需要意愿判断
 
         # 意愿管理器：设置当前message信息
         willing_manager.setup(message, self.chat_stream, is_mentioned, interested_rate)
@@ -270,30 +282,120 @@ class NormalChat:
             # 回复前处理
             await willing_manager.before_generate_reply_handle(message.message_info.message_id)
 
-            with Timer("创建思考消息", timing_results):
-                if rewind_response:
-                    thinking_id = await self._create_thinking_message(message, message.message_info.time)
-                else:
-                    thinking_id = await self._create_thinking_message(message)
+            thinking_id = await self._create_thinking_message(message)
 
             logger.debug(f"[{self.stream_name}] 创建捕捉器，thinking_id:{thinking_id}")
 
             info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
             info_catcher.catch_decide_to_response(message)
 
-            try:
-                with Timer("生成回复", timing_results):
-                    response_set = await self.gpt.generate_response(
+            # 定义并行执行的任务
+            async def generate_normal_response():
+                """生成普通回复"""
+                try:
+                    # 如果启用planner，获取可用actions
+                    enable_planner = self.enable_planner
+                    available_actions = None
+
+                    if enable_planner:
+                        try:
+                            await self.action_modifier.modify_actions_for_normal_chat(
+                                self.chat_stream, self.recent_replies
+                            )
+                            available_actions = self.action_manager.get_using_actions()
+                        except Exception as e:
+                            logger.warning(f"[{self.stream_name}] 获取available_actions失败: {e}")
+                            available_actions = None
+
+                    return await self.gpt.generate_response(
                         message=message,
                         thinking_id=thinking_id,
+                        enable_planner=enable_planner,
+                        available_actions=available_actions,
                     )
+                except Exception as e:
+                    logger.error(f"[{self.stream_name}] 回复生成出现错误：{str(e)} {traceback.format_exc()}")
+                    return None
 
-                info_catcher.catch_after_generate_response(timing_results["生成回复"])
-            except Exception as e:
-                logger.error(f"[{self.stream_name}] 回复生成出现错误：{str(e)} {traceback.format_exc()}")
-                response_set = None  # 确保出错时 response_set 为 None
+            async def plan_and_execute_actions():
+                """规划和执行额外动作"""
+                if not self.enable_planner:
+                    logger.debug(f"[{self.stream_name}] Planner未启用，跳过动作规划")
+                    return None
 
-            if not response_set:
+                try:
+                    # 并行执行动作修改和规划准备
+                    async def modify_actions():
+                        """修改可用动作集合"""
+                        return await self.action_modifier.modify_actions_for_normal_chat(
+                            self.chat_stream, self.recent_replies
+                        )
+
+                    async def prepare_planning():
+                        """准备规划所需的信息"""
+                        return self._get_sender_name(message)
+
+                    # 并行执行动作修改和准备工作
+                    _, sender_name = await asyncio.gather(modify_actions(), prepare_planning())
+
+                    # 检查是否应该跳过规划
+                    if self.action_modifier.should_skip_planning():
+                        logger.debug(f"[{self.stream_name}] 没有可用动作，跳过规划")
+                        return None
+
+                    # 执行规划
+                    plan_result = await self.planner.plan(message, sender_name)
+                    action_type = plan_result["action_result"]["action_type"]
+                    action_data = plan_result["action_result"]["action_data"]
+                    reasoning = plan_result["action_result"]["reasoning"]
+
+                    logger.info(f"[{self.stream_name}] Planner决策: {action_type}, 理由: {reasoning}")
+                    self.action_type = action_type  # 更新实例属性
+
+                    # 如果规划器决定不执行任何动作
+                    if action_type == "no_action":
+                        logger.debug(f"[{self.stream_name}] Planner决定不执行任何额外动作")
+                        return None
+                    elif action_type == "change_to_focus_chat":
+                        logger.info(f"[{self.stream_name}] Planner决定切换到focus聊天模式")
+                        return None
+
+                    # 执行额外的动作（不影响回复生成）
+                    action_result = await self._execute_action(action_type, action_data, message, thinking_id)
+                    if action_result is not None:
+                        logger.info(f"[{self.stream_name}] 额外动作 {action_type} 执行完成")
+                    else:
+                        logger.warning(f"[{self.stream_name}] 额外动作 {action_type} 执行失败")
+
+                    return {"action_type": action_type, "action_data": action_data, "reasoning": reasoning}
+
+                except Exception as e:
+                    logger.error(f"[{self.stream_name}] Planner执行失败: {e}")
+                    return None
+
+            # 并行执行回复生成和动作规划
+            self.action_type = None  # 初始化动作类型
+            with Timer("并行生成回复和规划", timing_results):
+                response_set, plan_result = await asyncio.gather(
+                    generate_normal_response(), plan_and_execute_actions(), return_exceptions=True
+                )
+
+            # 处理生成回复的结果
+            if isinstance(response_set, Exception):
+                logger.error(f"[{self.stream_name}] 回复生成异常: {response_set}")
+                response_set = None
+            elif response_set:
+                info_catcher.catch_after_generate_response(timing_results["并行生成回复和规划"])
+
+            # 处理规划结果（可选，不影响回复）
+            if isinstance(plan_result, Exception):
+                logger.error(f"[{self.stream_name}] 动作规划异常: {plan_result}")
+            elif plan_result:
+                logger.debug(f"[{self.stream_name}] 额外动作处理完成: {plan_result['action_type']}")
+
+            if not response_set or (
+                self.enable_planner and self.action_type not in ["no_action", "change_to_focus_chat"]
+            ):
                 logger.info(f"[{self.stream_name}] 模型未生成回复内容")
                 # 如果模型未生成回复，移除思考消息
                 container = await message_manager.get_container(self.stream_id)  # 使用 self.stream_id
@@ -342,15 +444,23 @@ class NormalChat:
 
                 # 检查是否需要切换到focus模式
                 if global_config.chat.chat_mode == "auto":
-                    await self._check_switch_to_focus()
+                    if self.action_type == "change_to_focus_chat":
+                        logger.info(f"[{self.stream_name}] 检测到切换到focus聊天模式的请求")
+                        if self.on_switch_to_focus_callback:
+                            await self.on_switch_to_focus_callback()
+                        else:
+                            logger.warning(f"[{self.stream_name}] 没有设置切换到focus聊天模式的回调函数，无法执行切换")
+                        return
+                    else:
+                        await self._check_switch_to_focus()
 
             info_catcher.done_catch()
 
             with Timer("处理表情包", timing_results):
                 await self._handle_emoji(message, response_set[0])
 
-            with Timer("关系更新", timing_results):
-                await self._update_relationship(message, response_set)
+            # with Timer("关系更新", timing_results):
+            #     await self._update_relationship(message, response_set)
 
             # 回复后处理
             await willing_manager.after_generate_reply_handle(message.message_info.message_id)
@@ -523,3 +633,60 @@ class NormalChat:
             self.willing_amplifier = 5
         elif self.willing_amplifier < 0.1:
             self.willing_amplifier = 0.1
+
+    def _get_sender_name(self, message: MessageRecv) -> str:
+        """获取发送者名称，用于planner"""
+        if message.chat_stream.user_info:
+            user_info = message.chat_stream.user_info
+            if user_info.user_cardname and user_info.user_nickname:
+                return f"[{user_info.user_nickname}][群昵称：{user_info.user_cardname}]"
+            elif user_info.user_nickname:
+                return f"[{user_info.user_nickname}]"
+            else:
+                return f"用户({user_info.user_id})"
+        return "某人"
+
+    async def _execute_action(
+        self, action_type: str, action_data: dict, message: MessageRecv, thinking_id: str
+    ) -> Optional[bool]:
+        """执行具体的动作，只返回执行成功与否"""
+        try:
+            # 创建动作处理器实例
+            action_handler = self.action_manager.create_action(
+                action_name=action_type,
+                action_data=action_data,
+                reasoning=action_data.get("reasoning", ""),
+                cycle_timers={},  # normal_chat使用空的cycle_timers
+                thinking_id=thinking_id,
+                observations=[],  # normal_chat不使用observations
+                expressor=self.expressor,  # 使用normal_chat专用的expressor
+                replyer=self.replyer,
+                chat_stream=self.chat_stream,
+                log_prefix=self.stream_name,
+                shutting_down=self._disabled,
+            )
+
+            if action_handler:
+                # 执行动作
+                result = await action_handler.handle_action()
+                if result and isinstance(result, tuple) and len(result) >= 2:
+                    # handle_action返回 (success: bool, message: str)
+                    success, _ = result[0], result[1]
+                    return success
+                elif result:
+                    # 如果返回了其他结果，假设成功
+                    return True
+
+        except Exception as e:
+            logger.error(f"[{self.stream_name}] 执行动作 {action_type} 失败: {e}")
+
+        return False
+
+    def set_planner_enabled(self, enabled: bool):
+        """设置是否启用planner"""
+        self.enable_planner = enabled
+        logger.info(f"[{self.stream_name}] Planner {'启用' if enabled else '禁用'}")
+
+    def get_action_manager(self) -> ActionManager:
+        """获取动作管理器实例"""
+        return self.action_manager

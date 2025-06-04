@@ -22,7 +22,7 @@ class StructureObservation:
             "observe_id": self.observe_id,
             "last_observe_time": self.last_observe_time,
             "history_loop": self.history_loop,
-            "structured_info": self.structured_info
+            "structured_info": self.structured_info,
         }
 
     def get_observe_info(self):

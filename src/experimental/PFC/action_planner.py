@@ -273,7 +273,7 @@ class ActionPlanner:
             if hasattr(observation_info, "new_messages_count") and observation_info.new_messages_count > 0:
                 if hasattr(observation_info, "unprocessed_messages") and observation_info.unprocessed_messages:
                     new_messages_list = observation_info.unprocessed_messages
-                    new_messages_str = await build_readable_messages(
+                    new_messages_str = build_readable_messages(
                         new_messages_list,
                         replace_bot_name=True,
                         merge_messages=False,

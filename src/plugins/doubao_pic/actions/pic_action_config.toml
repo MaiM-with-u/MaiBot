@@ -1,0 +1,19 @@
+# 火山方舟 API 的基础 URL
+base_url = "https://ark.cn-beijing.volces.com/api/v3"
+# 用于图片生成的API密钥
+volcano_generate_api_key = "YOUR_VOLCANO_GENERATE_API_KEY_HERE"
+# 默认图片生成模型
+default_model = "doubao-seedream-3-0-t2i-250415"
+# 默认图片尺寸
+default_size = "1024x1024"
+
+
+# 是否默认开启水印
+default_watermark = true
+# 默认引导强度
+default_guidance_scale = 2.5
+# 默认随机种子
+default_seed = 42
+
+# 更多插件特定配置可以在此添加...
+# custom_parameter = "some_value"

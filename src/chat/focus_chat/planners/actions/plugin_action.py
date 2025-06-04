@@ -4,8 +4,10 @@ from src.chat.focus_chat.planners.actions.base_action import BaseAction, registe
 from src.chat.heart_flow.observation.chatting_observation import ChattingObservation
 from src.chat.focus_chat.hfc_utils import create_empty_anchor_message
 from src.common.logger_manager import get_logger
+from src.llm_models.utils_model import LLMRequest
 from src.person_info.person_info import person_info_manager
 from abc import abstractmethod
+from src.config.config import global_config
 import os
 import inspect
 import toml  # 导入 toml 库
@@ -35,7 +37,6 @@ class PluginAction(BaseAction):
 
         # 存储内部服务和对象引用
         self._services = {}
-        self._global_config = global_config  # 存储全局配置的只读引用
         self.config: Dict[str, Any] = {}  # 用于存储插件自身的配置
 
         # 从kwargs提取必要的内部服务
@@ -45,6 +46,8 @@ class PluginAction(BaseAction):
             self._services["expressor"] = kwargs["expressor"]
         if "chat_stream" in kwargs:
             self._services["chat_stream"] = kwargs["chat_stream"]
+        if "replyer" in kwargs:
+            self._services["replyer"] = kwargs["replyer"]
 
         self.log_prefix = kwargs.get("log_prefix", "")
         self._load_plugin_config()  # 初始化时加载插件配置
@@ -98,10 +101,8 @@ class PluginAction(BaseAction):
         安全地从全局配置中获取一个值。
         插件应使用此方法读取全局配置，以保证只读和隔离性。
         """
-        if self._global_config:
-            return self._global_config.get(key, default)
-        logger.debug(f"{self.log_prefix} 尝试访问全局配置项 '{key}'，但全局配置未提供。")
-        return default
+
+        return global_config.get(key, default)
 
     async def get_user_id_by_person_name(self, person_name: str) -> Tuple[str, str]:
         """根据用户名获取用户ID"""
@@ -135,11 +136,14 @@ class PluginAction(BaseAction):
             # 获取锚定消息（如果有）
             observations = self._services.get("observations", [])
 
-            chatting_observation: ChattingObservation = next(
-                obs for obs in observations if isinstance(obs, ChattingObservation)
-            )
+            if len(observations) > 0:
+                chatting_observation: ChattingObservation = next(
+                    obs for obs in observations if isinstance(obs, ChattingObservation)
+                )
 
-            anchor_message = chatting_observation.search_message_by_text(target)
+                anchor_message = chatting_observation.search_message_by_text(target)
+            else:
+                anchor_message = None
 
             # 如果没有找到锚点消息，创建一个占位符
             if not anchor_message:
@@ -177,26 +181,33 @@ class PluginAction(BaseAction):
         Returns:
             bool: 是否发送成功
         """
-        try:
-            expressor = self._services.get("expressor")
-            chat_stream = self._services.get("chat_stream")
+        expressor = self._services.get("expressor")
+        chat_stream = self._services.get("chat_stream")
 
-            if not expressor or not chat_stream:
-                logger.error(f"{self.log_prefix} 无法发送消息：缺少必要的内部服务")
-                return False
+        if not expressor or not chat_stream:
+            logger.error(f"{self.log_prefix} 无法发送消息：缺少必要的内部服务")
+            return False
 
-            # 构造简化的动作数据
-            reply_data = {"text": text, "target": target or "", "emojis": []}
+        # 构造简化的动作数据
+        reply_data = {"text": text, "target": target or "", "emojis": []}
 
-            # 获取锚定消息（如果有）
-            observations = self._services.get("observations", [])
+        # 获取锚定消息（如果有）
+        observations = self._services.get("observations", [])
 
-            chatting_observation: ChattingObservation = next(
-                obs for obs in observations if isinstance(obs, ChattingObservation)
+        # 查找 ChattingObservation 实例
+        chatting_observation = None
+        for obs in observations:
+            if isinstance(obs, ChattingObservation):
+                chatting_observation = obs
+                break
+
+        if not chatting_observation:
+            logger.warning(f"{self.log_prefix} 未找到 ChattingObservation 实例，创建占位符")
+            anchor_message = await create_empty_anchor_message(
+                chat_stream.platform, chat_stream.group_info, chat_stream
             )
+        else:
             anchor_message = chatting_observation.search_message_by_text(reply_data["target"])
-
-            # 如果没有找到锚点消息，创建一个占位符
             if not anchor_message:
                 logger.info(f"{self.log_prefix} 未找到锚点消息，创建占位符")
                 anchor_message = await create_empty_anchor_message(
@@ -205,19 +216,72 @@ class PluginAction(BaseAction):
             else:
                 anchor_message.update_chat_stream(chat_stream)
 
-            # 调用内部方法发送消息
-            success, _ = await expressor.deal_reply(
-                cycle_timers=self.cycle_timers,
-                action_data=reply_data,
-                anchor_message=anchor_message,
-                reasoning=self.reasoning,
-                thinking_id=self.thinking_id,
-            )
+        # 调用内部方法发送消息
+        success, _ = await expressor.deal_reply(
+            cycle_timers=self.cycle_timers,
+            action_data=reply_data,
+            anchor_message=anchor_message,
+            reasoning=self.reasoning,
+            thinking_id=self.thinking_id,
+        )
 
-            return success
-        except Exception as e:
-            logger.error(f"{self.log_prefix} 发送消息时出错: {e}")
+        return success
+
+    async def send_message_by_replyer(self, target: Optional[str] = None, extra_info_block: Optional[str] = None) -> bool:
+        """通过 replyer 发送消息的简化方法
+
+        Args:
+            text: 要发送的消息文本
+            target: 目标消息（可选）
+
+        Returns:
+            bool: 是否发送成功
+        """
+        replyer = self._services.get("replyer")
+        chat_stream = self._services.get("chat_stream")
+
+        if not replyer or not chat_stream:
+            logger.error(f"{self.log_prefix} 无法发送消息：缺少必要的内部服务")
             return False
+
+        # 构造简化的动作数据
+        reply_data = {"target": target or "", "extra_info_block": extra_info_block}
+
+        # 获取锚定消息（如果有）
+        observations = self._services.get("observations", [])
+
+        # 查找 ChattingObservation 实例
+        chatting_observation = None
+        for obs in observations:
+            if isinstance(obs, ChattingObservation):
+                chatting_observation = obs
+                break
+
+        if not chatting_observation:
+            logger.warning(f"{self.log_prefix} 未找到 ChattingObservation 实例，创建占位符")
+            anchor_message = await create_empty_anchor_message(
+                chat_stream.platform, chat_stream.group_info, chat_stream
+            )
+        else:
+            anchor_message = chatting_observation.search_message_by_text(reply_data["target"])
+            if not anchor_message:
+                logger.info(f"{self.log_prefix} 未找到锚点消息，创建占位符")
+                anchor_message = await create_empty_anchor_message(
+                    chat_stream.platform, chat_stream.group_info, chat_stream
+                )
+            else:
+                anchor_message.update_chat_stream(chat_stream)
+
+        # 调用内部方法发送消息
+        success, _ = await replyer.deal_reply(
+            cycle_timers=self.cycle_timers,
+            action_data=reply_data,
+            anchor_message=anchor_message,
+            reasoning=self.reasoning,
+            thinking_id=self.thinking_id,
+        )
+
+        return success
 
     def get_chat_type(self) -> str:
         """获取当前聊天类型
@@ -256,6 +320,60 @@ class PluginAction(BaseAction):
                     messages.append(simple_msg)
 
         return messages
+
+    def get_available_models(self) -> Dict[str, Any]:
+        """获取所有可用的模型配置
+
+        Returns:
+            Dict[str, Any]: 模型配置字典，key为模型名称，value为模型配置
+        """
+        if not hasattr(global_config, "model"):
+            logger.error(f"{self.log_prefix} 无法获取模型列表：全局配置中未找到 model 配置")
+            return {}
+        
+        models = global_config.model
+            
+        return models
+
+    async def generate_with_model(
+        self,
+        prompt: str,
+        model_config: Dict[str, Any],
+        max_tokens: int = 2000,
+        request_type: str = "plugin.generate",
+        **kwargs
+    ) -> Tuple[bool, str]:
+        """使用指定模型生成内容
+
+        Args:
+            prompt: 提示词
+            model_config: 模型配置（从 get_available_models 获取的模型配置）
+            temperature: 温度参数，控制随机性 (0-1)
+            max_tokens: 最大生成token数
+            request_type: 请求类型标识
+            **kwargs: 其他模型特定参数
+
+        Returns:
+            Tuple[bool, str]: (是否成功, 生成的内容或错误信息)
+        """
+        try:
+            
+            
+            logger.info(f"prompt: {prompt}")
+            
+            llm_request = LLMRequest(
+                model=model_config,
+                max_tokens=max_tokens,
+                request_type=request_type,
+                **kwargs
+            )
+            
+            response,(resoning , model_name) = await llm_request.generate_response_async(prompt)
+            return True, response, resoning, model_name
+        except Exception as e:
+            error_msg = f"生成内容时出错: {str(e)}"
+            logger.error(f"{self.log_prefix} {error_msg}")
+            return False, error_msg
 
     @abstractmethod
     async def process(self) -> Tuple[bool, str]:

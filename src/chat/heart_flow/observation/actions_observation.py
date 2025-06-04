@@ -42,5 +42,5 @@ class ActionObservation:
             "observe_id": self.observe_id,
             "last_observe_time": self.last_observe_time,
             "all_actions": self.all_actions,
-            "all_using_actions": self.all_using_actions
+            "all_using_actions": self.all_using_actions,
         }

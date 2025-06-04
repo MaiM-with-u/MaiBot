@@ -36,7 +36,9 @@ class NormalChatGenerator:
         self.current_model_type = "r1"  # 默认使用 R1
         self.current_model_name = "unknown model"
 
-    async def generate_response(self, message: MessageThinking, thinking_id: str) -> Optional[Union[str, List[str]]]:
+    async def generate_response(
+        self, message: MessageThinking, thinking_id: str, enable_planner: bool = False, available_actions=None
+    ) -> Optional[Union[str, List[str]]]:
         """根据当前模型类型选择对应的生成函数"""
         # 从global_config中获取模型概率值并选择模型
         if random.random() < global_config.normal_chat.normal_chat_first_probability:
@@ -50,7 +52,9 @@ class NormalChatGenerator:
             f"{self.current_model_name}思考:{message.processed_plain_text[:30] + '...' if len(message.processed_plain_text) > 30 else message.processed_plain_text}"
         )  # noqa: E501
 
-        model_response = await self._generate_response_with_model(message, current_model, thinking_id)
+        model_response = await self._generate_response_with_model(
+            message, current_model, thinking_id, enable_planner, available_actions
+        )
 
         if model_response:
             logger.debug(f"{global_config.bot.nickname}的原始回复是：{model_response}")
@@ -61,7 +65,14 @@ class NormalChatGenerator:
             logger.info(f"{self.current_model_name}思考，失败")
             return None
 
-    async def _generate_response_with_model(self, message: MessageThinking, model: LLMRequest, thinking_id: str):
+    async def _generate_response_with_model(
+        self,
+        message: MessageThinking,
+        model: LLMRequest,
+        thinking_id: str,
+        enable_planner: bool = False,
+        available_actions=None,
+    ):
         info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
 
         person_id = person_info_manager.get_person_id(
@@ -86,6 +97,8 @@ class NormalChatGenerator:
                 message_txt=message.processed_plain_text,
                 sender_name=sender_name,
                 chat_stream=message.chat_stream,
+                enable_planner=enable_planner,
+                available_actions=available_actions,
             )
         logger.debug(f"构建prompt时间: {t_build_prompt.human_readable}")
 

@@ -366,7 +366,7 @@ class ObservationInfo:
         # 更新历史记录字符串 (只使用最近一部分生成，例如20条)
         history_slice_for_str = self.chat_history[-20:]
         try:
-            self.chat_history_str = await build_readable_messages(
+            self.chat_history_str = build_readable_messages(
                 history_slice_for_str,
                 replace_bot_name=True,
                 merge_messages=False,

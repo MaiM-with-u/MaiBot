@@ -41,11 +41,10 @@ class SubHeartflow:
         self.chat_state_last_time: float = 0
         self.history_chat_state: List[Tuple[ChatState, float]] = []
 
-        # --- Initialize attributes ---
-        self.is_group_chat: bool = False
-        self.chat_target_info: Optional[dict] = None
-        # --- End Initialization ---
-
+        self.is_group_chat, self.chat_target_info = get_chat_type_and_target_info(self.chat_id)
+        self.log_prefix = (
+            chat_manager.get_stream_name(self.subheartflow_id) or self.subheartflow_id
+        ) 
         # 兴趣消息集合
         self.interest_dict: Dict[str, tuple[MessageRecv, float, bool]] = {}
 
@@ -60,7 +59,7 @@ class SubHeartflow:
 
         # 观察，目前只有聊天观察，可以载入多个
         # 负责对处理过的消息进行观察
-        self.observations: List[ChattingObservation] = []  # 观察列表
+        # self.observations: List[ChattingObservation] = []  # 观察列表
         # self.running_knowledges = []  # 运行中的知识，待完善
 
         # 日志前缀 - Moved determination to initialize
@@ -68,16 +67,6 @@ class SubHeartflow:
 
     async def initialize(self):
         """异步初始化方法，创建兴趣流并确定聊天类型"""
-
-        # --- Use utility function to determine chat type and fetch info ---
-        self.is_group_chat, self.chat_target_info = await get_chat_type_and_target_info(self.chat_id)
-        # Update log prefix after getting info (potential stream name)
-        self.log_prefix = (
-            chat_manager.get_stream_name(self.subheartflow_id) or self.subheartflow_id
-        )  # Keep this line or adjust if utils provides name
-        logger.debug(
-            f"SubHeartflow {self.chat_id} initialized: is_group={self.is_group_chat}, target_info={self.chat_target_info}"
-        )
 
         # 根据配置决定初始状态
         if global_config.chat.chat_mode == "focus":
@@ -214,23 +203,17 @@ class SubHeartflow:
         # 如果实例不存在，则创建并启动
         logger.info(f"{log_prefix} 麦麦准备开始专注聊天...")
         try:
-            # 创建 HeartFChatting 实例，并传递 从构造函数传入的 回调函数
 
             self.heart_fc_instance = HeartFChatting(
                 chat_id=self.subheartflow_id,
-                observations=self.observations,
+                # observations=self.observations,
                 on_stop_focus_chat=self._handle_stop_focus_chat_request,
             )
 
-            # 初始化并启动 HeartFChatting
-            if await self.heart_fc_instance._initialize():
-                await self.heart_fc_instance.start()
-                logger.debug(f"{log_prefix} 麦麦已成功进入专注聊天模式 (新实例已启动)。")
-                return True
-            else:
-                logger.error(f"{log_prefix} HeartFChatting 初始化失败，无法进入专注模式。")
-                self.heart_fc_instance = None  # 初始化失败，清理实例
-                return False
+            await self.heart_fc_instance.start()
+            logger.debug(f"{log_prefix} 麦麦已成功进入专注聊天模式 (新实例已启动)。")
+            return True
+
         except Exception as e:
             logger.error(f"{log_prefix} 创建或启动 HeartFChatting 实例时出错: {e}")
             logger.error(traceback.format_exc())
@@ -329,6 +312,27 @@ class SubHeartflow:
         if len(self.interest_dict) > 30:
             oldest_key = next(iter(self.interest_dict))
             self.interest_dict.pop(oldest_key)
+
+    def get_normal_chat_action_manager(self):
+        """获取NormalChat的ActionManager实例
+
+        Returns:
+            ActionManager: NormalChat的ActionManager实例，如果不存在则返回None
+        """
+        if self.normal_chat_instance:
+            return self.normal_chat_instance.get_action_manager()
+        return None
+
+    def set_normal_chat_planner_enabled(self, enabled: bool):
+        """设置NormalChat的planner是否启用
+
+        Args:
+            enabled: 是否启用planner
+        """
+        if self.normal_chat_instance:
+            self.normal_chat_instance.set_planner_enabled(enabled)
+        else:
+            logger.warning(f"{self.log_prefix} NormalChat实例不存在，无法设置planner状态")
 
     async def get_full_state(self) -> dict:
         """获取子心流的完整状态，包括兴趣、思维和聊天状态。"""

@@ -4,11 +4,10 @@ from src.common.logger_manager import get_logger
 from src.chat.focus_chat.planners.actions.base_action import BaseAction, register_action
 from typing import Tuple, List
 from src.chat.heart_flow.observation.observation import Observation
-from src.chat.focus_chat.expressors.default_expressor import DefaultExpressor
+from src.chat.focus_chat.replyer.default_replyer import DefaultReplyer
 from src.chat.message_receive.chat_stream import ChatStream
 from src.chat.heart_flow.observation.chatting_observation import ChattingObservation
 from src.chat.focus_chat.hfc_utils import create_empty_anchor_message
-from src.config.config import global_config
 
 logger = get_logger("action_taken")
 
@@ -21,21 +20,13 @@ class ReplyAction(BaseAction):
     """
 
     action_name: str = "reply"
-    action_description: str = "表达想法，可以只包含文本、表情或两者都有"
+    action_description: str = "当你想要参与回复或者聊天"
     action_parameters: dict[str:str] = {
-        "text": "你想要表达的内容（可选）",
-        "emojis": "描述当前使用表情包的场景，一段话描述（可选）",
-        "target": "你想要回复的原始文本内容（非必须，仅文本，不包含发送者)（可选）",
+        "target": "如果你要明确回复特定某人的某句话，请在target参数中中指定那句话的原始文本（非必须，仅文本，不包含发送者)（可选）",
     }
     action_require: list[str] = [
-        "有实质性内容需要表达",
-        "有人提到你，但你还没有回应他",
-        "在合适的时候添加表情（不要总是添加），表情描述要详细，描述当前场景，一段话描述",
-        "如果你有明确的,要回复特定某人的某句话，或者你想回复较早的消息，请在target中指定那句话的原始文本",
-        "一次只回复一个人，一次只回复一个话题,突出重点",
-        "如果是自己发的消息想继续，需自然衔接",
-        "避免重复或评价自己的发言,不要和自己聊天",
-        f"注意你的回复要求：{global_config.expression.expression_style}",
+        "你想要闲聊或者随便附和",
+        "有人提到你",
     ]
 
     associated_types: list[str] = ["text", "emoji"]
@@ -49,9 +40,9 @@ class ReplyAction(BaseAction):
         cycle_timers: dict,
         thinking_id: str,
         observations: List[Observation],
-        expressor: DefaultExpressor,
         chat_stream: ChatStream,
         log_prefix: str,
+        replyer: DefaultReplyer,
         **kwargs,
     ):
         """初始化回复动作处理器
@@ -63,13 +54,13 @@ class ReplyAction(BaseAction):
             cycle_timers: 计时器字典
             thinking_id: 思考ID
             observations: 观察列表
-            expressor: 表达器
+            replyer: 回复器
             chat_stream: 聊天流
             log_prefix: 日志前缀
         """
         super().__init__(action_data, reasoning, cycle_timers, thinking_id)
         self.observations = observations
-        self.expressor = expressor
+        self.replyer = replyer
         self.chat_stream = chat_stream
         self.log_prefix = log_prefix
 
@@ -121,7 +112,7 @@ class ReplyAction(BaseAction):
         else:
             anchor_message.update_chat_stream(self.chat_stream)
 
-        success, reply_set = await self.expressor.deal_reply(
+        success, reply_set = await self.replyer.deal_reply(
             cycle_timers=cycle_timers,
             action_data=reply_data,
             anchor_message=anchor_message,

@@ -7,7 +7,7 @@ from src.person_info.person_info import person_info_manager
 logger = get_logger("heartflow_utils")
 
 
-async def get_chat_type_and_target_info(chat_id: str) -> Tuple[bool, Optional[Dict]]:
+def get_chat_type_and_target_info(chat_id: str) -> Tuple[bool, Optional[Dict]]:
     """
     获取聊天类型（是否群聊）和私聊对象信息。
 
@@ -24,8 +24,7 @@ async def get_chat_type_and_target_info(chat_id: str) -> Tuple[bool, Optional[Di
     chat_target_info = None
 
     try:
-        chat_stream = await asyncio.to_thread(chat_manager.get_stream, chat_id)  # Use to_thread if get_stream is sync
-        # If get_stream is already async, just use: chat_stream = await chat_manager.get_stream(chat_id)
+        chat_stream = chat_manager.get_stream(chat_id) 
 
         if chat_stream:
             if chat_stream.group_info:
@@ -49,11 +48,11 @@ async def get_chat_type_and_target_info(chat_id: str) -> Tuple[bool, Optional[Di
                 # Try to fetch person info
                 try:
                     # Assume get_person_id is sync (as per original code), keep using to_thread
-                    person_id = await asyncio.to_thread(person_info_manager.get_person_id, platform, user_id)
+                    person_id = person_info_manager.get_person_id(platform, user_id)
                     person_name = None
                     if person_id:
                         # get_value is async, so await it directly
-                        person_name = await person_info_manager.get_value(person_id, "person_name")
+                        person_name = person_info_manager.get_value_sync(person_id, "person_name")
 
                     target_info["person_id"] = person_id
                     target_info["person_name"] = person_name

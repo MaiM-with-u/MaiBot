@@ -14,20 +14,23 @@ from src.chat.heart_flow.observation.observation import Observation
 from src.chat.focus_chat.heartFC_Cycleinfo import CycleDetail
 from src.chat.focus_chat.info.info_base import InfoBase
 from src.chat.focus_chat.info_processors.chattinginfo_processor import ChattingInfoProcessor
+from src.chat.focus_chat.info_processors.relationship_processor import RelationshipProcessor
 from src.chat.focus_chat.info_processors.mind_processor import MindProcessor
 from src.chat.focus_chat.info_processors.working_memory_processor import WorkingMemoryProcessor
 
 # from src.chat.focus_chat.info_processors.action_processor import ActionProcessor
 from src.chat.heart_flow.observation.hfcloop_observation import HFCloopObservation
 from src.chat.heart_flow.observation.working_observation import WorkingMemoryObservation
+from src.chat.heart_flow.observation.chatting_observation import ChattingObservation
 from src.chat.heart_flow.observation.structure_observation import StructureObservation
 from src.chat.heart_flow.observation.actions_observation import ActionObservation
 from src.chat.focus_chat.info_processors.tool_processor import ToolProcessor
 from src.chat.focus_chat.expressors.default_expressor import DefaultExpressor
+from src.chat.focus_chat.replyer.default_replyer import DefaultReplyer
 from src.chat.focus_chat.memory_activator import MemoryActivator
 from src.chat.focus_chat.info_processors.base_processor import BaseProcessor
 from src.chat.focus_chat.info_processors.self_processor import SelfProcessor
-from src.chat.focus_chat.planners.planner import ActionPlanner
+from src.chat.focus_chat.planners.planner_factory import PlannerFactory
 from src.chat.focus_chat.planners.modify_actions import ActionModifier
 from src.chat.focus_chat.planners.action_manager import ActionManager
 from src.chat.focus_chat.working_memory.working_memory import WorkingMemory
@@ -35,15 +38,22 @@ from src.config.config import global_config
 
 install(extra_lines=3)
 
+# 定义观察器映射：键是观察器名称，值是 (观察器类, 初始化参数)
+OBSERVATION_CLASSES = {
+    "ChattingObservation": (ChattingObservation, "chat_id"),
+    "WorkingMemoryObservation": (WorkingMemoryObservation, "observe_id"),
+    "HFCloopObservation": (HFCloopObservation, "observe_id"),
+    "StructureObservation": (StructureObservation, "observe_id"),
+}
 
 # 定义处理器映射：键是处理器名称，值是 (处理器类, 可选的配置键名)
-# 如果配置键名为 None，则该处理器默认启用且不能通过 focus_chat_processor 配置禁用
 PROCESSOR_CLASSES = {
     "ChattingInfoProcessor": (ChattingInfoProcessor, None),
-    "MindProcessor": (MindProcessor, None),
+    "MindProcessor": (MindProcessor, "mind_processor"),
     "ToolProcessor": (ToolProcessor, "tool_use_processor"),
     "WorkingMemoryProcessor": (WorkingMemoryProcessor, "working_memory_processor"),
     "SelfProcessor": (SelfProcessor, "self_identify_processor"),
+    "RelationshipProcessor": (RelationshipProcessor, "relationship_processor"),
 }
 
 logger = get_logger("hfc")  # Logger Name Changed
@@ -78,7 +88,6 @@ class HeartFChatting:
     def __init__(
         self,
         chat_id: str,
-        observations: list[Observation],
         on_stop_focus_chat: Optional[Callable[[], Awaitable[None]]] = None,
     ):
         """
@@ -86,50 +95,44 @@ class HeartFChatting:
 
         参数:
             chat_id: 聊天流唯一标识符(如stream_id)
-            observations: 关联的观察列表
             on_stop_focus_chat: 当收到stop_focus_chat命令时调用的回调函数
         """
         # 基础属性
         self.stream_id: str = chat_id  # 聊天流ID
-        self.chat_stream: Optional[ChatStream] = None  # 关联的聊天流
-        self.log_prefix: str = str(chat_id)  # Initial default, will be updated
-        self.hfcloop_observation = HFCloopObservation(observe_id=self.stream_id)
-        self.chatting_observation = observations[0]
-        self.structure_observation = StructureObservation(observe_id=self.stream_id)
-
+        self.chat_stream = chat_manager.get_stream(self.stream_id)
+        self.log_prefix = f"[{chat_manager.get_stream_name(self.stream_id) or self.stream_id}]"
+        
         self.memory_activator = MemoryActivator()
-        self.working_memory = WorkingMemory(chat_id=self.stream_id)
-        self.working_observation = WorkingMemoryObservation(
-            observe_id=self.stream_id, working_memory=self.working_memory
-        )
-
+        
+        # 初始化观察器
+        self.observations: List[Observation] = []
+        self._register_observations()
+        
         # 根据配置文件和默认规则确定启用的处理器
-        self.enabled_processor_names: List[str] = []
         config_processor_settings = global_config.focus_chat_processor
+        self.enabled_processor_names = [
+            proc_name for proc_name, (_proc_class, config_key) in PROCESSOR_CLASSES.items()
+            if not config_key or getattr(config_processor_settings, config_key, True)
+        ]
 
-        for proc_name, (_proc_class, config_key) in PROCESSOR_CLASSES.items():
-            if config_key:  # 此处理器可通过配置控制
-                if getattr(config_processor_settings, config_key, True):  # 默认启用 (如果配置中未指定该键)
-                    self.enabled_processor_names.append(proc_name)
-            else:  # 此处理器不在配置映射中 (config_key is None)，默认启用
-                self.enabled_processor_names.append(proc_name)
-
-        logger.info(f"{self.log_prefix} 将启用的处理器: {self.enabled_processor_names}")
+        # logger.info(f"{self.log_prefix} 将启用的处理器: {self.enabled_processor_names}")
+        
         self.processors: List[BaseProcessor] = []
         self._register_default_processors()
 
-        self.expressor = DefaultExpressor(chat_id=self.stream_id)
+        self.expressor = DefaultExpressor(chat_stream=self.chat_stream)
+        self.replyer = DefaultReplyer(chat_stream=self.chat_stream)
+        
+        
         self.action_manager = ActionManager()
-        self.action_planner = ActionPlanner(log_prefix=self.log_prefix, action_manager=self.action_manager)
+        self.action_planner = PlannerFactory.create_planner(
+            log_prefix=self.log_prefix, action_manager=self.action_manager
+        )
         self.action_modifier = ActionModifier(action_manager=self.action_manager)
         self.action_observation = ActionObservation(observe_id=self.stream_id)
-
         self.action_observation.set_action_manager(self.action_manager)
 
-        self.all_observations = observations
 
-        # 初始化状态控制
-        self._initialized = False
         self._processing_lock = asyncio.Lock()
 
         # 循环控制内部状态
@@ -145,39 +148,24 @@ class HeartFChatting:
         # 存储回调函数
         self.on_stop_focus_chat = on_stop_focus_chat
 
-    async def _initialize(self) -> bool:
-        """
-        执行懒初始化操作
+    def _register_observations(self):
+        """注册所有观察器"""
+        self.observations = []  # 清空已有的
 
-        功能:
-            1. 获取聊天类型(群聊/私聊)和目标信息
-            2. 获取聊天流对象
-            3. 设置日志前缀
+        for name, (observation_class, param_name) in OBSERVATION_CLASSES.items():
+            try:
+                # 根据参数名使用正确的参数
+                kwargs = {param_name: self.stream_id}
+                observation = observation_class(**kwargs)
+                self.observations.append(observation)
+                logger.debug(f"{self.log_prefix} 注册观察器 {name}")
+            except Exception as e:
+                logger.error(f"{self.log_prefix} 观察器 {name} 构造失败: {e}")
 
-        返回:
-            bool: 初始化是否成功
-
-        注意:
-            - 如果已经初始化过会直接返回True
-            - 需要获取chat_stream对象才能继续后续操作
-        """
-        # 如果已经初始化过，直接返回成功
-        if self._initialized:
-            return True
-
-        try:
-            await self.expressor.initialize()
-            self.chat_stream = await asyncio.to_thread(chat_manager.get_stream, self.stream_id)
-            self.expressor.chat_stream = self.chat_stream
-            self.log_prefix = f"[{chat_manager.get_stream_name(self.stream_id) or self.stream_id}]"
-        except Exception as e:
-            logger.error(f"[HFC:{self.stream_id}] 初始化HFC时发生错误: {e}")
-            return False
-
-        # 标记初始化完成
-        self._initialized = True
-        logger.debug(f"{self.log_prefix} 初始化完成，准备开始处理消息")
-        return True
+        if self.observations:
+            logger.info(f"{self.log_prefix} 已注册观察器: {[o.__class__.__name__ for o in self.observations]}")
+        else:
+            logger.warning(f"{self.log_prefix} 没有注册任何观察器")
 
     def _register_default_processors(self):
         """根据 self.enabled_processor_names 注册信息处理器"""
@@ -188,7 +176,7 @@ class HeartFChatting:
             if processor_info:
                 processor_actual_class = processor_info[0]  # 获取实际的类定义
                 # 根据处理器类名判断是否需要 subheartflow_id
-                if name in ["MindProcessor", "ToolProcessor", "WorkingMemoryProcessor", "SelfProcessor"]:
+                if name in ["MindProcessor", "ToolProcessor", "WorkingMemoryProcessor", "SelfProcessor", "RelationshipProcessor"]:
                     self.processors.append(processor_actual_class(subheartflow_id=self.stream_id))
                 elif name == "ChattingInfoProcessor":
                     self.processors.append(processor_actual_class())
@@ -210,20 +198,12 @@ class HeartFChatting:
 
         if self.processors:
             logger.info(
-                f"{self.log_prefix} 已根据配置和默认规则注册处理器: {[p.__class__.__name__ for p in self.processors]}"
+                f"{self.log_prefix} 已注册处理器: {[p.__class__.__name__ for p in self.processors]}"
             )
         else:
             logger.warning(f"{self.log_prefix} 没有注册任何处理器。这可能是由于配置错误或所有处理器都被禁用了。")
 
     async def start(self):
-        """
-        启动 HeartFChatting 的主循环。
-        注意：调用此方法前必须确保已经成功初始化。
-        """
-        logger.info(f"{self.log_prefix} 开始认真聊天(HFC)...")
-        await self._start_loop_if_needed()
-
-    async def _start_loop_if_needed(self):
         """检查是否需要启动主循环，如果未激活则启动。"""
         # 如果循环已经激活，直接返回
         if self._loop_active:
@@ -305,7 +285,13 @@ class HeartFChatting:
 
                     self._current_cycle_detail.set_loop_info(loop_info)
 
-                    self.hfcloop_observation.add_loop_info(self._current_cycle_detail)
+                    # 从observations列表中获取HFCloopObservation
+                    hfcloop_observation = next((obs for obs in self.observations if isinstance(obs, HFCloopObservation)), None)
+                    if hfcloop_observation:
+                        hfcloop_observation.add_loop_info(self._current_cycle_detail)
+                    else:
+                        logger.warning(f"{self.log_prefix} 未找到HFCloopObservation实例")
+
                     self._current_cycle_detail.timers = cycle_timers
 
                     # 防止循环过快消耗资源
@@ -418,7 +404,9 @@ class HeartFChatting:
                     # 记录耗时
                     processor_time_costs[processor_name] = duration_since_parallel_start
                 except asyncio.TimeoutError:
-                    logger.info(f"{self.log_prefix} 处理器 {processor_name} 超时（>{global_config.focus_chat.processor_max_time}s），已跳过")
+                    logger.info(
+                        f"{self.log_prefix} 处理器 {processor_name} 超时（>{global_config.focus_chat.processor_max_time}s），已跳过"
+                    )
                     processor_time_costs[processor_name] = global_config.focus_chat.processor_max_time
                 except Exception as e:
                     logger.error(
@@ -447,54 +435,44 @@ class HeartFChatting:
     async def _observe_process_plan_action_loop(self, cycle_timers: dict, thinking_id: str) -> dict:
         try:
             with Timer("观察", cycle_timers):
-                await self.chatting_observation.observe()
-                await self.working_observation.observe()
-                await self.hfcloop_observation.observe()
-                await self.structure_observation.observe()
-                observations: List[Observation] = []
-                observations.append(self.chatting_observation)
-                observations.append(self.working_observation)
-                observations.append(self.hfcloop_observation)
-                observations.append(self.structure_observation)
+                # 执行所有观察器的观察
+                for observation in self.observations:
+                    await observation.observe()
 
                 loop_observation_info = {
-                    "observations": observations,
+                    "observations": self.observations,
                 }
 
-                self.all_observations = observations
-                
             with Timer("调整动作", cycle_timers):
                 # 处理特殊的观察
-                await self.action_modifier.modify_actions(observations=observations)
+                await self.action_modifier.modify_actions(observations=self.observations)
                 await self.action_observation.observe()
-                observations.append(self.action_observation)
+                self.observations.append(self.action_observation)
 
             # 根据配置决定是否并行执行回忆和处理器阶段
             # print(global_config.focus_chat.parallel_processing)
             if global_config.focus_chat.parallel_processing:
                 # 并行执行回忆和处理器阶段
                 with Timer("并行回忆和处理", cycle_timers):
-                    memory_task = asyncio.create_task(self.memory_activator.activate_memory(observations))
-                    processor_task = asyncio.create_task(self._process_processors(observations, []))
-                    
+                    memory_task = asyncio.create_task(self.memory_activator.activate_memory(self.observations))
+                    processor_task = asyncio.create_task(self._process_processors(self.observations, []))
+
                     # 等待两个任务完成
-                    running_memorys, (all_plan_info, processor_time_costs) = await asyncio.gather(memory_task, processor_task)
+                    running_memorys, (all_plan_info, processor_time_costs) = await asyncio.gather(
+                        memory_task, processor_task
+                    )
             else:
                 # 串行执行
                 with Timer("回忆", cycle_timers):
-                    running_memorys = await self.memory_activator.activate_memory(observations)
+                    running_memorys = await self.memory_activator.activate_memory(self.observations)
 
                 with Timer("执行 信息处理器", cycle_timers):
-                    all_plan_info, processor_time_costs = await self._process_processors(
-                        observations, running_memorys
-                    )
+                    all_plan_info, processor_time_costs = await self._process_processors(self.observations, running_memorys)
 
             loop_processor_info = {
                 "all_plan_info": all_plan_info,
                 "processor_time_costs": processor_time_costs,
             }
-
-
 
             with Timer("规划器", cycle_timers):
                 plan_result = await self.action_planner.plan(all_plan_info, running_memorys)
@@ -519,10 +497,10 @@ class HeartFChatting:
                 else:
                     action_str = action_type
 
-                logger.debug(f"{self.log_prefix} 麦麦想要：'{action_str}', 原因'{reasoning}'")
+                logger.debug(f"{self.log_prefix} 麦麦想要：'{action_str}'")
 
                 success, reply_text, command = await self._handle_action(
-                    action_type, reasoning, action_data, cycle_timers, thinking_id
+                    action_type, reasoning, action_data, cycle_timers, thinking_id, self.observations
                 )
 
                 loop_action_info = {
@@ -558,6 +536,7 @@ class HeartFChatting:
         action_data: dict,
         cycle_timers: dict,
         thinking_id: str,
+        observations: List[Observation],
     ) -> tuple[bool, str, str]:
         """
         处理规划动作，使用动作工厂创建相应的动作处理器
@@ -581,8 +560,9 @@ class HeartFChatting:
                     reasoning=reasoning,
                     cycle_timers=cycle_timers,
                     thinking_id=thinking_id,
-                    observations=self.all_observations,
+                    observations=observations,
                     expressor=self.expressor,
+                    replyer=self.replyer,
                     chat_stream=self.chat_stream,
                     log_prefix=self.log_prefix,
                     shutting_down=self._shutting_down,
@@ -604,7 +584,7 @@ class HeartFChatting:
                 success, reply_text = result
                 command = ""
             logger.debug(
-                f"{self.log_prefix} 麦麦执行了'{action}', 原因'{reasoning}'，返回结果'{success}', '{reply_text}', '{command}'"
+                f"{self.log_prefix} 麦麦执行了'{action}', 返回结果'{success}', '{reply_text}', '{command}'"
             )
             return success, reply_text, command
 

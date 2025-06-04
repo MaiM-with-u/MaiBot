@@ -45,7 +45,6 @@ def init_prompt():
     "selected_memory_ids": ["id1", "id2", ...],
     "new_memory": "true" or "false",
     "merge_memory": [["id1", "id2"], ["id3", "id4"],...]
-    
 }}
 ```
 """
@@ -61,8 +60,7 @@ class WorkingMemoryProcessor(BaseProcessor):
         self.subheartflow_id = subheartflow_id
 
         self.llm_model = LLMRequest(
-            model=global_config.model.focus_chat_mind,
-            temperature=global_config.model.focus_chat_mind["temp"],
+            model=global_config.model.planner,
             max_tokens=800,
             request_type="focus.processor.working_memory",
         )
@@ -104,13 +102,10 @@ class WorkingMemoryProcessor(BaseProcessor):
         all_memory = working_memory.get_all_memories()
         memory_prompts = []
         for memory in all_memory:
-            # memory_content = memory.data
             memory_summary = memory.summary
             memory_id = memory.id
             memory_brief = memory_summary.get("brief")
-            # memory_detailed = memory_summary.get("detailed")
-            memory_keypoints = memory_summary.get("keypoints")
-            memory_events = memory_summary.get("events")
+            memory_points = memory_summary.get("points", [])
             memory_single_prompt = f"记忆id:{memory_id},记忆摘要:{memory_brief}\n"
             memory_prompts.append(memory_single_prompt)
 
@@ -124,11 +119,13 @@ class WorkingMemoryProcessor(BaseProcessor):
             memory_str=memory_choose_str,
         )
 
+
+        # print(f"prompt: {prompt}")
+        
+
         # 调用LLM处理记忆
         content = ""
         try:
-            # logger.debug(f"{self.log_prefix} 处理工作记忆的prompt: {prompt}")
-
             content, _ = await self.llm_model.generate_response_async(prompt=prompt)
             if not content:
                 logger.warning(f"{self.log_prefix} LLM返回空结果，处理工作记忆失败。")
@@ -161,19 +158,12 @@ class WorkingMemoryProcessor(BaseProcessor):
             for memory_id in selected_memory_ids:
                 memory = await working_memory.retrieve_memory(memory_id)
                 if memory:
-                    # memory_content = memory.data
                     memory_summary = memory.summary
                     memory_id = memory.id
                     memory_brief = memory_summary.get("brief")
-                    # memory_detailed = memory_summary.get("detailed")
-                    memory_keypoints = memory_summary.get("keypoints")
-                    memory_events = memory_summary.get("events")
-                    for keypoint in memory_keypoints:
-                        memory_str += f"记忆要点:{keypoint}\n"
-                    for event in memory_events:
-                        memory_str += f"记忆事件:{event}\n"
-                    # memory_str += f"记忆摘要:{memory_detailed}\n"
-                    # memory_str += f"记忆主题:{memory_brief}\n"
+                    memory_points = memory_summary.get("points", [])
+                    for point in memory_points:
+                        memory_str += f"{point}\n"
 
         working_memory_info = WorkingMemoryInfo()
         if memory_str:
@@ -208,7 +198,7 @@ class WorkingMemoryProcessor(BaseProcessor):
         """
         try:
             await working_memory.add_memory(content=content, from_source="chat_text")
-            logger.debug(f"{self.log_prefix} 异步添加新记忆成功: {content[:30]}...")
+            # logger.debug(f"{self.log_prefix} 异步添加新记忆成功: {content[:30]}...")
         except Exception as e:
             logger.error(f"{self.log_prefix} 异步添加新记忆失败: {e}")
             logger.error(traceback.format_exc())
@@ -222,11 +212,9 @@ class WorkingMemoryProcessor(BaseProcessor):
         """
         try:
             merged_memory = await working_memory.merge_memory(memory_id1, memory_id2)
-            logger.debug(f"{self.log_prefix} 异步合并记忆成功: {memory_id1} 和 {memory_id2}...")
+            # logger.debug(f"{self.log_prefix} 异步合并记忆成功: {memory_id1} 和 {memory_id2}...")
             logger.debug(f"{self.log_prefix} 合并后的记忆梗概: {merged_memory.summary.get('brief')}")
-            logger.debug(f"{self.log_prefix} 合并后的记忆详情: {merged_memory.summary.get('detailed')}")
-            logger.debug(f"{self.log_prefix} 合并后的记忆要点: {merged_memory.summary.get('keypoints')}")
-            logger.debug(f"{self.log_prefix} 合并后的记忆事件: {merged_memory.summary.get('events')}")
+            logger.debug(f"{self.log_prefix} 合并后的记忆要点: {merged_memory.summary.get('points')}")
 
         except Exception as e:
             logger.error(f"{self.log_prefix} 异步合并记忆失败: {e}")

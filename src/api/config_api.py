@@ -71,7 +71,6 @@ class APIBotConfig:
     max_emoji_num: int  # 最大表情符号数量
     max_reach_deletion: bool  # 达到最大数量时是否删除
     check_interval: int  # 检查表情包的时间间隔(分钟)
-    save_pic: bool  # 是否保存图片
     save_emoji: bool  # 是否保存表情包
     steal_emoji: bool  # 是否偷取表情包
     enable_check: bool  # 是否启用表情包过滤

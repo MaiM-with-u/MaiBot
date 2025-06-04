@@ -128,38 +128,38 @@ class ImageManager:
                 return f"[表情包，含义看起来是：{cached_description}]"
 
             # 根据配置决定是否保存图片
-            if global_config.emoji.save_emoji:
-                # 生成文件名和路径
-                logger.debug(f"保存表情包: {image_hash}")
-                current_timestamp = time.time()
-                filename = f"{int(current_timestamp)}_{image_hash[:8]}.{image_format}"
-                emoji_dir = os.path.join(self.IMAGE_DIR, "emoji")
-                os.makedirs(emoji_dir, exist_ok=True)
-                file_path = os.path.join(emoji_dir, filename)
+            # if global_config.emoji.save_emoji:
+            # 生成文件名和路径
+            logger.debug(f"保存表情包: {image_hash}")
+            current_timestamp = time.time()
+            filename = f"{int(current_timestamp)}_{image_hash[:8]}.{image_format}"
+            emoji_dir = os.path.join(self.IMAGE_DIR, "emoji")
+            os.makedirs(emoji_dir, exist_ok=True)
+            file_path = os.path.join(emoji_dir, filename)
 
+            try:
+                # 保存文件
+                with open(file_path, "wb") as f:
+                    f.write(image_bytes)
+
+                # 保存到数据库 (Images表)
                 try:
-                    # 保存文件
-                    with open(file_path, "wb") as f:
-                        f.write(image_bytes)
-
-                    # 保存到数据库 (Images表)
-                    try:
-                        img_obj = Images.get((Images.emoji_hash == image_hash) & (Images.type == "emoji"))
-                        img_obj.path = file_path
-                        img_obj.description = description
-                        img_obj.timestamp = current_timestamp
-                        img_obj.save()
-                    except Images.DoesNotExist:
-                        Images.create(
-                            emoji_hash=image_hash,
-                            path=file_path,
-                            type="emoji",
-                            description=description,
-                            timestamp=current_timestamp,
-                        )
-                    # logger.debug(f"保存表情包元数据: {file_path}")
-                except Exception as e:
-                    logger.error(f"保存表情包文件或元数据失败: {str(e)}")
+                    img_obj = Images.get((Images.emoji_hash == image_hash) & (Images.type == "emoji"))
+                    img_obj.path = file_path
+                    img_obj.description = description
+                    img_obj.timestamp = current_timestamp
+                    img_obj.save()
+                except Images.DoesNotExist:
+                    Images.create(
+                        emoji_hash=image_hash,
+                        path=file_path,
+                        type="emoji",
+                        description=description,
+                        timestamp=current_timestamp,
+                    )
+                # logger.debug(f"保存表情包元数据: {file_path}")
+            except Exception as e:
+                logger.error(f"保存表情包文件或元数据失败: {str(e)}")
 
             # 保存描述到数据库 (ImageDescriptions表)
             self._save_description_to_db(image_hash, description, "emoji")
@@ -184,9 +184,7 @@ class ImageManager:
                 return f"[图片：{cached_description}]"
 
             # 调用AI获取描述
-            prompt = (
-                "请用中文描述这张图片的内容。如果有文字，请把文字都描述出来。并尝试猜测这个图片的含义。最多100个字。"
-            )
+            prompt = "请用中文描述这张图片的内容。如果有文字，请把文字都描述出来，请留意其主题，直观感受，以及是否有擦边色情内容。最多100个字。"
             description, _ = await self._llm.generate_response_for_image(prompt, image_base64, image_format)
 
             if description is None:
@@ -202,37 +200,37 @@ class ImageManager:
             logger.debug(f"描述是{description}")
 
             # 根据配置决定是否保存图片
-            if global_config.emoji.save_pic:
-                # 生成文件名和路径
-                current_timestamp = time.time()
-                filename = f"{int(current_timestamp)}_{image_hash[:8]}.{image_format}"
-                image_dir = os.path.join(self.IMAGE_DIR, "image")
-                os.makedirs(image_dir, exist_ok=True)
-                file_path = os.path.join(image_dir, filename)
 
+            # 生成文件名和路径
+            current_timestamp = time.time()
+            filename = f"{int(current_timestamp)}_{image_hash[:8]}.{image_format}"
+            image_dir = os.path.join(self.IMAGE_DIR, "image")
+            os.makedirs(image_dir, exist_ok=True)
+            file_path = os.path.join(image_dir, filename)
+
+            try:
+                # 保存文件
+                with open(file_path, "wb") as f:
+                    f.write(image_bytes)
+
+                # 保存到数据库 (Images表)
                 try:
-                    # 保存文件
-                    with open(file_path, "wb") as f:
-                        f.write(image_bytes)
-
-                    # 保存到数据库 (Images表)
-                    try:
-                        img_obj = Images.get((Images.emoji_hash == image_hash) & (Images.type == "image"))
-                        img_obj.path = file_path
-                        img_obj.description = description
-                        img_obj.timestamp = current_timestamp
-                        img_obj.save()
-                    except Images.DoesNotExist:
-                        Images.create(
-                            emoji_hash=image_hash,
-                            path=file_path,
-                            type="image",
-                            description=description,
-                            timestamp=current_timestamp,
-                        )
-                    logger.trace(f"保存图片元数据: {file_path}")
-                except Exception as e:
-                    logger.error(f"保存图片文件或元数据失败: {str(e)}")
+                    img_obj = Images.get((Images.emoji_hash == image_hash) & (Images.type == "image"))
+                    img_obj.path = file_path
+                    img_obj.description = description
+                    img_obj.timestamp = current_timestamp
+                    img_obj.save()
+                except Images.DoesNotExist:
+                    Images.create(
+                        emoji_hash=image_hash,
+                        path=file_path,
+                        type="image",
+                        description=description,
+                        timestamp=current_timestamp,
+                    )
+                logger.trace(f"保存图片元数据: {file_path}")
+            except Exception as e:
+                logger.error(f"保存图片文件或元数据失败: {str(e)}")
 
             # 保存描述到数据库 (ImageDescriptions表)
             self._save_description_to_db(image_hash, description, "image")

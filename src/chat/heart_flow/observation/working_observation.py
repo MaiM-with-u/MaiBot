@@ -12,12 +12,12 @@ logger = get_logger("observation")
 
 # 所有观察的基类
 class WorkingMemoryObservation:
-    def __init__(self, observe_id, working_memory: WorkingMemory):
+    def __init__(self, observe_id):
         self.observe_info = ""
         self.observe_id = observe_id
         self.last_observe_time = datetime.now().timestamp()
 
-        self.working_memory = working_memory
+        self.working_memory = WorkingMemory(chat_id=observe_id)
 
         self.retrieved_working_memory = []
 
@@ -39,6 +39,10 @@ class WorkingMemoryObservation:
             "observe_info": self.observe_info,
             "observe_id": self.observe_id,
             "last_observe_time": self.last_observe_time,
-            "working_memory": self.working_memory.to_dict() if hasattr(self.working_memory, 'to_dict') else str(self.working_memory),
-            "retrieved_working_memory": [item.to_dict() if hasattr(item, 'to_dict') else str(item) for item in self.retrieved_working_memory]
+            "working_memory": self.working_memory.to_dict()
+            if hasattr(self.working_memory, "to_dict")
+            else str(self.working_memory),
+            "retrieved_working_memory": [
+                item.to_dict() if hasattr(item, "to_dict") else str(item) for item in self.retrieved_working_memory
+            ],
         }

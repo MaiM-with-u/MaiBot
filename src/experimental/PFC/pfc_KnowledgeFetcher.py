@@ -53,7 +53,7 @@ class KnowledgeFetcher:
             Tuple[str, str]: (获取的知识, 知识来源)
         """
         # 构建查询上下文
-        chat_history_text = await build_readable_messages(
+        chat_history_text = build_readable_messages(
             chat_history,
             replace_bot_name=True,
             merge_messages=False,

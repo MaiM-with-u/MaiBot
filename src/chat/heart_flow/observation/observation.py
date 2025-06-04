@@ -18,7 +18,7 @@ class Observation:
         return {
             "observe_info": self.observe_info,
             "observe_id": self.observe_id,
-            "last_observe_time": self.last_observe_time
+            "last_observe_time": self.last_observe_time,
         }
 
     async def observe(self):

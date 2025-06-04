@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Type, Any
 from src.chat.focus_chat.planners.actions.base_action import BaseAction, _ACTION_REGISTRY
 from src.chat.heart_flow.observation.observation import Observation
+from src.chat.focus_chat.replyer.default_replyer import DefaultReplyer
 from src.chat.focus_chat.expressors.default_expressor import DefaultExpressor
 from src.chat.message_receive.chat_stream import ChatStream
 from src.common.logger_manager import get_logger
@@ -134,10 +135,11 @@ class ActionManager:
         cycle_timers: dict,
         thinking_id: str,
         observations: List[Observation],
-        expressor: DefaultExpressor,
         chat_stream: ChatStream,
         log_prefix: str,
         shutting_down: bool = False,
+        expressor: DefaultExpressor = None,
+        replyer: DefaultReplyer = None,
     ) -> Optional[BaseAction]:
         """
         创建动作处理器实例
@@ -150,6 +152,7 @@ class ActionManager:
             thinking_id: 思考ID
             observations: 观察列表
             expressor: 表达器
+            replyer: 回复器
             chat_stream: 聊天流
             log_prefix: 日志前缀
             shutting_down: 是否正在关闭
@@ -176,6 +179,7 @@ class ActionManager:
                 thinking_id=thinking_id,
                 observations=observations,
                 expressor=expressor,
+                replyer=replyer,
                 chat_stream=chat_stream,
                 log_prefix=log_prefix,
                 shutting_down=shutting_down,

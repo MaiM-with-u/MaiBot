@@ -118,6 +118,7 @@ class MemoryActivator:
 
         # 只取response的第一个元素（字符串）
         response_str = response[0]
+        print(f"response_str: {response_str[1]}")
         keywords = list(get_keywords_from_json(response_str))
 
         # 更新关键词缓存

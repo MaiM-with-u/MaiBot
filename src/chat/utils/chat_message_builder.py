@@ -150,7 +150,7 @@ def num_new_messages_since_with_users(
     return count_messages(message_filter=filter_query)
 
 
-async def _build_readable_messages_internal(
+def _build_readable_messages_internal(
     messages: List[Dict[str, Any]],
     replace_bot_name: bool = True,
     merge_messages: bool = False,
@@ -214,7 +214,7 @@ async def _build_readable_messages_internal(
         if replace_bot_name and user_id == global_config.bot.qq_account:
             person_name = f"{global_config.bot.nickname}(你)"
         else:
-            person_name = await person_info_manager.get_value(person_id, "person_name")
+            person_name = person_info_manager.get_value_sync(person_id, "person_name")
 
         # 如果 person_name 未设置，则使用消息中的 nickname 或默认名称
         if not person_name:
@@ -232,7 +232,7 @@ async def _build_readable_messages_internal(
             aaa = match.group(1)
             bbb = match.group(2)
             reply_person_id = person_info_manager.get_person_id(platform, bbb)
-            reply_person_name = await person_info_manager.get_value(reply_person_id, "person_name")
+            reply_person_name = person_info_manager.get_value_sync(reply_person_id, "person_name")
             if not reply_person_name:
                 reply_person_name = aaa
             # 在内容前加上回复信息
@@ -249,7 +249,7 @@ async def _build_readable_messages_internal(
                 aaa = m.group(1)
                 bbb = m.group(2)
                 at_person_id = person_info_manager.get_person_id(platform, bbb)
-                at_person_name = await person_info_manager.get_value(at_person_id, "person_name")
+                at_person_name = person_info_manager.get_value_sync(at_person_id, "person_name")
                 if not at_person_name:
                     at_person_name = aaa
                 new_content += f"@{at_person_name}"
@@ -342,7 +342,7 @@ async def _build_readable_messages_internal(
         # 使用指定的 timestamp_mode 格式化时间
         readable_time = translate_timestamp_to_human_readable(merged["start_time"], mode=timestamp_mode)
 
-        header = f"{readable_time}{merged['name']} 说:"
+        header = f"{readable_time}, {merged['name']} :"
         output_lines.append(header)
         # 将内容合并，并添加缩进
         for line in merged["content"]:
@@ -377,13 +377,13 @@ async def build_readable_messages_with_list(
     将消息列表转换为可读的文本格式，并返回原始(时间戳, 昵称, 内容)列表。
     允许通过参数控制格式化行为。
     """
-    formatted_string, details_list = await _build_readable_messages_internal(
+    formatted_string, details_list = _build_readable_messages_internal(
         messages, replace_bot_name, merge_messages, timestamp_mode, truncate
     )
     return formatted_string, details_list
 
 
-async def build_readable_messages(
+def build_readable_messages(
     messages: List[Dict[str, Any]],
     replace_bot_name: bool = True,
     merge_messages: bool = False,
@@ -398,7 +398,7 @@ async def build_readable_messages(
     """
     if read_mark <= 0:
         # 没有有效的 read_mark，直接格式化所有消息
-        formatted_string, _ = await _build_readable_messages_internal(
+        formatted_string, _ = _build_readable_messages_internal(
             messages, replace_bot_name, merge_messages, timestamp_mode, truncate
         )
         return formatted_string
@@ -410,18 +410,18 @@ async def build_readable_messages(
         # 分别格式化
         # 注意：这里决定对已读和未读部分都应用相同的 truncate 设置
         # 如果需要不同的行为（例如只截断已读部分），需要调整这里的调用
-        formatted_before, _ = await _build_readable_messages_internal(
+        formatted_before, _ = _build_readable_messages_internal(
             messages_before_mark, replace_bot_name, merge_messages, timestamp_mode, truncate
         )
-        formatted_after, _ = await _build_readable_messages_internal(
+        formatted_after, _ = _build_readable_messages_internal(
             messages_after_mark,
             replace_bot_name,
             merge_messages,
             timestamp_mode,
         )
 
-        readable_read_mark = translate_timestamp_to_human_readable(read_mark, mode=timestamp_mode)
-        read_mark_line = f"\n--- 以上消息是你已经思考过的内容已读 (标记时间: {readable_read_mark}) ---\n--- 请关注以下未读的新消息---\n"
+        # readable_read_mark = translate_timestamp_to_human_readable(read_mark, mode=timestamp_mode)
+        read_mark_line = "\n--- 以上消息是你已经看过---\n--- 请关注以下未读的新消息---\n"
 
         # 组合结果，确保空部分不引入多余的标记或换行
         if formatted_before and formatted_after:

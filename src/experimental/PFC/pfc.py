@@ -91,7 +91,7 @@ class GoalAnalyzer:
 
         if observation_info.new_messages_count > 0:
             new_messages_list = observation_info.unprocessed_messages
-            new_messages_str = await build_readable_messages(
+            new_messages_str = build_readable_messages(
                 new_messages_list,
                 replace_bot_name=True,
                 merge_messages=False,
@@ -224,7 +224,7 @@ class GoalAnalyzer:
 
     async def analyze_conversation(self, goal, reasoning):
         messages = self.chat_observer.get_cached_messages()
-        chat_history_text = await build_readable_messages(
+        chat_history_text = build_readable_messages(
             messages,
             replace_bot_name=True,
             merge_messages=False,

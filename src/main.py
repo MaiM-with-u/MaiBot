@@ -6,7 +6,6 @@ from .manager.async_task_manager import async_task_manager
 from .chat.utils.statistic import OnlineTimeRecordTask, StatisticOutputTask
 from .manager.mood_manager import MoodPrintTask, MoodUpdateTask
 from .chat.emoji_system.emoji_manager import emoji_manager
-from .person_info.person_info import person_info_manager
 from .chat.normal_chat.willing.willing_manager import willing_manager
 from .chat.message_receive.chat_stream import chat_manager
 from src.chat.heart_flow.heartflow import heartflow
@@ -21,6 +20,7 @@ from .common.server import global_server, Server
 from rich.traceback import install
 from .chat.focus_chat.expressors.exprssion_learner import expression_learner
 from .api.main import start_api_server
+from .person_info.impression_update_task import impression_update_task
 
 install(extra_lines=3)
 
@@ -60,6 +60,9 @@ class MainSystem:
         # 添加遥测心跳任务
         await async_task_manager.add_task(TelemetryHeartBeatTask())
 
+        # 添加印象更新任务
+        await async_task_manager.add_task(impression_update_task)
+
         # 启动API服务器
         start_api_server()
         logger.success("API服务器启动成功")
@@ -71,10 +74,6 @@ class MainSystem:
         await async_task_manager.add_task(MoodUpdateTask())
         # 添加情绪打印任务
         await async_task_manager.add_task(MoodPrintTask())
-
-        # 检查并清除person_info冗余字段，启动个人习惯推断
-        # await person_info_manager.del_all_undefined_field()
-        asyncio.create_task(person_info_manager.personal_habit_deduction())
 
         # 启动愿望管理器
         await willing_manager.async_task_starter()

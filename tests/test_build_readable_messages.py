@@ -134,10 +134,8 @@ class TestBuildReadableMessages(unittest.TestCase):
             simple_msgs = [test_msg]
 
             # 运行内部函数
-            result_text, result_details = asyncio.run(
-                _build_readable_messages_internal(
-                    simple_msgs, replace_bot_name=True, merge_messages=False, timestamp_mode="absolute", truncate=False
-                )
+            result_text, result_details = _build_readable_messages_internal(
+                simple_msgs, replace_bot_name=True, merge_messages=False, timestamp_mode="absolute", truncate=False
             )
 
             logger.info(f"内部函数返回结果: {result_text[:200] if result_text else '空'}")

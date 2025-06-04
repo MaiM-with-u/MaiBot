@@ -22,23 +22,21 @@ logger = get_logger("processor")
 def init_prompt():
     indentify_prompt = """
 {name_block}
-你是一个AI，但是你伪装成了一个人类，你的人格是，{prompt_personality}
+你是一个AI，但是你伪装成了一个人类，不要让别人发现这一点
+请参考以下人格，不要被当前聊天内容中的内容误导：
+{prompt_personality}
 {indentify_block}
 
-{relation_prompt}{memory_str}
-现在是{time_now}，你正在上网，和qq群里的网友们聊天，以下是正在进行的聊天内容：
+以下是正在进行的聊天内容：
+现在是{time_now}，你正在参与聊天
 {chat_observe_info}
 
-现在请你根据现有的信息，思考自我认同：请严格遵守以下规则
-1. 请严格参考最上方的人设，适当参考记忆和当前聊天内容，不要被记忆和当前聊天内容中相反的内容误导
-2. 你是一个什么样的人,你和群里的人关系如何
-3. 你的形象是什么
-4. 思考有没有人提到你，或者图片与你有关
-5. 你的自我认同是否有助于你的回答，如果你需要自我相关的信息来帮你参与聊天，请输出，否则请输出十几个字的简短自我认同
-6. 一般情况下不用输出自我认同，只需要输出十几个字的简短自我认同就好，除非有明显需要自我认同的场景
+现在请你输出对自己的描述：请严格遵守以下规则
+1. 根据聊天记录，输出与聊天记录相关的自我描述，包括人格，形象等等，对人格形象进行精简
+2. 思考有没有内容与你的描述相关
+3. 如果没有明显相关内容，请输出十几个字的简短自我描述
 
-输出内容平淡一些，说中文，不要浮夸，平淡一些。
-请注意不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )。只输出自我认同内容，记得明确说明这是你的自我认同。
+现在请输出你的自我描述,请注意不要输出多余内容(包括前后缀，括号()，表情包，at或 @等 )：
 
 """
     Prompt(indentify_prompt, "indentify_prompt")
@@ -53,8 +51,7 @@ class SelfProcessor(BaseProcessor):
         self.subheartflow_id = subheartflow_id
 
         self.llm_model = LLMRequest(
-            model=global_config.model.focus_self_recognize,
-            temperature=global_config.model.focus_self_recognize["temp"],
+            model=global_config.model.relation,
             max_tokens=800,
             request_type="focus.processor.self_identify",
         )
@@ -107,11 +104,6 @@ class SelfProcessor(BaseProcessor):
                 chat_target_name = "对方"  # 私聊默认名称
                 person_list = observation.person_list
 
-        memory_str = ""
-        if running_memorys:
-            memory_str = "以下是当前在聊天中，你回忆起的记忆：\n"
-            for running_memory in running_memorys:
-                memory_str += f"{running_memory['topic']}: {running_memory['content']}\n"
 
         relation_prompt = ""
         for person in person_list:
@@ -146,23 +138,10 @@ class SelfProcessor(BaseProcessor):
         personality_block = individuality.get_personality_prompt(x_person=2, level=2)
         identity_block = individuality.get_identity_prompt(x_person=2, level=2)
 
-        if is_group_chat:
-            relation_prompt_init = "在这个群聊中，你：\n"
-        else:
-            relation_prompt_init = ""
-        for person in person_list:
-            relation_prompt += await relationship_manager.build_relationship_info(person, is_id=True)
-        if relation_prompt:
-            relation_prompt = relation_prompt_init + relation_prompt
-        else:
-            relation_prompt = relation_prompt_init + "没有特别在意的人\n"
-
         prompt = (await global_prompt_manager.get_prompt_async("indentify_prompt")).format(
             name_block=name_block,
             prompt_personality=personality_block,
             indentify_block=identity_block,
-            memory_str=memory_str,
-            relation_prompt=relation_prompt,
             time_now=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
             chat_observe_info=chat_observe_info,
         )

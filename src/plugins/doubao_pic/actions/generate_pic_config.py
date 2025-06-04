@@ -36,9 +36,9 @@ def generate_config():
             print("请记得编辑该文件，填入您的火山引擎API 密钥。")
         except IOError as e:
             print(f"错误：无法写入配置文件 {config_file_path}。原因: {e}")
-    else:
-        print(f"配置文件已存在: {config_file_path}")
-        print("未进行任何更改。如果您想重新生成，请先删除或重命名现有文件。")
+    # else:
+        # print(f"配置文件已存在: {config_file_path}")
+        # print("未进行任何更改。如果您想重新生成，请先删除或重命名现有文件。")
 
 
 if __name__ == "__main__":

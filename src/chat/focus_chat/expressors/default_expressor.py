@@ -72,7 +72,7 @@ def init_prompt():
 
 
 class DefaultExpressor:
-    def __init__(self, chat_id: str):
+    def __init__(self, chat_stream: ChatStream):
         self.log_prefix = "expressor"
         # TODO: API-Adapter修改标记
         self.express_model = LLMRequest(
@@ -83,13 +83,9 @@ class DefaultExpressor:
         )
         self.heart_fc_sender = HeartFCSender()
 
-        self.chat_id = chat_id
-        self.chat_stream: Optional[ChatStream] = None
-        self.is_group_chat = True
-        self.chat_target_info = None
-
-    async def initialize(self):
-        self.is_group_chat, self.chat_target_info = await get_chat_type_and_target_info(self.chat_id)
+        self.chat_id = chat_stream.stream_id
+        self.chat_stream = chat_stream
+        self.is_group_chat, self.chat_target_info = get_chat_type_and_target_info(self.chat_id)
 
     async def _create_thinking_message(self, anchor_message: Optional[MessageRecv], thinking_id: str):
         """创建思考消息 (尝试锚定到 anchor_message)"""
@@ -285,7 +281,7 @@ class DefaultExpressor:
             timestamp=time.time(),
             limit=global_config.focus_chat.observation_context_size,
         )
-        chat_talking_prompt = await build_readable_messages(
+        chat_talking_prompt = build_readable_messages(
             message_list_before_now,
             replace_bot_name=True,
             merge_messages=True,
@@ -395,7 +391,7 @@ class DefaultExpressor:
             thinking_start_time = time.time()
 
         if thinking_start_time is None:
-            logger.error(f"[{stream_name}]思考过程未找到或已结束，无法发送回复。")
+            logger.error(f"[{stream_name}]expressor思考过程未找到或已结束，无法发送回复。")
             return None
 
         mark_head = False
@@ -476,7 +472,7 @@ class DefaultExpressor:
         emoji_base64 = ""
         emoji_raw = await emoji_manager.get_emoji_for_text(send_emoji)
         if emoji_raw:
-            emoji_path, _description = emoji_raw
+            emoji_path, _description, _emotion = emoji_raw
             emoji_base64 = image_path_to_base64(emoji_path)
         return emoji_base64
 

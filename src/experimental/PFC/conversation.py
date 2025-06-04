@@ -89,7 +89,7 @@ class Conversation:
                 timestamp=time.time(),
                 limit=30,  # 加载最近30条作为初始上下文，可以调整
             )
-            chat_talking_prompt = await build_readable_messages(
+            chat_talking_prompt = build_readable_messages(
                 initial_messages,
                 replace_bot_name=True,
                 merge_messages=False,

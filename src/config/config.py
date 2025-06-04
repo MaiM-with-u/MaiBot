@@ -46,7 +46,7 @@ TEMPLATE_DIR = "template"
 
 # 考虑到，实际上配置文件中的mai_version是不会自动更新的,所以采用硬编码
 # 对该字段的更新，请严格参照语义化版本规范：https://semver.org/lang/zh-CN/
-MMC_VERSION = "0.7.0-snapshot.2"
+MMC_VERSION = "0.7.1-snapshot.1"
 
 
 def update_config():

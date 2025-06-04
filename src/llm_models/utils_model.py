@@ -136,7 +136,7 @@ class LLMRequest:
         try:
             # 使用 Peewee 创建表，safe=True 表示如果表已存在则不会抛出错误
             db.create_tables([LLMUsage], safe=True)
-            logger.debug("LLMUsage 表已初始化/确保存在。")
+            # logger.debug("LLMUsage 表已初始化/确保存在。")
         except Exception as e:
             logger.error(f"创建 LLMUsage 表失败: {str(e)}")
 
@@ -753,7 +753,7 @@ class LLMRequest:
 
         response = await self._execute_request(endpoint="/chat/completions", payload=data, prompt=prompt)
         # 原样返回响应，不做处理
-        
+
         if len(response) == 3:
             content, reasoning_content, tool_calls = response
             return content, (reasoning_content, self.model_name, tool_calls)

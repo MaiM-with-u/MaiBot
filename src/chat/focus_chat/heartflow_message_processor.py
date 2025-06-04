@@ -180,8 +180,6 @@ class HeartFCMessageReceiver:
             userinfo = message.message_info.user_info
             messageinfo = message.message_info
 
-            # 2. 消息缓冲与流程序化
-            # await message_buffer.start_caching_messages(message)
 
             chat = await chat_manager.get_or_create_stream(
                 platform=messageinfo.platform,
@@ -199,21 +197,8 @@ class HeartFCMessageReceiver:
             ):
                 return
 
-            # 4. 缓冲检查
-            # buffer_result = await message_buffer.query_buffer_result(message)
-            # if not buffer_result:
-            #     msg_type = _get_message_type(message)
-            #     type_messages = {
-            #         "text": f"触发缓冲，消息：{message.processed_plain_text}",
-            #         "image": "触发缓冲，表情包/图片等待中",
-            #         "seglist": "触发缓冲，消息列表等待中",
-            #     }
-            #     logger.debug(type_messages.get(msg_type, "触发未知类型缓冲"))
-            #     return
-
             # 5. 消息存储
             await self.storage.store_message(message, chat)
-            logger.trace(f"存储成功: {message.processed_plain_text}")
 
             # 6. 兴趣度计算与更新
             interested_rate, is_mentioned = await _calculate_interest(message)

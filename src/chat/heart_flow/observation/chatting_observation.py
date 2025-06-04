@@ -45,10 +45,7 @@ class ChattingObservation(Observation):
         self.chat_id = chat_id
         self.platform = "qq"
 
-        # --- Initialize attributes (defaults) ---
-        self.is_group_chat: bool = False
-        self.chat_target_info: Optional[dict] = None
-        # --- End Initialization ---
+        self.is_group_chat, self.chat_target_info = get_chat_type_and_target_info(self.chat_id)
 
         # --- Other attributes initialized in __init__ ---
         self.talking_message = []
@@ -65,6 +62,12 @@ class ChattingObservation(Observation):
         self.oldest_messages = []
         self.oldest_messages_str = ""
         self.compressor_prompt = ""
+        
+        initial_messages = get_raw_msg_before_timestamp_with_chat(self.chat_id, self.last_observe_time, 10)
+        self.last_observe_time = initial_messages[-1]["time"] if initial_messages else self.last_observe_time
+        self.talking_message = initial_messages
+        self.talking_message_str = build_readable_messages(self.talking_message)
+
 
     def to_dict(self) -> dict:
         """将观察对象转换为可序列化的字典"""
@@ -81,16 +84,8 @@ class ChattingObservation(Observation):
             "person_list": self.person_list,
             "oldest_messages_str": self.oldest_messages_str,
             "compressor_prompt": self.compressor_prompt,
-            "last_observe_time": self.last_observe_time
+            "last_observe_time": self.last_observe_time,
         }
-
-    async def initialize(self):
-        self.is_group_chat, self.chat_target_info = await get_chat_type_and_target_info(self.chat_id)
-        logger.debug(f"初始化observation: self.is_group_chat: {self.is_group_chat}")
-        logger.debug(f"初始化observation: self.chat_target_info: {self.chat_target_info}")
-        initial_messages = get_raw_msg_before_timestamp_with_chat(self.chat_id, self.last_observe_time, 10)
-        self.talking_message = initial_messages
-        self.talking_message_str = await build_readable_messages(self.talking_message)
 
     # 进行一次观察 返回观察结果observe_info
     def get_observe_info(self, ids=None):
@@ -224,8 +219,8 @@ class ChattingObservation(Observation):
             self.talking_message = self.talking_message[messages_to_remove_count:]  # 保留后半部分，即最新的
 
             # print(f"压缩中：oldest_messages: {oldest_messages}")
-            oldest_messages_str = await build_readable_messages(
-                messages=oldest_messages, timestamp_mode="normal", read_mark=0
+            oldest_messages_str = build_readable_messages(
+                messages=oldest_messages, timestamp_mode="normal_no_YMD", read_mark=0
             )
 
             # --- Build prompt using template ---
@@ -268,15 +263,15 @@ class ChattingObservation(Observation):
 
         # 构建中
         # print(f"构建中：self.talking_message: {self.talking_message}")
-        self.talking_message_str = await build_readable_messages(
+        self.talking_message_str = build_readable_messages(
             messages=self.talking_message,
             timestamp_mode="lite",
             read_mark=last_obs_time_mark,
         )
         # print(f"构建中：self.talking_message_str: {self.talking_message_str}")
-        self.talking_message_str_truncate = await build_readable_messages(
+        self.talking_message_str_truncate = build_readable_messages(
             messages=self.talking_message,
-            timestamp_mode="normal",
+            timestamp_mode="normal_no_YMD",
             read_mark=last_obs_time_mark,
             truncate=True,
         )

@@ -214,11 +214,10 @@ class PersonInfo(BaseModel):
     platform = TextField()  # 平台
     user_id = TextField(index=True)  # 用户ID
     nickname = TextField()  # 用户昵称
+    person_impression = TextField(null=True)  # 个人印象
     relationship_value = IntegerField(default=0)  # 关系值
     know_time = FloatField()  # 认识时间 (时间戳)
-    msg_interval = IntegerField()  # 消息间隔
-    # msg_interval_list: 存储为 JSON 字符串的列表
-    msg_interval_list = TextField(null=True)
+    
 
     class Meta:
         # database = db # 继承自 BaseModel
@@ -334,9 +333,8 @@ def create_tables():
 def initialize_database():
     """
     检查所有定义的表是否存在，如果不存在则创建它们。
-    检查所有表的所有字段是否存在，如果缺失则警告用户并退出程序。
+    检查所有表的所有字段是否存在，如果缺失则自动添加。
     """
-    import sys
 
     models = [
         ChatStreams,
@@ -350,44 +348,63 @@ def initialize_database():
         Knowledges,
         ThinkingLog,
         RecalledMessages,
-        GraphNodes,  # 添加图节点表
-        GraphEdges,  # 添加图边表
+        GraphNodes,
+        GraphEdges,
     ]
 
-    needs_creation = False
     try:
         with db:  # 管理 table_exists 检查的连接
             for model in models:
                 table_name = model._meta.table_name
                 if not db.table_exists(model):
-                    logger.warning(f"表 '{table_name}' 未找到。")
-                    needs_creation = True
-                    break  # 一个表丢失，无需进一步检查。
-            if not needs_creation:
+                    logger.warning(f"表 '{table_name}' 未找到，正在创建...")
+                    db.create_tables([model])
+                    logger.info(f"表 '{table_name}' 创建成功")
+                    continue
+
                 # 检查字段
-                for model in models:
-                    table_name = model._meta.table_name
-                    cursor = db.execute_sql(f"PRAGMA table_info('{table_name}')")
-                    existing_columns = {row[1] for row in cursor.fetchall()}
-                    model_fields = model._meta.fields
-                    for field_name in model_fields:
-                        if field_name not in existing_columns:
-                            logger.error(f"表 '{table_name}' 缺失字段 '{field_name}'，请手动迁移数据库结构后重启程序。")
-                            sys.exit(1)
+                cursor = db.execute_sql(f"PRAGMA table_info('{table_name}')")
+                existing_columns = {row[1] for row in cursor.fetchall()}
+                model_fields = set(model._meta.fields.keys())
+
+                # 检查并添加缺失字段（原有逻辑）
+                for field_name, field_obj in model._meta.fields.items():
+                    if field_name not in existing_columns:
+                        logger.info(f"表 '{table_name}' 缺失字段 '{field_name}'，正在添加...")
+                        field_type = field_obj.__class__.__name__
+                        sql_type = {
+                            'TextField': 'TEXT',
+                            'IntegerField': 'INTEGER',
+                            'FloatField': 'FLOAT',
+                            'DoubleField': 'DOUBLE',
+                            'BooleanField': 'INTEGER',
+                            'DateTimeField': 'DATETIME'
+                        }.get(field_type, 'TEXT')
+                        alter_sql = f'ALTER TABLE {table_name} ADD COLUMN {field_name} {sql_type}'
+                        if field_obj.null:
+                            alter_sql += ' NULL'
+                        else:
+                            alter_sql += ' NOT NULL'
+                        if hasattr(field_obj, 'default') and field_obj.default is not None:
+                            alter_sql += f' DEFAULT {field_obj.default}'
+                        db.execute_sql(alter_sql)
+                        logger.info(f"字段 '{field_name}' 添加成功")
+
+                # 检查并删除多余字段（新增逻辑）
+                extra_fields = existing_columns - model_fields
+                for field_name in extra_fields:
+                    try:
+                        logger.warning(f"表 '{table_name}' 存在多余字段 '{field_name}'，正在尝试删除...")
+                        db.execute_sql(f"ALTER TABLE {table_name} DROP COLUMN {field_name}")
+                        logger.info(f"字段 '{field_name}' 删除成功")
+                    except Exception as e:
+                        logger.error(f"删除字段 '{field_name}' 失败: {e}")
     except Exception as e:
         logger.exception(f"检查表或字段是否存在时出错: {e}")
         # 如果检查失败（例如数据库不可用），则退出
         return
 
-    if needs_creation:
-        logger.info("正在初始化数据库：一个或多个表丢失。正在尝试创建所有定义的表...")
-        try:
-            create_tables()  # 此函数有其自己的 'with db:' 上下文管理。
-            logger.info("数据库表创建过程完成。")
-        except Exception as e:
-            logger.exception(f"创建表期间出错: {e}")
-    else:
-        logger.info("所有数据库表及字段均已存在。")
+    logger.info("数据库初始化完成")
 
 
 # 模块加载时调用初始化函数

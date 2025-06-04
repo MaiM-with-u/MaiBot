@@ -71,7 +71,7 @@ class TelemetryHeartBeatTask(AsyncTask):
                     timeout=5,  # 设置超时时间为5秒
                 )
             except Exception as e:
-                logger.error(f"请求UUID时出错: {e}")  # 可能是网络问题
+                logger.warning(f"请求UUID出错，不过你还是可以正常使用麦麦: {e}")  # 可能是网络问题
 
             logger.debug(f"{TELEMETRY_SERVER_URL}/stat/reg_client")
 
@@ -90,7 +90,9 @@ class TelemetryHeartBeatTask(AsyncTask):
                 else:
                     logger.error("无效的服务端响应")
             else:
-                logger.error(f"请求UUID失败，状态码: {response.status_code}, 响应内容: {response.text}")
+                logger.error(
+                    f"请求UUID失败，不过你还是可以正常使用麦麦，状态码: {response.status_code}, 响应内容: {response.text}"
+                )
 
             # 请求失败，重试次数+1
             try_count += 1
@@ -122,7 +124,7 @@ class TelemetryHeartBeatTask(AsyncTask):
                 timeout=5,  # 设置超时时间为5秒
             )
         except Exception as e:
-            logger.error(f"心跳发送失败: {e}")
+            logger.warning(f"（此错误不会影响正常使用）状态未发生: {e}")
 
         logger.debug(response)
 
@@ -132,21 +134,23 @@ class TelemetryHeartBeatTask(AsyncTask):
             logger.debug(f"心跳发送成功，状态码: {response.status_code}")
         elif response.status_code == 403:
             # 403 Forbidden
-            logger.error(
-                "心跳发送失败，403 Forbidden: 可能是UUID无效或未注册。"
+            logger.warning(
+                "（此错误不会影响正常使用）心跳发送失败，403 Forbidden: 可能是UUID无效或未注册。"
                 "处理措施：重置UUID，下次发送心跳时将尝试重新注册。"
             )
             self.client_uuid = None
             del local_storage["mmc_uuid"]  # 删除本地存储的UUID
         else:
             # 其他错误
-            logger.error(f"心跳发送失败，状态码: {response.status_code}, 响应内容: {response.text}")
+            logger.warning(
+                f"（此错误不会影响正常使用）状态未发送，状态码: {response.status_code}, 响应内容: {response.text}"
+            )
 
     async def run(self):
         # 发送心跳
         if global_config.telemetry.enable:
             if self.client_uuid is None and not await self._req_uuid():
-                logger.error("获取UUID失败，跳过此次心跳")
+                logger.warning("获取UUID失败，跳过此次心跳")
                 return
 
             await self._send_heartbeat()

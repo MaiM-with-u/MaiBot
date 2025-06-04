@@ -100,7 +100,7 @@ class PromptManager:
             return context_prompt
         # 如果上下文中不存在，则使用全局提示模板
         async with self._lock:
-            logger.debug(f"从全局获取提示词: {name}")
+            # logger.debug(f"从全局获取提示词: {name}")
             if name not in self._prompts:
                 raise KeyError(f"Prompt '{name}' not found")
             return self._prompts[name]

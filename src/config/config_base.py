@@ -78,6 +78,13 @@ class ConfigBase:
                 raise TypeError(f"Expected an list for {field_type.__name__}, got {type(value).__name__}")
 
             if field_origin_type is list:
+                # 如果列表元素类型是ConfigBase的子类，则对每个元素调用from_dict
+                if (
+                    field_type_args
+                    and isinstance(field_type_args[0], type)
+                    and issubclass(field_type_args[0], ConfigBase)
+                ):
+                    return [field_type_args[0].from_dict(item) for item in value]
                 return [cls._convert_field(item, field_type_args[0]) for item in value]
             elif field_origin_type is set:
                 return {cls._convert_field(item, field_type_args[0]) for item in value}

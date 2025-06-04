@@ -412,7 +412,7 @@ class EmojiManager:
         except Exception as e:
             logger.error(f"记录表情使用失败: {str(e)}")
 
-    async def get_emoji_for_text(self, text_emotion: str) -> Optional[Tuple[str, str]]:
+    async def get_emoji_for_text(self, text_emotion: str) -> Optional[Tuple[str, str, str]]:
         """根据文本内容获取相关表情包
         Args:
             text_emotion: 输入的情感描述文本
@@ -478,7 +478,7 @@ class EmojiManager:
                 f"为[{text_emotion}]找到表情包: {matched_emotion} ({selected_emoji.filename}), Similarity: {similarity:.4f}"
             )
             # 返回完整文件路径和描述
-            return selected_emoji.full_path, f"[ {selected_emoji.description} ]"
+            return selected_emoji.full_path, f"[ {selected_emoji.description} ]", matched_emotion
 
         except Exception as e:
             logger.error(f"[错误] 获取表情包失败: {str(e)}")
@@ -602,8 +602,9 @@ class EmojiManager:
                 continue
 
             # 检查是否需要处理表情包(数量超过最大值或不足)
-            if (self.emoji_num > self.emoji_num_max and global_config.emoji.do_replace) or (
-                self.emoji_num < self.emoji_num_max
+            if global_config.emoji.steal_emoji and (
+                (self.emoji_num > self.emoji_num_max and global_config.emoji.do_replace)
+                or (self.emoji_num < self.emoji_num_max)
             ):
                 try:
                     # 获取目录下所有图片文件

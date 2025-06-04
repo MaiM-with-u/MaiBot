@@ -23,7 +23,6 @@ def init_prompt():
     # 添加工具执行器提示词
     tool_executor_prompt = """
 你是一个专门执行工具的助手。你的名字是{bot_name}。现在是{time_now}。
-{memory_str}
 群里正在进行的聊天内容：
 {chat_observe_info}
 
@@ -33,7 +32,7 @@ def init_prompt():
 3. 是否有明确的工具使用指令
 4. 考虑用户与你的关系以及当前的对话氛围
 
-如果需要使用工具，请直接调用相应的工具函数。如果不需要使用工具，请简单输出"无需使用工具"。
+If you need to use a tool, please directly call the corresponding tool function. If you do not need to use any tool, simply output "No tool needed".
 """
     Prompt(tool_executor_prompt, "tool_executor_prompt")
 
