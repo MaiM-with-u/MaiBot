@@ -326,60 +326,47 @@ def random_remove_punctuation(text: str) -> str:
 
 def process_llm_json_response(text: str) -> list[str]:
     """
-    处理LLM的JSON格式回复，提取finalreply字段内容
-
+    处理LLM的JSON格式回复，提取finalreply字段内容。
     Args:
-        text: LLM的原始回复文本
-
+        text: LLM的原始回复文本。
     Returns:
-        list[str]: 处理后的回复内容列表
+        list[str]: 处理后的回复内容列表。
     """
-    if text:
-        try:
-            # 查找文本中最后一个JSON对象
-            last_json_str = _extract_last_json_from_text(text)
-            if not last_json_str:
-                logger.warning("未找到有效的JSON对象，返回默认回复")
-                return process_llm_response("懒得说")
-
-            logger.info(f"提取到最后一个JSON: {last_json_str}")
-
-            # 使用repair_json修复可能的JSON格式错误
-            fixed_json = repair_json(last_json_str)
-            logger.debug(f"修复后的JSON: {fixed_json}")
-
-            if isinstance(fixed_json, str):
-                try:
-                    parsed_json = json.loads(fixed_json)
-                except json.JSONDecodeError as decode_error:
-                    logger.error(f"JSON解析错误: {str(decode_error)}")
-                    return process_llm_response("懒得说")
-            else:
-                # 如果repair_json直接返回了字典对象，直接使用
-                parsed_json = fixed_json
-
-            logger.debug(f"解析后的JSON数据: {parsed_json}")
-
-            final_reply = parsed_json.get("finalreply", "")
-            if not final_reply:
-                logger.warning("LLM的返回可能为空，返回默认回复")
-                return process_llm_response("懒得说")
-
-            logger.info(f"成功提取finalreply: {final_reply}")
-
-            # 对提取的回复内容进行常规处理
-            return process_llm_response(final_reply)
-
-        except Exception as e:
-            logger.error(f"处理JSON格式回复时发生错误: {e}，回退到普通文本处理")
-            return process_llm_response(text)
-
-    else:
-        logger.warning(f"LLM的返回可能为空，返回默认回复")
+    if not text:
+        logger.warning("LLM的返回为空，返回默认回复")
         return process_llm_response("懒得说")
+    try:
+        # 1. 查找文本中最后一个JSON对象
+        last_json_str = extract_last_json_from_text(text)
+        if not last_json_str:
+            logger.warning("未找到有效的JSON对象，返回默认回复")
+            return process_llm_response("懒得说")
+        logger.info(f"提取到最后一个JSON: {last_json_str}")
+        # 2. 修复可能的JSON格式错误，该函数总是返回字符串
+        fixed_json_str = repair_json(last_json_str)
+        logger.debug(f"修复后的JSON字符串: {fixed_json_str}")
+        # 3. 直接解析修复后的字符串
+        try:
+            parsed_json = json.loads(fixed_json_str)
+        except json.JSONDecodeError as e:
+            # 即使修复后，如果仍然解析失败，记录错误并返回默认值
+            logger.error(f"即使修复后，JSON解析仍然失败: {e}")
+            logger.debug(f"无法解析的字符串: {fixed_json_str}")
+            return process_llm_response("懒得说")
+        logger.debug(f"解析后的JSON数据: {parsed_json}")
+        # 4. 从解析后的对象中提取字段
+        final_reply = parsed_json.get("finalreply", "")
+        if not final_reply:
+            logger.warning("JSON中未找到'finalreply'或其值为空，返回默认回复")
+            return process_llm_response("懒得说")
+        logger.info(f"成功提取finalreply: {final_reply}")
+        # 5. 对提取的回复内容进行常规处理
+        return process_llm_response(final_reply)
+    except Exception as e:
+        logger.error(f"处理JSON格式回复时发生未知错误: {e}，回退到普通文本处理")
+        return process_llm_response(text)
 
-
-def _extract_last_json_from_text(text: str) -> str:
+def extract_last_json_from_text(text: str) -> str:
     """
     从给定文本中提取最后一个JSON对象的字符串。
     该方法从文本末尾开始反向搜索'{'字符，并尝试从每个这样的字符开始
