@@ -6,6 +6,8 @@ from collections import Counter
 import jieba
 import numpy as np
 from maim_message import UserInfo
+from json_repair import repair_json
+import json
 
 from src.common.logger import get_module_logger
 from src.manager.mood_manager import mood_manager
@@ -322,6 +324,113 @@ def random_remove_punctuation(text: str) -> str:
         result += char
     return result
 
+def process_llm_json_response(text: str) -> list[str]:
+    """
+    处理LLM的JSON格式回复，提取finalreply字段内容
+
+    Args:
+        text: LLM的原始回复文本
+
+    Returns:
+        list[str]: 处理后的回复内容列表
+    """
+    if text:
+        try:
+            # 查找文本中最后一个JSON对象
+            last_json_str = _extract_last_json_from_text(text)
+            if not last_json_str:
+                logger.warning("未找到有效的JSON对象，返回默认回复")
+                return process_llm_response("懒得说")
+
+            logger.info(f"提取到最后一个JSON: {last_json_str}")
+
+            # 使用repair_json修复可能的JSON格式错误
+            fixed_json = repair_json(last_json_str)
+            logger.debug(f"修复后的JSON: {fixed_json}")
+
+            if isinstance(fixed_json, str):
+                try:
+                    parsed_json = json.loads(fixed_json)
+                except json.JSONDecodeError as decode_error:
+                    logger.error(f"JSON解析错误: {str(decode_error)}")
+                    return process_llm_response("懒得说")
+            else:
+                # 如果repair_json直接返回了字典对象，直接使用
+                parsed_json = fixed_json
+
+            logger.debug(f"解析后的JSON数据: {parsed_json}")
+
+            final_reply = parsed_json.get("finalreply", "")
+            if not final_reply:
+                logger.warning("LLM的返回可能为空，返回默认回复")
+                return process_llm_response("懒得说")
+
+            logger.info(f"成功提取finalreply: {final_reply}")
+
+            # 对提取的回复内容进行常规处理
+            return process_llm_response(final_reply)
+
+        except Exception as e:
+            logger.error(f"处理JSON格式回复时发生错误: {e}，回退到普通文本处理")
+            return process_llm_response(text)
+
+    else:
+        logger.warning(f"LLM的返回可能为空，返回默认回复")
+        return process_llm_response("懒得说")
+
+
+def _extract_last_json_from_text(text: str) -> str:
+    """
+    从给定文本中提取最后一个JSON对象的字符串。
+    该方法从文本末尾开始反向搜索'{'字符，并尝试从每个这样的字符开始
+    使用 json.JSONDecoder.raw_decode 解析一个JSON对象。
+    当反向搜索时，第一个成功解析为完整JSON对象的子串将被返回。
+    Args:
+        text: 可能包含JSON对象字符串的输入文本。
+    Returns:
+        在文本中找到的最后一个有效JSON对象的字符串表示形式。
+        如果未找到有效的JSON对象，则返回空字符串。
+    """
+    decoder = json.JSONDecoder()  # 创建一个JSON解码器实例
+    # 从文本的末尾开始搜索 '{'
+    # current_search_end_pos 作为 rfind 的 'end' 参数，用于在 text[0:current_search_end_pos] 中搜索
+    current_search_end_pos = len(text)
+    while True:
+        # 从后往前查找 '{'。
+        # 查找范围是 text[0 : current_search_end_pos]
+        start_pos = text.rfind('{', 0, current_search_end_pos)
+        if start_pos == -1:
+            # 在剩余的搜索空间中没有找到更多的 '{' 字符。
+            logger.debug("没有（更多）找到'{'字符，或者所有解析尝试都失败了。")
+            return ""
+        # 尝试从这个位置开始解码一个JSON对象
+        # text_slice_to_decode 是从找到的 '{' 到文本末尾的切片
+        text_slice_to_decode = text[start_pos:]
+        try:
+            # raw_decode 尝试解析切片中的第一个JSON实体。
+            # 它返回 (python_object, index_in_slice_where_parsing_stopped)，
+            # 即 (解析后的Python对象, JSON在切片中结束位置的下一个索引)。
+            _, end_idx_in_slice = decoder.raw_decode(text_slice_to_decode)
+            # 实际的JSON字符串是从 start_pos 到 start_pos + end_idx_in_slice。
+            extracted_json_str = text[start_pos : start_pos + end_idx_in_slice]
+            # 因为我们是从'{'开始搜索的，raw_decode 应该能确保它是一个对象（或数组，但这里主要关注对象）。
+            # 如果解析成功，这就是最后一个有效的JSON对象。
+            logger.debug(f"成功解析JSON对象字符串: {extracted_json_str}")
+            return extracted_json_str
+        except json.JSONDecodeError as e:
+            # 从 start_pos 开始的子字符串不是一个有效的JSON对象，或者是格式错误的。
+            # 打印错误信息和尝试解析的子串前缀，方便调试
+            # 将换行符替换为空格，避免日志格式混乱
+            preview_slice = text_slice_to_decode[:70].replace('\n', ' ')
+            logger.debug(f"raw_decode 对索引 {start_pos} 开始的文本解析失败。子串预览: '{preview_slice}...'. 错误: {e}")
+            
+            # 更新 current_search_end_pos，以便在下一次迭代中
+            # 在当前的 start_pos 之前搜索 '{'。
+            current_search_end_pos = start_pos
+            # 继续循环，尝试前一个 '{'
+        
+        # 理论上，由于循环结构和返回语句，这一行是不可达的，但作为备用：
+        return ""
 
 def process_llm_response(text: str) -> list[str]:
     # 先保护颜文字

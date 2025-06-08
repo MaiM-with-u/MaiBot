@@ -11,7 +11,7 @@ from src.chat.utils.utils_image import image_path_to_base64  # Local import need
 from src.chat.utils.timer_calculator import Timer  # <--- Import Timer
 from src.chat.emoji_system.emoji_manager import emoji_manager
 from src.chat.focus_chat.heartFC_sender import HeartFCSender
-from src.chat.utils.utils import process_llm_response
+from src.chat.utils.utils import process_llm_json_response
 from src.chat.utils.info_catcher import info_catcher_manager
 from src.chat.heart_flow.utils_chat import get_chat_type_and_target_info
 from src.chat.message_receive.chat_stream import ChatStream
@@ -50,11 +50,19 @@ def init_prompt():
 {chat_target}
 {identity}，在这聊天中，"{target_message}"引起了你的注意，你想要在群里发言或者回复这条消息。
 你需要使用合适的语言习惯和句法，参考聊天内容，组织一条日常且口语化的回复。注意不要复读你说过的话。
-{config_expression_style}，请注意不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )。只输出回复内容。
+{config_expression_style}
 {keywords_reaction_prompt}
 请不要输出违法违规内容，不要输出色情，暴力，政治相关内容，如有敏感内容，请规避。
 不要浮夸，不要夸张修辞，只输出一条回复就好。
-现在，你说：
+
+请按照以下JSON格式输出你的回复：
+{{
+  "finalreply": "你的回复内容"
+}}
+
+注意：
+- 只在finalreply字段中输出回复内容，不要包含多余的前后缀、冒号、引号、括号()、表情包、at或@等
+- 确保JSON格式正确
 """,
         "default_replyer_prompt",
     )
@@ -76,11 +84,19 @@ def init_prompt():
 {style_habbits}
 {grammar_habbits}
 
-{config_expression_style}，请注意不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )。只输出回复内容。
+{config_expression_style}
 {keywords_reaction_prompt}
 请不要输出违法违规内容，不要输出色情，暴力，政治相关内容，如有敏感内容，请规避。
 不要浮夸，不要夸张修辞，只输出一条回复就好。
-现在，你说：
+
+请按照以下JSON格式输出你的回复：
+{{
+  "finalreply": "你的回复内容"
+}}
+
+注意：
+- 只在finalreply字段中输出回复内容，不要包含多余的前后缀、冒号、引号、括号()、表情包、at或@等
+- 确保JSON格式正确
 """,
         "default_replyer_private_prompt",
     )
@@ -307,7 +323,7 @@ class DefaultReplyer:
                 logger.error(f"{self.log_prefix}LLM 生成失败: {llm_e}")
                 return None  # LLM 调用失败则无法生成回复
 
-            processed_response = process_llm_response(content)
+            processed_response = process_llm_json_response(content)
 
             # 5. 处理 LLM 响应
             if not content:

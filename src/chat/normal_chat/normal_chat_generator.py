@@ -8,7 +8,7 @@ from src.chat.utils.timer_calculator import Timer
 from src.common.logger_manager import get_logger
 from src.chat.utils.info_catcher import info_catcher_manager
 from src.person_info.person_info import person_info_manager
-from src.chat.utils.utils import process_llm_response
+from src.chat.utils.utils import process_llm_json_response
 
 
 logger = get_logger("normal_chat_response")
@@ -58,7 +58,7 @@ class NormalChatGenerator:
 
         if model_response:
             logger.debug(f"{global_config.bot.nickname}的备选回复是：{model_response}")
-            model_response = process_llm_response(model_response)
+            model_response = process_llm_json_response(model_response)
 
             return model_response
         else:
