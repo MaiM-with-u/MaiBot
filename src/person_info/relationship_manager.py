@@ -125,7 +125,6 @@ class RelationshipManager:
         if not person_name or person_name == "none":
             return ""
         impression = await person_info_manager.get_value(person_id, "impression")
-        interaction = await person_info_manager.get_value(person_id, "interaction")
         points = await person_info_manager.get_value(person_id, "points") or []
         
         if isinstance(points, str):
@@ -141,11 +140,9 @@ class RelationshipManager:
         relation_prompt = f"'{person_name}' ，ta在{platform}上的昵称是{nickname_str}。"
         
 
-        if impression:
-            relation_prompt += f"你对ta的印象是：{impression}。"
-            
-        if interaction:
-            relation_prompt += f"你与ta的关系是：{interaction}。"
+        # if impression:
+            # relation_prompt += f"你对ta的印象是：{impression}。"
+
             
         if random_points:
             for point in random_points:
@@ -241,7 +238,8 @@ class RelationshipManager:
             readable_messages = readable_messages.replace(f"{original_name}", f"{mapped_name}")
         
         prompt = f"""
-你的名字是{global_config.bot.nickname}，别名是{alias_str}。
+你的名字是{global_config.bot.nickname}，{global_config.bot.nickname}的别名是{alias_str}。
+请不要混淆你自己和{global_config.bot.nickname}和{person_name}。
 请你基于用户 {person_name}(昵称:{nickname}) 的最近发言，总结出其中是否有有关{person_name}的内容引起了你的兴趣，或者有什么需要你记忆的点。
 如果没有，就输出none
 
@@ -430,64 +428,26 @@ class RelationshipManager:
                 
                 
                 impression = await person_info_manager.get_value(person_id, "impression") or ""
-                interaction = await person_info_manager.get_value(person_id, "interaction") or ""
-                
                 
                 compress_prompt = f"""
-你的名字是{global_config.bot.nickname}，别名是{alias_str}。
-请根据以下历史记录，修改原有的印象和关系，总结出对{person_name}(昵称:{nickname})的印象和特点，以及你和他/她的关系。
+你的名字是{global_config.bot.nickname}，{global_config.bot.nickname}的别名是{alias_str}。
+请不要混淆你自己和{global_config.bot.nickname}和{person_name}。
+
+请根据以下历史记录，添加，修改，整合，原有的印象和关系，总结出对用户 {person_name}(昵称:{nickname})的信息。
 
 你之前对他的印象和关系是：
 印象impression：{impression}
-关系relationship：{interaction}
 
-历史记录：
+你记得ta最近做的事：
 {points_text}
 
-请用json格式输出，包含以下字段：
-1. impression: 对这个人的总体印象和性格特点
-2. relationship: 你和他/她的关系和互动方式
-3. key_moments: 重要的互动时刻，如果历史记录中没有，则输出none
-
-格式示例：
-{{
-    "impression": "总体印象描述",
-    "relationship": "关系描述",
-    "key_moments": "时刻描述，如果历史记录中没有，则输出none"
-}}
+请输出：impression:，对这个人的总体印象，你对ta的感觉，你们的交互方式，对方的性格特点，身份，外貌，年龄，性别，习惯，爱好等等内容
 """
-                
                 # 调用LLM生成压缩总结
                 compressed_summary, _ = await self.relationship_llm.generate_response_async(prompt=compress_prompt)
-                compressed_summary = compressed_summary.strip()
                 
-                try:
-                    # 修复并解析JSON
-                    compressed_summary = repair_json(compressed_summary)
-                    summary_data = json.loads(compressed_summary)
-                    print(f"summary_data: {summary_data}")
-                    
-                    # 验证必要字段
-                    required_fields = ['impression', 'relationship']
-                    for field in required_fields:
-                        if field not in summary_data:
-                            raise KeyError(f"缺少必要字段: {field}")
-                    
-                    # 更新数据库
-                    await person_info_manager.update_one_field(person_id, "impression", summary_data['impression'])
-                    await person_info_manager.update_one_field(person_id, "interaction", summary_data['relationship'])
-                    
-                    # 将key_moments添加到points中
-                    current_time = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
-                    if summary_data['key_moments'] != "none":
-                        current_points.append((summary_data['key_moments'], 10.0, current_time))
-                    
-                    # 清空forgotten_points
-                    forgotten_points = []
-                    logger.info(f"已完成对 {person_name} 的forgotten_points压缩总结")
-                except Exception as e:
-                    logger.error(f"处理压缩总结失败: {e}")
-                    return
+                await person_info_manager.update_one_field(person_id, "impression", compressed_summary)
+
 
             # 更新数据库
             await person_info_manager.update_one_field(person_id, "forgotten_points", json.dumps(forgotten_points, ensure_ascii=False, indent=None))
@@ -590,6 +550,16 @@ class RelationshipManager:
         """
         使用 TF-IDF 和余弦相似度计算两个句子的相似性。
         """
+        # 确保输入是字符串类型
+        if isinstance(s1, list):
+            s1 = " ".join(str(x) for x in s1)
+        if isinstance(s2, list):
+            s2 = " ".join(str(x) for x in s2)
+            
+        # 转换为字符串类型
+        s1 = str(s1)
+        s2 = str(s2)
+        
         # 1. 使用 jieba 进行分词
         s1_words = " ".join(jieba.cut(s1))
         s2_words = " ".join(jieba.cut(s2))

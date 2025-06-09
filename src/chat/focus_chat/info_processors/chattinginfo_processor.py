@@ -31,7 +31,6 @@ class ChattingInfoProcessor(BaseProcessor):
         self.model_summary = LLMRequest(
             model=global_config.model.utils_small,
             temperature=0.7,
-            max_tokens=300,
             request_type="focus.observation.chat",
         )
 

@@ -5,7 +5,8 @@ import urllib.error
 import base64  # 新增：用于Base64编码
 import traceback  # 新增：用于打印堆栈跟踪
 from typing import Tuple
-from src.chat.focus_chat.planners.actions.plugin_action import PluginAction, register_action
+from src.chat.actions.plugin_action import PluginAction, register_action
+from src.chat.actions.base_action import ActionActivationType, ChatMode
 from src.common.logger_manager import get_logger
 from .generate_pic_config import generate_config
 
@@ -34,8 +35,65 @@ class PicAction(PluginAction):
         "当有人要求你生成并发送一张图片时使用",
         "当有人让你画一张图时使用",
     ]
-    default = False
+    enable_plugin = True
     action_config_file_name = "pic_action_config.toml"
+    
+    # 激活类型设置
+    focus_activation_type = ActionActivationType.LLM_JUDGE  # Focus模式使用LLM判定，精确理解需求
+    normal_activation_type = ActionActivationType.KEYWORD   # Normal模式使用关键词激活，快速响应
+    
+    # 关键词设置（用于Normal模式）
+    activation_keywords = ["画", "绘制", "生成图片", "画图", "draw", "paint", "图片生成"]
+    keyword_case_sensitive = False
+    
+    # LLM判定提示词（用于Focus模式）
+    llm_judge_prompt = """
+判定是否需要使用图片生成动作的条件：
+1. 用户明确要求画图、生成图片或创作图像
+2. 用户描述了想要看到的画面或场景
+3. 对话中提到需要视觉化展示某些概念
+4. 用户想要创意图片或艺术作品
+
+适合使用的情况：
+- "画一张..."、"画个..."、"生成图片"
+- "我想看看...的样子"
+- "能画出...吗"
+- "创作一幅..."
+
+绝对不要使用的情况：
+1. 纯文字聊天和问答
+2. 只是提到"图片"、"画"等词但不是要求生成
+3. 谈论已存在的图片或照片
+4. 技术讨论中提到绘图概念但无生成需求
+5. 用户明确表示不需要图片时
+"""
+    
+    # Random激活概率（备用）
+    random_activation_probability = 0.15  # 适中概率，图片生成比较有趣
+    
+    # 简单的请求缓存，避免短时间内重复请求
+    _request_cache = {}
+    _cache_max_size = 10
+    
+    # 模式启用设置 - 图片生成在所有模式下可用
+    mode_enable = ChatMode.ALL
+    
+    # 并行执行设置 - 图片生成可以与回复并行执行，不覆盖回复内容
+    parallel_action = False
+    
+    @classmethod
+    def _get_cache_key(cls, description: str, model: str, size: str) -> str:
+        """生成缓存键"""
+        return f"{description[:100]}|{model}|{size}"  # 限制描述长度避免键过长
+    
+    @classmethod
+    def _cleanup_cache(cls):
+        """清理缓存，保持大小在限制内"""
+        if len(cls._request_cache) > cls._cache_max_size:
+            # 简单的FIFO策略，移除最旧的条目
+            keys_to_remove = list(cls._request_cache.keys())[:-cls._cache_max_size//2]
+            for key in keys_to_remove:
+                del cls._request_cache[key]
 
     def __init__(
         self,
@@ -66,6 +124,7 @@ class PicAction(PluginAction):
         """处理图片生成动作（通过HTTP API）"""
         logger.info(f"{self.log_prefix} 执行 pic_action (HTTP): {self.reasoning}")
 
+        # 配置验证
         http_base_url = self.config.get("base_url")
         http_api_key = self.config.get("volcano_generate_api_key")
 
@@ -75,14 +134,50 @@ class PicAction(PluginAction):
             logger.error(f"{self.log_prefix} HTTP调用配置缺失: base_url 或 volcano_generate_api_key.")
             return False, "HTTP配置不完整"
 
+        # API密钥验证
+        if http_api_key == "YOUR_VOLCANO_GENERATE_API_KEY_HERE":
+            error_msg = "图片生成功能尚未配置，请设置正确的API密钥。"
+            await self.send_message_by_expressor(error_msg)
+            logger.error(f"{self.log_prefix} API密钥未配置")
+            return False, "API密钥未配置"
+
+        # 参数验证
         description = self.action_data.get("description")
-        if not description:
+        if not description or not description.strip():
             logger.warning(f"{self.log_prefix} 图片描述为空，无法生成图片。")
-            await self.send_message_by_expressor("你需要告诉我想要画什么样的图片哦~")
+            await self.send_message_by_expressor("你需要告诉我想要画什么样的图片哦~ 比如说'画一只可爱的小猫'")
             return False, "图片描述为空"
 
+        # 清理和验证描述
+        description = description.strip()
+        if len(description) > 1000:  # 限制描述长度
+            description = description[:1000]
+            logger.info(f"{self.log_prefix} 图片描述过长，已截断")
+
+        # 获取配置
         default_model = self.config.get("default_model", "doubao-seedream-3-0-t2i-250415")
         image_size = self.action_data.get("size", self.config.get("default_size", "1024x1024"))
+
+        # 验证图片尺寸格式
+        if not self._validate_image_size(image_size):
+            logger.warning(f"{self.log_prefix} 无效的图片尺寸: {image_size}，使用默认值")
+            image_size = "1024x1024"
+
+        # 检查缓存
+        cache_key = self._get_cache_key(description, default_model, image_size)
+        if cache_key in self._request_cache:
+            cached_result = self._request_cache[cache_key]
+            logger.info(f"{self.log_prefix} 使用缓存的图片结果")
+            await self.send_message_by_expressor("我之前画过类似的图片，用之前的结果~")
+            
+            # 直接发送缓存的结果
+            send_success = await self.send_message(type="image", data=cached_result)
+            if send_success:
+                await self.send_message_by_expressor("图片表情已发送！")
+                return True, "图片表情已发送(缓存)"
+            else:
+                # 缓存失败，清除这个缓存项并继续正常流程
+                del self._request_cache[cache_key]
 
         # guidance_scale 现在完全由配置文件控制
         guidance_scale_input = self.config.get("default_guidance_scale", 2.5)  # 默认2.5
@@ -160,6 +255,10 @@ class PicAction(PluginAction):
                 base64_image_string = encode_result
                 send_success = await self.send_message(type="image", data=base64_image_string)
                 if send_success:
+                    # 缓存成功的结果
+                    self._request_cache[cache_key] = base64_image_string
+                    self._cleanup_cache()
+                    
                     await self.send_message_by_expressor("图片表情已发送！")
                     return True, "图片表情已发送"
                 else:
@@ -267,3 +366,11 @@ class PicAction(PluginAction):
             logger.error(f"{self.log_prefix} (HTTP) 图片生成时意外错误: {e!r}", exc_info=True)
             traceback.print_exc()
             return False, f"图片生成HTTP请求时发生意外错误: {str(e)[:100]}"
+
+    def _validate_image_size(self, image_size: str) -> bool:
+        """验证图片尺寸格式"""
+        try:
+            width, height = map(int, image_size.split('x'))
+            return 100 <= width <= 10000 and 100 <= height <= 10000
+        except (ValueError, TypeError):
+            return False

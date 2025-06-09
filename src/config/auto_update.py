@@ -72,7 +72,23 @@ def update_config():
                             if not value:
                                 target[key] = tomlkit.array()
                             else:
-                                target[key] = tomlkit.array(value)
+                                # 特殊处理正则表达式数组和包含正则表达式的结构
+                                if key == "ban_msgs_regex":
+                                    # 直接使用原始值，不进行额外处理
+                                    target[key] = value
+                                elif key == "regex_rules":
+                                    # 对于regex_rules，需要特殊处理其中的regex字段
+                                    target[key] = value
+                                else:
+                                    # 检查是否包含正则表达式相关的字典项
+                                    contains_regex = False
+                                    if value and isinstance(value[0], dict) and "regex" in value[0]:
+                                        contains_regex = True
+                                    
+                                    if contains_regex:
+                                        target[key] = value
+                                    else:
+                                        target[key] = tomlkit.array(value)
                         else:
                             # 其他类型使用item方法创建新值
                             target[key] = tomlkit.item(value)

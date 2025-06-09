@@ -133,6 +133,7 @@ class NormalChatExpressor:
                 thinking_start_time=time.time(),
                 reply_to=mark_head,
                 is_emoji=is_emoji,
+                display_message=display_message,
             )
             logger.debug(f"{self.log_prefix} 添加{response_type}类型消息: {content}")
 
@@ -167,6 +168,7 @@ class NormalChatExpressor:
         thinking_start_time: float,
         reply_to: bool = False,
         is_emoji: bool = False,
+        display_message: str = "",
     ) -> MessageSending:
         """构建发送消息
 
@@ -197,6 +199,7 @@ class NormalChatExpressor:
             reply=anchor_message if reply_to else None,
             thinking_start_time=thinking_start_time,
             is_emoji=is_emoji,
+            display_message=display_message,
         )
 
         return message_sending

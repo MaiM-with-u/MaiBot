@@ -8,7 +8,6 @@ from src.common.logger_manager import get_logger
 from src.chat.heart_flow.utils_chat import get_chat_type_and_target_info
 from src.manager.mood_manager import mood_manager
 from src.chat.message_receive.chat_stream import ChatStream, chat_manager
-from src.chat.utils.info_catcher import info_catcher_manager
 from src.chat.utils.timer_calculator import Timer
 from src.chat.utils.prompt_builder import global_prompt_manager
 from .normal_chat_generator import NormalChatGenerator
@@ -277,31 +276,26 @@ class NormalChat:
 
             logger.debug(f"[{self.stream_name}] 创建捕捉器，thinking_id:{thinking_id}")
 
-            info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
-            info_catcher.catch_decide_to_response(message)
+            # 如果启用planner，预先修改可用actions（避免在并行任务中重复调用）
+            available_actions = None
+            if self.enable_planner:
+                try:
+                    await self.action_modifier.modify_actions_for_normal_chat(
+                        self.chat_stream, self.recent_replies, message.processed_plain_text
+                    )
+                    available_actions = self.action_manager.get_using_actions()
+                except Exception as e:
+                    logger.warning(f"[{self.stream_name}] 获取available_actions失败: {e}")
+                    available_actions = None
 
             # 定义并行执行的任务
             async def generate_normal_response():
                 """生成普通回复"""
                 try:
-                    # 如果启用planner，获取可用actions
-                    enable_planner = self.enable_planner
-                    available_actions = None
-
-                    if enable_planner:
-                        try:
-                            await self.action_modifier.modify_actions_for_normal_chat(
-                                self.chat_stream, self.recent_replies
-                            )
-                            available_actions = self.action_manager.get_using_actions()
-                        except Exception as e:
-                            logger.warning(f"[{self.stream_name}] 获取available_actions失败: {e}")
-                            available_actions = None
-
                     return await self.gpt.generate_response(
                         message=message,
                         thinking_id=thinking_id,
-                        enable_planner=enable_planner,
+                        enable_planner=self.enable_planner,
                         available_actions=available_actions,
                     )
                 except Exception as e:
@@ -315,38 +309,37 @@ class NormalChat:
                     return None
 
                 try:
-                    # 并行执行动作修改和规划准备
-                    async def modify_actions():
-                        """修改可用动作集合"""
-                        return await self.action_modifier.modify_actions_for_normal_chat(
-                            self.chat_stream, self.recent_replies
-                        )
-
-                    async def prepare_planning():
-                        """准备规划所需的信息"""
-                        return self._get_sender_name(message)
-
-                    # 并行执行动作修改和准备工作
-                    _, sender_name = await asyncio.gather(modify_actions(), prepare_planning())
+                    # 获取发送者名称（动作修改已在并行执行前完成）
+                    sender_name = self._get_sender_name(message)
+                    
+                    no_action = {
+                        "action_result": {"action_type": "no_action", "action_data": {}, "reasoning": "规划器初始化默认", "is_parallel": True},
+                        "chat_context": "",
+                        "action_prompt": "",
+                    }
+                    
 
                     # 检查是否应该跳过规划
                     if self.action_modifier.should_skip_planning():
                         logger.debug(f"[{self.stream_name}] 没有可用动作，跳过规划")
-                        return None
+                        self.action_type = "no_action"
+                        return no_action
 
                     # 执行规划
                     plan_result = await self.planner.plan(message, sender_name)
                     action_type = plan_result["action_result"]["action_type"]
                     action_data = plan_result["action_result"]["action_data"]
                     reasoning = plan_result["action_result"]["reasoning"]
+                    is_parallel = plan_result["action_result"].get("is_parallel", False)
 
-                    logger.info(f"[{self.stream_name}] Planner决策: {action_type}, 理由: {reasoning}")
+                    logger.info(f"[{self.stream_name}] Planner决策: {action_type}, 理由: {reasoning}, 并行执行: {is_parallel}")
                     self.action_type = action_type  # 更新实例属性
+                    self.is_parallel_action = is_parallel  # 新增：保存并行执行标志
 
                     # 如果规划器决定不执行任何动作
                     if action_type == "no_action":
                         logger.debug(f"[{self.stream_name}] Planner决定不执行任何额外动作")
-                        return None
+                        return no_action
                     elif action_type == "change_to_focus_chat":
                         logger.info(f"[{self.stream_name}] Planner决定切换到focus聊天模式")
                         return None
@@ -358,14 +351,15 @@ class NormalChat:
                     else:
                         logger.warning(f"[{self.stream_name}] 额外动作 {action_type} 执行失败")
 
-                    return {"action_type": action_type, "action_data": action_data, "reasoning": reasoning}
+                    return {"action_type": action_type, "action_data": action_data, "reasoning": reasoning, "is_parallel": is_parallel}
 
                 except Exception as e:
                     logger.error(f"[{self.stream_name}] Planner执行失败: {e}")
-                    return None
+                    return no_action
 
             # 并行执行回复生成和动作规划
             self.action_type = None  # 初始化动作类型
+            self.is_parallel_action = False  # 初始化并行动作标志
             with Timer("并行生成回复和规划", timing_results):
                 response_set, plan_result = await asyncio.gather(
                     generate_normal_response(), plan_and_execute_actions(), return_exceptions=True
@@ -375,22 +369,20 @@ class NormalChat:
             if isinstance(response_set, Exception):
                 logger.error(f"[{self.stream_name}] 回复生成异常: {response_set}")
                 response_set = None
-            elif response_set:
-                info_catcher.catch_after_generate_response(timing_results["并行生成回复和规划"])
 
             # 处理规划结果（可选，不影响回复）
             if isinstance(plan_result, Exception):
                 logger.error(f"[{self.stream_name}] 动作规划异常: {plan_result}")
             elif plan_result:
-                logger.debug(f"[{self.stream_name}] 额外动作处理完成: {plan_result['action_type']}")
+                logger.debug(f"[{self.stream_name}] 额外动作处理完成: {self.action_type}")
             
             if not response_set or (
-                self.enable_planner and self.action_type not in ["no_action", "change_to_focus_chat"]
+                self.enable_planner and self.action_type not in ["no_action", "change_to_focus_chat"] and not self.is_parallel_action
             ):
                 if not response_set:
                     logger.info(f"[{self.stream_name}] 模型未生成回复内容")
-                elif self.enable_planner and self.action_type not in ["no_action", "change_to_focus_chat"]:
-                    logger.info(f"[{self.stream_name}] 模型选择其他动作")
+                elif self.enable_planner and self.action_type not in ["no_action", "change_to_focus_chat"] and not self.is_parallel_action:
+                    logger.info(f"[{self.stream_name}] 模型选择其他动作（非并行动作）")
                 # 如果模型未生成回复，移除思考消息
                 container = await message_manager.get_container(self.stream_id)  # 使用 self.stream_id
                 for msg in container.messages[:]:
@@ -416,7 +408,6 @@ class NormalChat:
 
             # 检查 first_bot_msg 是否为 None (例如思考消息已被移除的情况)
             if first_bot_msg:
-                info_catcher.catch_after_response(timing_results["消息发送"], response_set, first_bot_msg)
 
                 # 记录回复信息到最近回复列表中
                 reply_info = {
@@ -448,8 +439,6 @@ class NormalChat:
                     else:
                         await self._check_switch_to_focus()
                         pass
-
-            info_catcher.done_catch()
 
             with Timer("处理表情包", timing_results):
                 await self._handle_emoji(message, response_set[0])

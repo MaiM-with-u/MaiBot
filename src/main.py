@@ -20,6 +20,13 @@ from .common.server import global_server, Server
 from rich.traceback import install
 from .chat.focus_chat.expressors.exprssion_learner import expression_learner
 from .api.main import start_api_server
+# 导入actions模块，确保装饰器被执行
+import src.chat.actions.default_actions  # noqa
+
+# 加载插件actions
+import importlib
+import pkgutil
+import os
 
 install(extra_lines=3)
 
@@ -62,6 +69,11 @@ class MainSystem:
         # 启动API服务器
         start_api_server()
         logger.success("API服务器启动成功")
+        
+        # 加载所有actions，包括默认的和插件的
+        self._load_all_actions()
+        logger.success("动作系统加载成功")
+        
         # 初始化表情管理器
         emoji_manager.initialize()
         logger.success("表情包管理器初始化成功")
@@ -108,6 +120,72 @@ class MainSystem:
         except Exception as e:
             logger.error(f"启动大脑和外部世界失败: {e}")
             raise
+
+    def _load_all_actions(self):
+        """加载所有actions，包括默认的和插件的"""
+        try:
+            # 导入默认actions以确保装饰器被执行
+            
+            # 检查插件目录是否存在
+            plugin_path = "src.plugins"
+            plugin_dir = os.path.join("src", "plugins")
+            if not os.path.exists(plugin_dir):
+                logger.info(f"插件目录 {plugin_dir} 不存在，跳过插件动作加载")
+                return
+                
+            # 导入插件包
+            try:
+                plugins_package = importlib.import_module(plugin_path)
+                logger.info(f"成功导入插件包: {plugin_path}")
+            except ImportError as e:
+                logger.error(f"导入插件包失败: {e}")
+                return
+                
+            # 遍历插件包中的所有子包
+            loaded_plugins = 0
+            for _, plugin_name, is_pkg in pkgutil.iter_modules(
+                plugins_package.__path__, plugins_package.__name__ + "."
+            ):
+                if not is_pkg:
+                    continue
+                    
+                logger.debug(f"检测到插件: {plugin_name}")
+                    
+                # 检查插件是否有actions子包
+                plugin_actions_path = f"{plugin_name}.actions"
+                plugin_actions_dir = plugin_name.replace(".", os.path.sep) + os.path.sep + "actions"
+                
+                if not os.path.exists(plugin_actions_dir):
+                    logger.debug(f"插件 {plugin_name} 没有actions目录: {plugin_actions_dir}")
+                    continue
+                
+                try:
+                    # 尝试导入插件的actions包
+                    actions_module = importlib.import_module(plugin_actions_path)
+                    logger.info(f"成功加载插件动作模块: {plugin_actions_path}")
+                    
+                    # 遍历actions目录中的所有Python文件
+                    actions_dir = os.path.dirname(actions_module.__file__)
+                    for file in os.listdir(actions_dir):
+                        if file.endswith('.py') and file != '__init__.py':
+                            action_module_name = f"{plugin_actions_path}.{file[:-3]}"
+                            try:
+                                importlib.import_module(action_module_name)
+                                logger.info(f"成功加载动作: {action_module_name}")
+                                loaded_plugins += 1
+                            except Exception as e:
+                                logger.error(f"加载动作失败: {action_module_name}, 错误: {e}")
+                    
+                except ImportError as e:
+                    logger.debug(f"插件 {plugin_name} 的actions子包导入失败: {e}")
+                    continue
+            
+            logger.success(f"成功加载 {loaded_plugins} 个插件动作")
+                    
+        except Exception as e:
+            logger.error(f"加载actions失败: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
 
     async def schedule_tasks(self):
         """调度定时任务"""

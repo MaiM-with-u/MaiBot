@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from src.common.logger_manager import get_logger
-from src.chat.focus_chat.planners.actions.base_action import BaseAction, register_action
+from src.chat.actions.base_action import BaseAction, register_action, ActionActivationType, ChatMode
 from typing import Tuple, List
 from src.chat.heart_flow.observation.observation import Observation
 from src.chat.focus_chat.replyer.default_replyer import DefaultReplyer
@@ -11,6 +11,7 @@ from src.chat.focus_chat.hfc_utils import create_empty_anchor_message
 import time
 import traceback
 from src.common.database.database_model import ActionRecords
+import re
 
 logger = get_logger("action_taken")
 
@@ -25,16 +26,23 @@ class ReplyAction(BaseAction):
     action_name: str = "reply"
     action_description: str = "当你想要参与回复或者聊天"
     action_parameters: dict[str:str] = {
-        "target": "如果你要明确回复特定某人的某句话，请在target参数中中指定那句话的原始文本（非必须，仅文本，不包含发送者)（可选）",
+        "reply_to": "如果是明确回复某个人的发言，请在reply_to参数中指定，格式：（用户名:发言内容），如果不是，reply_to的值设为none"
     }
     action_require: list[str] = [
         "你想要闲聊或者随便附和",
         "有人提到你",
+        "如果你刚刚进行了回复，不要对同一个话题重复回应"
     ]
 
-    associated_types: list[str] = ["text", "emoji"]
+    associated_types: list[str] = ["text"]
 
-    default = True
+    enable_plugin = True
+    
+    # 激活类型设置
+    focus_activation_type = ActionActivationType.ALWAYS
+    
+    # 模式启用设置 - 回复动作只在Focus模式下使用
+    mode_enable = ChatMode.FOCUS
 
     def __init__(
         self,
@@ -99,7 +107,6 @@ class ReplyAction(BaseAction):
         {
             "text": "你好啊"  # 文本内容列表（可选）
             "target": "锚定消息",  # 锚定消息的文本内容
-            "emojis": "微笑"  # 表情关键词列表（可选）
         }
         """
         logger.info(f"{self.log_prefix} 决定回复: {self.reasoning}")
@@ -108,19 +115,29 @@ class ReplyAction(BaseAction):
         chatting_observation: ChattingObservation = next(
             obs for obs in self.observations if isinstance(obs, ChattingObservation)
         )
-        if reply_data.get("target"):
-            anchor_message = chatting_observation.search_message_by_text(reply_data["target"])
+        
+        reply_to = reply_data.get("reply_to", "none")
+            
+        # sender = ""
+        target = ""
+        if ":" in reply_to or "：" in reply_to:
+            # 使用正则表达式匹配中文或英文冒号
+            parts = re.split(pattern=r'[:：]', string=reply_to, maxsplit=1)
+            if len(parts) == 2:
+                # sender = parts[0].strip()
+                target = parts[1].strip()
+                anchor_message = chatting_observation.search_message_by_text(target)
         else:
             anchor_message = None
-
-        # 如果没有找到锚点消息，创建一个占位符
-        if not anchor_message:
+        
+        if anchor_message:  
+            anchor_message.update_chat_stream(self.chat_stream)
+        else:
             logger.info(f"{self.log_prefix} 未找到锚点消息，创建占位符")
             anchor_message = await create_empty_anchor_message(
                 self.chat_stream.platform, self.chat_stream.group_info, self.chat_stream
             )
-        else:
-            anchor_message.update_chat_stream(self.chat_stream)
+
 
         success, reply_set = await self.replyer.deal_reply(
             cycle_timers=cycle_timers,

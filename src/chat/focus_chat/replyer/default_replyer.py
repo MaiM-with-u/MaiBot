@@ -23,6 +23,9 @@ from src.chat.focus_chat.expressors.exprssion_learner import expression_learner
 import random
 from datetime import datetime
 import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 logger = get_logger("replyer")
 
@@ -32,6 +35,7 @@ def init_prompt():
         """
 你可以参考以下的语言习惯，如果情景合适就使用，不要盲目使用,不要生硬使用，而是结合到表达中：
 {style_habbits}
+
 请你根据情景使用以下句法：
 {grammar_habbits}
         
@@ -40,15 +44,10 @@ def init_prompt():
 {relation_info_block}
 
 {time_block}
-你现在正在群里聊天，以下是群里正在进行的聊天内容：
-{chat_info}
-
-
-
-以上是聊天内容，你需要了解聊天记录中的内容
-
 {chat_target}
-{identity}，在这聊天中，"{target_message}"引起了你的注意，你想要在群里发言或者回复这条消息。
+{chat_info}
+{reply_target_block}
+{identity}
 你需要使用合适的语言习惯和句法，参考聊天内容，组织一条日常且口语化的回复。注意不要复读你说过的话。
 {config_expression_style}
 {keywords_reaction_prompt}
@@ -69,20 +68,17 @@ def init_prompt():
 
     Prompt(
         """
-{extra_info_block}
-
-{time_block}
-你现在正在聊天，以下是你和对方正在进行的聊天内容：
-{chat_info}
-
-以上是聊天内容，你需要了解聊天记录中的内容
-
-{chat_target}
-{identity}，在这聊天中，"{target_message}"引起了你的注意，你想要发言或者回复这条消息。
-你需要使用合适的语法和句法，参考聊天内容，组织一条日常且口语化的回复。注意不要复读你说过的话。
-你可以参考以下的语言习惯和句法，如果情景合适就使用，不要盲目使用,不要生硬使用，而是结合到表达中：
 {style_habbits}
 {grammar_habbits}
+{extra_info_block}
+{time_block}
+{chat_target}
+{chat_info}
+现在"{sender_name}"说的:{target_message}。引起了你的注意，你想要发言或者回复这条消息。
+{identity}，
+你需要使用合适的语法和句法，参考聊天内容，组织一条日常且口语化的回复。注意不要复读你说过的话。
+你可以参考以下的语言习惯和句法，如果情景合适就使用，不要盲目使用,不要生硬使用，而是结合到表达中：
+
 
 {config_expression_style}
 {keywords_reaction_prompt}
@@ -108,8 +104,7 @@ class DefaultReplyer:
         # TODO: API-Adapter修改标记
         self.express_model = LLMRequest(
             model=global_config.model.replyer_1,
-            max_tokens=256,
-            request_type="focus.expressor",
+            request_type="focus.replyer",
         )
         self.heart_fc_sender = HeartFCSender()
 
@@ -161,6 +156,8 @@ class DefaultReplyer:
             # 处理文本部分
             # text_part = action_data.get("text", [])
             # if text_part:
+            sent_msg_list = []
+            
             with Timer("生成回复", cycle_timers):
                 # 可以保留原有的文本处理逻辑或进行适当调整
                 reply = await self.reply(
@@ -170,12 +167,6 @@ class DefaultReplyer:
                     reason=reasoning,
                     action_data=action_data,
                 )
-
-            # with Timer("选择表情", cycle_timers):
-            #     emoji_keyword = action_data.get("emojis", [])
-            #     emoji_base64 = await self._choose_emoji(emoji_keyword)
-            #     if emoji_base64:
-            #         reply.append(("emoji", emoji_base64))
 
             if reply:
                 with Timer("发送消息", cycle_timers):
@@ -265,25 +256,22 @@ class DefaultReplyer:
             # current_temp = float(global_config.model.normal["temp"]) * arousal_multiplier
             # self.express_model.params["temperature"] = current_temp  # 动态调整温度
 
-            # 2. 获取信息捕捉器
-            info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
-
-            # --- Determine sender_name for private chat ---
-            sender_name_for_prompt = "某人"  # Default for group or if info unavailable
-            if not self.is_group_chat and self.chat_target_info:
-                # Prioritize person_name, then nickname
-                sender_name_for_prompt = (
-                    self.chat_target_info.get("person_name")
-                    or self.chat_target_info.get("user_nickname")
-                    or sender_name_for_prompt
-                )
-            # --- End determining sender_name ---
-
-            target_message = action_data.get("target", "")
+            
+            reply_to = action_data.get("reply_to", "none")
+            
+            sender = ""
+            targer = ""
+            if ":" in reply_to or "：" in reply_to:
+                # 使用正则表达式匹配中文或英文冒号
+                parts = re.split(pattern=r'[:：]', string=reply_to, maxsplit=1)
+                if len(parts) == 2:
+                    sender = parts[0].strip()
+                    targer = parts[1].strip()
+            
             identity = action_data.get("identity", "")
             extra_info_block = action_data.get("extra_info_block", "")
             relation_info_block = action_data.get("relation_info_block", "")
-
+            
             # 3. 构建 Prompt
             with Timer("构建Prompt", {}):  # 内部计时器，可选保留
                 prompt = await self.build_prompt_focus(
@@ -293,8 +281,8 @@ class DefaultReplyer:
                     extra_info_block=extra_info_block,
                     relation_info_block=relation_info_block,
                     reason=reason,
-                    sender_name=sender_name_for_prompt,  # Pass determined name
-                    target_message=target_message,
+                    sender_name=sender,  # Pass determined name
+                    target_message=targer,
                     config_expression_style=global_config.expression.expression_style,
                 )
 
@@ -313,10 +301,6 @@ class DefaultReplyer:
 
                     # logger.info(f"prompt: {prompt}")
                     logger.info(f"最终回复: {content}")
-
-                info_catcher.catch_after_llm_generated(
-                    prompt=prompt, response=content, reasoning_content=reasoning_content, model_name=model_name
-                )
 
             except Exception as llm_e:
                 # 精简报错信息
@@ -356,6 +340,7 @@ class DefaultReplyer:
         identity,
         target_message,
         config_expression_style,
+        # stuation,
     ) -> str:
         is_group_chat = bool(chat_stream.group_info)
 
@@ -384,15 +369,16 @@ class DefaultReplyer:
         grammar_habbits = []
         # 1. learnt_expressions加权随机选3条
         if learnt_style_expressions:
-            weights = [expr["count"] for expr in learnt_style_expressions]
-            selected_learnt = weighted_sample_no_replacement(learnt_style_expressions, weights, 4)
-            for expr in selected_learnt:
+            # 使用相似度匹配选择最相似的表达
+            similar_exprs = find_similar_expressions(target_message, learnt_style_expressions, 3)
+            for expr in similar_exprs:
+                # print(f"expr: {expr}")
                 if isinstance(expr, dict) and "situation" in expr and "style" in expr:
                     style_habbits.append(f"当{expr['situation']}时，使用 {expr['style']}")
-        # 2. learnt_grammar_expressions加权随机选3条
+        # 2. learnt_grammar_expressions加权随机选2条
         if learnt_grammar_expressions:
             weights = [expr["count"] for expr in learnt_grammar_expressions]
-            selected_learnt = weighted_sample_no_replacement(learnt_grammar_expressions, weights, 4)
+            selected_learnt = weighted_sample_no_replacement(learnt_grammar_expressions, weights, 2)
             for expr in selected_learnt:
                 if isinstance(expr, dict) and "situation" in expr and "style" in expr:
                     grammar_habbits.append(f"当{expr['situation']}时，使用 {expr['style']}")
@@ -404,6 +390,8 @@ class DefaultReplyer:
 
         style_habbits_str = "\n".join(style_habbits)
         grammar_habbits_str = "\n".join(grammar_habbits)
+        
+        
 
         # 关键词检测与反应
         keywords_reaction_prompt = ""
@@ -435,6 +423,16 @@ class DefaultReplyer:
         time_block = f"当前时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
         # logger.debug("开始构建 focus prompt")
+        
+        if sender_name:
+            reply_target_block = f"现在{sender_name}说的:{target_message}。引起了你的注意，你想要在群里发言或者回复这条消息。"
+        elif target_message:
+            reply_target_block = f"现在{target_message}引起了你的注意，你想要在群里发言或者回复这条消息。"
+        else:
+            reply_target_block = "现在，你想要在群里发言或者回复消息。"
+        
+        
+        
 
         # --- Choose template based on chat type ---
         if is_group_chat:
@@ -452,6 +450,7 @@ class DefaultReplyer:
                 extra_info_block=extra_info_block,
                 relation_info_block=relation_info_block,
                 time_block=time_block,
+                reply_target_block=reply_target_block,
                 # bot_name=global_config.bot.nickname,
                 # prompt_personality="",
                 # reason=reason,
@@ -459,6 +458,7 @@ class DefaultReplyer:
                 keywords_reaction_prompt=keywords_reaction_prompt,
                 identity=identity,
                 target_message=target_message,
+                sender_name=sender_name,
                 config_expression_style=config_expression_style,
             )
         else:  # Private chat
@@ -473,6 +473,7 @@ class DefaultReplyer:
                 extra_info_block=extra_info_block,
                 relation_info_block=relation_info_block,
                 time_block=time_block,
+                reply_target_block=reply_target_block,
                 # bot_name=global_config.bot.nickname,
                 # prompt_personality="",
                 # reason=reason,
@@ -480,6 +481,7 @@ class DefaultReplyer:
                 keywords_reaction_prompt=keywords_reaction_prompt,
                 identity=identity,
                 target_message=target_message,
+                sender_name=sender_name,
                 config_expression_style=config_expression_style,
             )
 
@@ -673,6 +675,37 @@ def weighted_sample_no_replacement(items, weights, k) -> list:
                 pool.pop(idx)
                 break
     return selected
+
+
+def find_similar_expressions(input_text: str, expressions: List[Dict], top_k: int = 3) -> List[Dict]:
+    """使用TF-IDF和余弦相似度找出与输入文本最相似的top_k个表达方式"""
+    if not expressions:
+        return []
+        
+    # 准备文本数据
+    texts = [expr['situation'] for expr in expressions]
+    texts.append(input_text)  # 添加输入文本
+    
+    # 使用TF-IDF向量化
+    vectorizer = TfidfVectorizer()
+    tfidf_matrix = vectorizer.fit_transform(texts)
+    
+    # 计算余弦相似度
+    similarity_matrix = cosine_similarity(tfidf_matrix)
+    
+    # 获取输入文本的相似度分数（最后一行）
+    scores = similarity_matrix[-1][:-1]  # 排除与自身的相似度
+    
+    # 获取top_k的索引
+    top_indices = np.argsort(scores)[::-1][:top_k]
+    
+    # 获取相似表达
+    similar_exprs = []
+    for idx in top_indices:
+        if scores[idx] > 0:  # 只保留有相似度的
+            similar_exprs.append(expressions[idx])
+            
+    return similar_exprs
 
 
 init_prompt()

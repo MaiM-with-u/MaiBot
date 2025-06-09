@@ -184,7 +184,7 @@ class ImageManager:
                 return f"[图片：{cached_description}]"
 
             # 调用AI获取描述
-            prompt = "请用中文描述这张图片的内容。如果有文字，请把文字都描述出来，请留意其主题，直观感受，以及是否有擦边色情内容。最多100个字。"
+            prompt = "请用中文描述这张图片的内容。如果有文字，请把文字都描述出来，请留意其主题，直观感受，输出为一段平文本，最多50字"
             description, _ = await self._llm.generate_response_for_image(prompt, image_base64, image_format)
 
             if description is None:

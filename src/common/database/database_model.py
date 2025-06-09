@@ -240,7 +240,7 @@ class PersonInfo(BaseModel):
     impression = TextField(null=True)  # 个人印象
     points = TextField(null=True)  # 个人印象的点
     forgotten_points = TextField(null=True)  # 被遗忘的点
-    interaction = TextField(null=True)  # 与Bot的互动
+    info_list = TextField(null=True)  # 与Bot的互动
     
     know_times = FloatField(null=True)  # 认识时间 (时间戳)
     know_since = FloatField(null=True)  # 首次印象总结时间

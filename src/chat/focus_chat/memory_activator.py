@@ -72,7 +72,6 @@ class MemoryActivator:
         self.summary_model = LLMRequest(
             model=global_config.model.memory_summary,
             temperature=0.7,
-            max_tokens=50,
             request_type="focus.memory_activator",
         )
         self.running_memory = []

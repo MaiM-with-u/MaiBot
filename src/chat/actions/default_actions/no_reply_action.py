@@ -2,7 +2,7 @@ import asyncio
 import traceback
 from src.common.logger_manager import get_logger
 from src.chat.utils.timer_calculator import Timer
-from src.chat.focus_chat.planners.actions.base_action import BaseAction, register_action
+from src.chat.actions.base_action import BaseAction, register_action, ActionActivationType, ChatMode
 from typing import Tuple, List
 from src.chat.heart_flow.observation.observation import Observation
 from src.chat.heart_flow.observation.chatting_observation import ChattingObservation
@@ -22,14 +22,19 @@ class NoReplyAction(BaseAction):
     """
 
     action_name = "no_reply"
-    action_description = "不回复"
+    action_description = "暂时不回复消息"
     action_parameters = {}
     action_require = [
-        "话题无关/无聊/不感兴趣/不懂",
-        "聊天记录中最新一条消息是你自己发的且无人回应你",
         "你连续发送了太多消息，且无人回复",
+        "想要休息一下",
     ]
-    default = True
+    enable_plugin = True
+    
+    # 激活类型设置
+    focus_activation_type = ActionActivationType.ALWAYS
+    
+    # 模式启用设置 - no_reply动作只在Focus模式下使用
+    mode_enable = ChatMode.FOCUS
 
     def __init__(
         self,

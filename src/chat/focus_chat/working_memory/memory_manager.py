@@ -35,7 +35,6 @@ class MemoryManager:
         self.llm_summarizer = LLMRequest(
             model=global_config.model.focus_working_memory,
             temperature=0.3,
-            max_tokens=512,
             request_type="focus.processor.working_memory",
         )
 

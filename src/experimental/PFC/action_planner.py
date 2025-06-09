@@ -110,7 +110,6 @@ class ActionPlanner:
         self.llm = LLMRequest(
             model=global_config.llm_PFC_action_planner,
             temperature=global_config.llm_PFC_action_planner["temp"],
-            max_tokens=1500,
             request_type="action_planning",
         )
         self.personality_info = individuality.get_prompt(x_person=2, level=3)

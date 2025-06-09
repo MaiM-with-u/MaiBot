@@ -43,7 +43,6 @@ class ToolProcessor(BaseProcessor):
         self.log_prefix = f"[{subheartflow_id}:ToolExecutor] "
         self.llm_model = LLMRequest(
             model=global_config.model.focus_tool_use,
-            max_tokens=500,
             request_type="focus.processor.tool",
         )
         self.structured_info = []

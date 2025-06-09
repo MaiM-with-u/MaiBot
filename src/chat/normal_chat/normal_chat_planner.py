@@ -7,6 +7,7 @@ from src.common.logger_manager import get_logger
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 from src.individuality.individuality import individuality
 from src.chat.focus_chat.planners.action_manager import ActionManager
+from src.chat.actions.base_action import ChatMode
 from src.chat.message_receive.message import MessageThinking
 from json_repair import repair_json
 from src.chat.utils.chat_message_builder import build_readable_messages, get_raw_msg_before_timestamp_with_chat
@@ -25,6 +26,11 @@ def init_prompt():
 {self_info_block}
 请记住你的性格，身份和特点。
 
+你是群内的一员，你现在正在参与群内的闲聊，以下是群内的聊天内容：
+{chat_context}
+
+基于以上聊天上下文和用户的最新消息，选择最合适的action。
+
 注意，除了下面动作选项之外，你在聊天中不能做其他任何事情，这是你能力的边界，现在请你选择合适的action:
 
 {action_options_text}
@@ -36,11 +42,6 @@ def init_prompt():
 
 你必须从上面列出的可用action中选择一个，并说明原因。
 {moderation_prompt}
-
-你是群内的一员，你现在正在参与群内的闲聊，以下是群内的聊天内容：
-{chat_context}
-
-基于以上聊天上下文和用户的最新消息，选择最合适的action。
 
 请以动作的输出要求，以严格的 JSON 格式输出，且仅包含 JSON 内容。不要有任何其他文字或解释：
 """,
@@ -98,16 +99,18 @@ class NormalChatPlanner:
 
             self_info = name_block + personality_block + identity_block
 
-            # 获取当前可用的动作
-            current_available_actions = self.action_manager.get_using_actions()
+            # 获取当前可用的动作，使用Normal模式过滤
+            current_available_actions = self.action_manager.get_using_actions_for_mode(ChatMode.NORMAL)
+            
+            # 注意：动作的激活判定现在在 normal_chat_action_modifier 中完成
+            # 这里直接使用经过 action_modifier 处理后的最终动作集
+            # 符合职责分离原则：ActionModifier负责动作管理，Planner专注于决策
 
-            # 如果没有可用动作或只有no_action动作，直接返回no_action
-            if not current_available_actions or (
-                len(current_available_actions) == 1 and "no_action" in current_available_actions
-            ):
-                logger.debug(f"{self.log_prefix}规划器: 没有可用动作或只有no_action动作，返回no_action")
+            # 如果没有可用动作，直接返回no_action
+            if not current_available_actions:
+                logger.debug(f"{self.log_prefix}规划器: 没有可用动作，返回no_action")
                 return {
-                    "action_result": {"action_type": action, "action_data": action_data, "reasoning": reasoning},
+                    "action_result": {"action_type": action, "action_data": action_data, "reasoning": reasoning, "is_parallel": True},
                     "chat_context": "",
                     "action_prompt": "",
                 }
@@ -138,7 +141,7 @@ class NormalChatPlanner:
             if not prompt:
                 logger.warning(f"{self.log_prefix}规划器: 构建提示词失败")
                 return {
-                    "action_result": {"action_type": action, "action_data": action_data, "reasoning": reasoning},
+                    "action_result": {"action_type": action, "action_data": action_data, "reasoning": reasoning, "is_parallel": False},
                     "chat_context": chat_context,
                     "action_prompt": "",
                 }
@@ -147,7 +150,7 @@ class NormalChatPlanner:
             try:
                 content, (reasoning_content, model_name) = await self.planner_llm.generate_response_async(prompt)
                 
-                logger.info(f"{self.log_prefix}规划器原始提示词: {prompt}")
+                # logger.info(f"{self.log_prefix}规划器原始提示词: {prompt}")
                 logger.info(f"{self.log_prefix}规划器原始响应: {content}")
                 logger.info(f"{self.log_prefix}规划器推理: {reasoning_content}")
                 logger.info(f"{self.log_prefix}规划器模型: {model_name}")
@@ -185,13 +188,21 @@ class NormalChatPlanner:
 
         except Exception as outer_e:
             logger.error(f"{self.log_prefix}规划器异常: {outer_e}")
-            chat_context = "无法获取聊天上下文"  # 设置默认值
-            prompt = ""  # 设置默认值
+            # 设置异常时的默认值
+            current_available_actions = {}
+            chat_context = "无法获取聊天上下文"
+            prompt = ""
             action = "no_action"
             reasoning = "规划器出现异常，使用默认动作"
             action_data = {}
 
-        logger.debug(f"{self.log_prefix}规划器决策动作:{action}, 动作信息: '{action_data}', 理由: {reasoning}")
+        # 检查动作是否支持并行执行
+        is_parallel = False
+        if action in current_available_actions:
+            action_info = current_available_actions[action]
+            is_parallel = action_info.get("parallel_action", False)
+        
+        logger.debug(f"{self.log_prefix}规划器决策动作:{action}, 动作信息: '{action_data}', 理由: {reasoning}, 并行执行: {is_parallel}")
 
         # 恢复到默认动作集
         self.action_manager.restore_actions()
@@ -212,6 +223,7 @@ class NormalChatPlanner:
             "action_type": action, 
             "action_data": action_data, 
             "reasoning": reasoning,
+            "is_parallel": is_parallel,
             "action_record": json.dumps(action_record, ensure_ascii=False)
         }
 
@@ -302,6 +314,8 @@ class NormalChatPlanner:
             logger.error(f"{self.log_prefix}构建Planner提示词失败: {e}")
             traceback.print_exc()
             return ""
+
+
 
 
 init_prompt()

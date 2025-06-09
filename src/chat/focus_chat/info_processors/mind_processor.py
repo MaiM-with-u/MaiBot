@@ -69,7 +69,6 @@ class MindProcessor(BaseProcessor):
 
         self.llm_model = LLMRequest(
             model=global_config.model.planner,
-            max_tokens=800,
             request_type="focus.processor.chat_mind",
         )
 

@@ -1,0 +1,29 @@
+# 禁言动作配置文件
+
+# 默认禁言时长限制（秒）
+min_duration = 60           # 最短禁言时长
+max_duration = 2592000      # 最长禁言时长（30天）
+default_duration = 300      # 默认禁言时长（5分钟）
+
+# 禁言消息模板
+templates = [
+    "好的，禁言 {target} {duration}，理由：{reason}",
+    "收到，对 {target} 执行禁言 {duration}，因为{reason}",
+    "明白了，禁言 {target} {duration}，原因是{reason}"
+]
+
+# 错误消息模板
+error_messages = [
+    "没有指定禁言对象呢~",
+    "没有指定禁言时长呢~", 
+    "禁言时长必须是正数哦~",
+    "禁言时长必须是数字哦~",
+    "找不到 {target} 这个人呢~",
+    "查找用户信息时出现问题~"
+]
+
+# 是否启用时长美化显示
+enable_duration_formatting = true
+
+# 是否记录禁言历史
+log_mute_history = true

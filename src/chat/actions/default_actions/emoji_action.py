@@ -1,12 +1,11 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 from src.common.logger_manager import get_logger
-from src.chat.focus_chat.planners.actions.base_action import BaseAction, register_action
+from src.chat.actions.base_action import BaseAction, register_action, ActionActivationType, ChatMode
 from typing import Tuple, List
 from src.chat.heart_flow.observation.observation import Observation
 from src.chat.focus_chat.replyer.default_replyer import DefaultReplyer
 from src.chat.message_receive.chat_stream import ChatStream
 from src.chat.focus_chat.hfc_utils import create_empty_anchor_message
+from src.config.config import global_config
 
 logger = get_logger("action_taken")
 
@@ -29,7 +28,25 @@ class EmojiAction(BaseAction):
 
     associated_types: list[str] = ["emoji"]
 
-    default = True
+    enable_plugin = True
+    
+    focus_activation_type = ActionActivationType.LLM_JUDGE
+    normal_activation_type = ActionActivationType.RANDOM
+    
+    random_activation_probability = global_config.normal_chat.emoji_chance
+    
+    parallel_action = True
+    
+    
+    llm_judge_prompt = """
+    判定是否需要使用表情动作的条件：
+    1. 用户明确要求使用表情包
+    2. 这是一个适合表达强烈情绪的场合
+    3. 不要发送太多表情包，如果你已经发送过多个表情包
+    """
+    
+    # 模式启用设置 - 表情动作只在Focus模式下使用
+    mode_enable = ChatMode.ALL
 
     def __init__(
         self,

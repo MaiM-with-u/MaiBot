@@ -89,7 +89,6 @@ class ReplyGenerator:
         self.llm = LLMRequest(
             model=global_config.llm_PFC_chat,
             temperature=global_config.llm_PFC_chat["temp"],
-            max_tokens=300,
             request_type="reply_generation",
         )
         self.personality_info = individuality.get_prompt(x_person=2, level=3)

@@ -1,5 +1,6 @@
 from src.common.logger_manager import get_logger
-from src.chat.focus_chat.planners.actions.plugin_action import PluginAction, register_action
+from src.chat.actions.base_action import ActionActivationType
+from src.chat.actions.plugin_action import PluginAction, register_action
 from typing import Tuple
 
 logger = get_logger("tts_action")
@@ -20,8 +21,18 @@ class TTSAction(PluginAction):
         "当表达内容更适合用语音而不是文字传达时使用",
         "当用户想听到语音回答而非阅读文本时使用",
     ]
-    default = True  # 设为默认动作
+    enable_plugin = True  # 启用插件
     associated_types = ["tts_text"]
+    
+    focus_activation_type = ActionActivationType.LLM_JUDGE
+    normal_activation_type = ActionActivationType.KEYWORD
+    
+    # 关键词配置 - Normal模式下使用关键词触发
+    activation_keywords = ["语音", "tts", "播报", "读出来", "语音播放", "听", "朗读"]
+    keyword_case_sensitive = False
+    
+    # 并行执行设置 - TTS可以与回复并行执行，不覆盖回复内容
+    parallel_action = False
 
     async def process(self) -> Tuple[bool, str]:
         """处理TTS文本转语音动作"""

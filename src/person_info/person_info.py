@@ -28,7 +28,7 @@ PersonInfoManager 类方法功能摘要：
 
 logger = get_logger("person_info")
 
-JSON_SERIALIZED_FIELDS = ["points", "forgotten_points"]
+JSON_SERIALIZED_FIELDS = ["points", "forgotten_points", "info_list"]
 
 person_info_default = {
     "person_id": None,
@@ -43,7 +43,7 @@ person_info_default = {
     # "user_cardname": None, # This field is not in Peewee model PersonInfo
     # "user_avatar": None,   # This field is not in Peewee model PersonInfo
     "impression": None, # Corrected from persion_impression
-    "interaction": None,
+    "info_list": None,
     "points": None,
     "forgotten_points": None,
     
@@ -56,7 +56,6 @@ class PersonInfoManager:
         # TODO: API-Adapter修改标记
         self.qv_name_llm = LLMRequest(
             model=global_config.model.utils,
-            max_tokens=256,
             request_type="relation.qv_name",
         )
         try:
@@ -532,7 +531,6 @@ class PersonInfoManager:
                 "know_since": int(datetime.datetime.now().timestamp()),
                 "last_know": int(datetime.datetime.now().timestamp()),
                 "impression": None,
-                "interaction": None,
                 "points": [],
                 "forgotten_points": []
             }

@@ -24,6 +24,7 @@ class MessageStorage:
             else:
                 filtered_processed_plain_text = ""
 
+            
             if isinstance(message, MessageSending):
                 display_message = message.display_message
                 if display_message:

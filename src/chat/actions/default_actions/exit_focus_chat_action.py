@@ -1,7 +1,7 @@
 import asyncio
 import traceback
 from src.common.logger_manager import get_logger
-from src.chat.focus_chat.planners.actions.base_action import BaseAction, register_action
+from src.chat.actions.base_action import BaseAction, register_action, ChatMode
 from typing import Tuple, List
 from src.chat.heart_flow.observation.observation import Observation
 from src.chat.message_receive.chat_stream import ChatStream
@@ -25,7 +25,11 @@ class ExitFocusChatAction(BaseAction):
         "当前内容不需要持续专注关注，你决定退出专注聊天",
         "聊天内容已经完成，你决定退出专注聊天",
     ]
-    default = False
+    # 退出专注聊天是系统核心功能，不是插件，但默认不启用（需要特定条件触发）
+    enable_plugin = False
+    
+    # 模式启用设置 - 退出专注聊天动作只在Focus模式下使用
+    mode_enable = ChatMode.FOCUS
 
     def __init__(
         self,

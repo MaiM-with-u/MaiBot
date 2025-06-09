@@ -1,5 +1,5 @@
 from src.common.logger_manager import get_logger
-from src.chat.focus_chat.planners.actions.plugin_action import PluginAction, register_action
+from src.chat.actions.plugin_action import PluginAction, register_action, ActionActivationType
 from typing import Tuple
 
 logger = get_logger("vtb_action")
@@ -20,8 +20,30 @@ class VTBAction(PluginAction):
         "当回应内容需要更生动的情感表达时使用",
         "当想要通过预设动作增强互动体验时使用",
     ]
-    default = True  # 设为默认动作
+    enable_plugin = True  # 启用插件
     associated_types = ["vtb_text"]
+    
+    # 激活类型设置
+    focus_activation_type = ActionActivationType.LLM_JUDGE  # Focus模式使用LLM判定，精确识别情感表达需求
+    normal_activation_type = ActionActivationType.RANDOM    # Normal模式使用随机激活，增加趣味性
+    
+    # LLM判定提示词（用于Focus模式）
+    llm_judge_prompt = """
+判定是否需要使用VTB虚拟主播动作的条件：
+1. 当前聊天内容涉及明显的情感表达需求
+2. 用户询问或讨论情感相关话题
+3. 场景需要生动的情感回应
+4. 当前回复内容可以通过VTB动作增强表达效果
+
+不需要使用的情况：
+1. 纯粹的信息查询
+2. 技术性问题讨论
+3. 不涉及情感的日常对话
+4. 已经有足够的情感表达
+"""
+    
+    # Random激活概率（用于Normal模式）
+    random_activation_probability = 0.08  # 较低概率，避免过度使用
 
     async def process(self) -> Tuple[bool, str]:
         """处理VTB虚拟主播动作"""

@@ -25,8 +25,10 @@ services:
 #      - PRIVACY_AGREE=42dddb3cbe2b784b45a2781407b298a1 # 同意EULA
 #    ports:
 #      - "8000:8000"
+#      - "27017:27017"
     volumes:
       - ./docker-config/mmc/.env:/MaiMBot/.env # 持久化env配置文件
+      - ./docker-config/mmc/maibot_statistics.html:/MaiMBot/maibot_statistics.html #统计数据输出
       - ./docker-config/mmc:/MaiMBot/config # 持久化bot配置文件
       - ./data/MaiMBot:/MaiMBot/data # NapCat 和 NoneBot 共享此卷，否则发送图片会有问题
     restart: always
