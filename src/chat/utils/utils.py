@@ -339,8 +339,8 @@ def process_llm_json_response(text: str) -> list[str]:
         # 1. 查找文本中最后一个JSON对象
         last_json_str = extract_last_json_from_text(text)
         if not last_json_str:
-            logger.warning("未找到有效的JSON对象，返回默认回复")
-            return process_llm_response("懒得说")
+            logger.warning("未找到有效的JSON对象，使用默认处理方式")
+            return process_llm_response(text)
         logger.info(f"提取到最后一个JSON: {last_json_str}")
         # 2. 修复可能的JSON格式错误，该函数总是返回字符串
         fixed_json_str = repair_json(last_json_str)
