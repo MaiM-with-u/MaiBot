@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from src.chat.heart_flow.observation.chatting_observation import ChattingObservation
 from src.llm_models.utils_model import LLMRequest
 from src.config.config import global_config
@@ -182,7 +183,7 @@ class ToolProcessor(BaseProcessor):
         return new_structured_items, used_tools, prompt
 
 
-init_prompt()init_prompt()
+init_prompt()
 =======
 from src.chat.heart_flow.observation.chatting_observation import ChattingObservation
 from src.llm_models.utils_model import LLMRequest
@@ -369,3 +370,4 @@ class ToolProcessor(BaseProcessor):
 
 
 init_prompt()
+>>>>>>> parent of f3142432 (修复参数错误)
