@@ -1,4 +1,4 @@
-from typing import List, Optional, Any
+from typing import List, Any
 from src.chat.focus_chat.info.obs_info import ObsInfo
 from src.chat.heart_flow.observation.observation import Observation
 from src.chat.focus_chat.info.info_base import InfoBase
@@ -8,7 +8,6 @@ from src.chat.heart_flow.observation.chatting_observation import ChattingObserva
 from src.chat.heart_flow.observation.hfcloop_observation import HFCloopObservation
 from src.chat.focus_chat.info.cycle_info import CycleInfo
 from datetime import datetime
-from typing import Dict
 from src.llm_models.utils_model import LLMRequest
 from src.config.config import global_config
 
@@ -35,8 +34,7 @@ class ChattingInfoProcessor(BaseProcessor):
 
     async def process_info(
         self,
-        observations: Optional[List[Observation]] = None,
-        running_memorys: Optional[List[Dict]] = None,
+        observations: List[Observation] = None,
         **kwargs: Any,
     ) -> List[InfoBase]:
         """处理Observation对象

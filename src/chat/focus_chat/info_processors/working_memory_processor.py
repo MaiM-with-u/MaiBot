@@ -9,10 +9,9 @@ from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 from src.chat.message_receive.chat_stream import get_chat_manager
 from .base_processor import BaseProcessor
 from src.chat.focus_chat.info.mind_info import MindInfo
-from typing import List, Optional
+from typing import List
 from src.chat.heart_flow.observation.working_observation import WorkingMemoryObservation
 from src.chat.focus_chat.working_memory.working_memory import WorkingMemory
-from typing import Dict
 from src.chat.focus_chat.info.info_base import InfoBase
 from json_repair import repair_json
 from src.chat.focus_chat.info.workingmemory_info import WorkingMemoryInfo
@@ -67,9 +66,7 @@ class WorkingMemoryProcessor(BaseProcessor):
         name = get_chat_manager().get_stream_name(self.subheartflow_id)
         self.log_prefix = f"[{name}] "
 
-    async def process_info(
-        self, observations: Optional[List[Observation]] = None, running_memorys: Optional[List[Dict]] = None, *infos
-    ) -> List[InfoBase]:
+    async def process_info(self, observations: List[Observation] = None, *infos) -> List[InfoBase]:
         """处理信息对象
 
         Args:

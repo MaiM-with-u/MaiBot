@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Any, Optional, Dict
+from typing import List, Any
 from src.chat.focus_chat.info.info_base import InfoBase
 from src.chat.heart_flow.observation.observation import Observation
 from src.common.logger import get_logger
@@ -23,8 +23,7 @@ class BaseProcessor(ABC):
     @abstractmethod
     async def process_info(
         self,
-        observations: Optional[List[Observation]] = None,
-        running_memorys: Optional[List[Dict]] = None,
+        observations: List[Observation] = None,
         **kwargs: Any,
     ) -> List[InfoBase]:
         """处理信息对象的抽象方法
