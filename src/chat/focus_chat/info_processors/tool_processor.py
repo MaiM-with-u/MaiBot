@@ -48,13 +48,13 @@ class ToolProcessor(BaseProcessor):
         self.structured_info = []
 
     async def process_info(
-        self, observations: Optional[List[Observation]] = None, running_memorys: Optional[List[Dict]] = None, *infos
+        self, observations: Optional[List[Observation]] = None, running_memories: Optional[List[Dict]] = None, *infos
     ) -> List[StructuredInfo]:
         """处理信息对象
 
         Args:
             observations: 可选的观察列表，包含ChattingObservation和StructureObservation类型
-            running_memorys: 可选的运行时记忆列表，包含字典类型的记忆信息
+            running_memories: 可选的运行时记忆列表，包含字典类型的记忆信息
             *infos: 可变数量的InfoBase类型的信息对象
 
         Returns:
@@ -67,7 +67,7 @@ class ToolProcessor(BaseProcessor):
         if observations:
             for observation in observations:
                 if isinstance(observation, ChattingObservation):
-                    result, used_tools, prompt = await self.execute_tools(observation, running_memorys)
+                    result, used_tools, prompt = await self.execute_tools(observation, running_memories)
 
             logger.debug(f"工具调用结果: {result}")
             # 更新WorkingObservation中的结构化信息
