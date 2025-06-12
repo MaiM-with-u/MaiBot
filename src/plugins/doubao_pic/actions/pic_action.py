@@ -26,7 +26,7 @@ class PicAction(PluginAction):
         "可以根据特定的描述，生成并发送一张图片，如果没提供描述，就根据聊天内容生成,你可以立刻画好，不用等待"
     )
     action_parameters = {
-        "description": "图片描述，输入你想要生成并发送的图片的描述，必填",
+        "description": "图片描述，输入你想要生成并发送的图片的描述，将描述翻译为英文单词组合，并用‘,‘分隔，描述中不要出现中文，必填",
         "size": "图片尺寸，例如 '1024x1024' (可选, 默认从配置或 '1024x1024')",
     }
     action_require = [
@@ -76,10 +76,16 @@ class PicAction(PluginAction):
             return False, "HTTP配置不完整"
 
         description = self.action_data.get("description")
+        custom_prompt = self.config.get("custom_prompt")#获取自定义提示词
         if not description:
             logger.warning(f"{self.log_prefix} 图片描述为空，无法生成图片。")
             await self.send_message_by_expressor("你需要告诉我想要画什么样的图片哦~")
             return False, "图片描述为空"
+        if not custom_prompt:
+            logger.warning(f"{self.log_prefix} 自定义提示词为空。")
+        else:        # 组合最终提示词
+            description = f"{custom_prompt}, {description}"
+            logger.info(f"{self.log_prefix} 应用自定义提示词: {custom_prompt}")
 
         default_model = self.config.get("default_model", "doubao-seedream-3-0-t2i-250415")
         image_size = self.action_data.get("size", self.config.get("default_size", "1024x1024"))
@@ -147,13 +153,14 @@ class PicAction(PluginAction):
         if success:
             # 如果返回的是Base64数据（以"iVBORw"等开头），直接使用
             if result.startswith(("iVBORw", "/9j/", "UklGR", "R0lGOD")):  # 常见图片格式的Base64前缀
-                logger.info(f"{self.log_prefix} 获取到Base64图片数据，直接发送")
+                #logger.info(f"{self.log_prefix} 获取到Base64图片数据，直接发送")
+                #logger.info(f"{self.log_prefix} (HTTP) 获取到Base64图片数据，长度: {len(self.log_prefix)}")
                 send_success = await self.send_message(type="image", data=result)
                 if send_success:
                     await self.send_message_by_expressor("图片表情已发送！")
                     return True, "图片表情已发送(Base64)"
                 else:
-                    await self.send_message_by_expressor("图片已处理为Base64，但作为表情发送失败了。")
+                    await self.send_message_by_expressor("图片已发送")#("图片已处理为Base64，但作为表情发送失败了。")没看懂为什么会返回失败
                     return False, "图片表情发送失败 (Base64)"
             else:  # 否则认为是URL
                 image_url = result
@@ -186,7 +193,7 @@ class PicAction(PluginAction):
         """下载图片并将其编码为Base64字符串"""
         logger.info(f"{self.log_prefix} (B64) 下载并编码图片: {image_url[:70]}...")
         try:
-            with urllib.request.urlopen(image_url, timeout=30) as response:
+            with urllib.request.urlopen(image_url, timeout=60) as response:
                 if response.status == 200:
                     image_bytes = response.read()
                     base64_encoded_image = base64.b64encode(image_bytes).decode("utf-8")
@@ -212,7 +219,7 @@ class PicAction(PluginAction):
         payload_dict = {
             "model": model,
             "prompt": prompt,
-            #"response_format": "b64_json",# gpt-image-1 无法使用 url 返回为 “b64_json"，豆包默认返回为 "url"
+            "response_format": "b64_json",# gpt-image-1 无法使用 url 返回为 “b64_json"，豆包默认返回为 "url"
             "size": size,
             "guidance_scale": guidance_scale,
             "watermark": watermark,
@@ -249,6 +256,8 @@ class PicAction(PluginAction):
 
                 if 200 <= response_status < 300:
                     response_data = json.loads(response_body_str)
+                    b64_data = None
+                    image_url = None #清理缓存
                     # 优先检查Base64数据
                     if (
                         isinstance(response_data.get("data"), list)
@@ -256,28 +265,32 @@ class PicAction(PluginAction):
                         and isinstance(response_data["data"][0], dict)
                         and "b64_json" in response_data["data"][0]
                     ):
+
                         b64_data = response_data["data"][0]["b64_json"]
                         logger.info(f"{self.log_prefix} (HTTP) 获取到Base64图片数据，长度: {len(b64_data)}")
                         return True, b64_data  # 直接返回Base64字符串
-                    else:
-                        image_url = None
-
-                        if (
+                    elif (
                             isinstance(response_data.get("data"), list)
                             and response_data["data"]
                             and isinstance(response_data["data"][0], dict)
-                        ):
-                            image_url = response_data["data"][0].get("url")
-                        elif response_data.get("url"):
-                            image_url = response_data.get("url")
-                        if image_url:
-                            logger.info(f"{self.log_prefix} (HTTP) 图片生成成功，URL: {image_url[:70]}...")
-                            return True, image_url
-                        else:
-                            logger.error(
-                                f"{self.log_prefix} (HTTP) API成功但无图片URL. 响应预览: {response_body_str[:300]}..."
-                            )
-                            return False, "图片生成API响应成功但未找到图片URL"
+                    ):
+                        image_url = response_data["data"][0].get("url")
+                    elif(#魔搭社区返回的 json
+                            isinstance(response_data.get("images"), list)
+                            and response_data["images"]
+                            and isinstance(response_data["images"][0], dict)
+                    ):
+                        image_url = response_data["images"][0].get("url")
+                    elif response_data.get("url"):
+                        image_url = response_data.get("url")
+                    if image_url:
+                        logger.info(f"{self.log_prefix} (HTTP) 图片生成成功，URL: {image_url[:70]}...")
+                        return True, image_url
+                    else:
+                        logger.error(
+                            f"{self.log_prefix} (HTTP) API成功但无图片URL. 响应预览: {response_body_str[:300]}..."
+                        )
+                        return False, "图片生成API响应成功但未找到图片URL"
                 else:
                     logger.error(
                         f"{self.log_prefix} (HTTP) API请求失败. 状态: {response.status}. 正文: {response_body_str[:300]}..."

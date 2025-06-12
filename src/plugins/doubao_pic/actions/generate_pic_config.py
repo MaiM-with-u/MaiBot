@@ -10,6 +10,11 @@ default_model = "doubao-seedream-3-0-t2i-250415"
 # 默认图片尺寸
 default_size = "1024x1024"
 
+#魔搭
+#base_url = "https://api-inference.modelscope.cn/v1"#API的基础url
+#volcano_generate_api_key = "xxxxxxxxxxxxxxxxxxxxxx"#key与豆包一样有需要前缀，无需修改源代码
+#default_model = "cancel13/liaocao"#潦草lora图片生成模型
+
 
 # 是否默认开启水印
 default_watermark = true
@@ -20,6 +25,7 @@ default_seed = 42
 
 # 更多插件特定配置可以在此添加...
 # custom_parameter = "some_value"
+#custom_prompt = "liaocao,Cartoon"#自定义参数，可添加lora，或是其他自定义提示词，用来作为画图的风格，会添加在生成的提示词前面。
 """
 
 
