@@ -219,7 +219,7 @@ class SubHeartflowManager:
         """
         接收来自 HeartFChatting 的请求，将特定子心流的状态转换为 NORMAL。
         通常在连续多次 "no_reply" 后被调用。
-        对于私聊和群聊，都转换为 NORMAL。
+        对于群聊转换为 NORMAL，对于私聊转换为 ABSENT。
 
         Args:
             subflow_id: 需要转换状态的子心流 ID。
@@ -234,8 +234,9 @@ class SubHeartflowManager:
             current_state = subflow.chat_state.chat_status
 
             if current_state == ChatState.FOCUSED:
-                target_state = ChatState.NORMAL
-                log_reason = "转为NORMAL"
+                # 根据聊天类型决定目标状态
+                target_state = ChatState.NORMAL if subflow.is_group_chat else ChatState.ABSENT
+                log_reason = "转为NORMAL" if subflow.is_group_chat else "转为ABSENT(私聊)"
 
                 logger.info(
                     f"[状态转换请求] 接收到请求，将 {stream_name} (当前: {current_state.value}) 尝试转换为 {target_state.value} ({log_reason})"

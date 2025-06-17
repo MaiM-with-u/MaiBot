@@ -16,6 +16,8 @@ from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 from src.individuality.individuality import individuality
 from src.chat.focus_chat.planners.action_manager import ActionManager
 from json_repair import repair_json
+from src.chat.focus_chat.info.chat_info import ChattingInfo
+from src.chat.focus_chat.info.workingmemory_info import WorkingMemoryInfo
 
 logger = get_logger("planner")
 
@@ -84,6 +86,61 @@ class ActionPlanner:
         )
 
         self.action_manager = action_manager
+
+    async def plan_simple(self, all_plan_info: List[InfoBase], running_memorys: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        为私聊提供的简单规划方法。
+        主要关注ChattingInfo和WorkingMemory，不考虑复杂的心智状态和工具使用。
+
+        Args:
+            all_plan_info: 所有处理器提供的信息
+            running_memorys: 当前激活的记忆
+
+        Returns:
+            Dict[str, Any]: 包含action_type, action_data和reasoning的字典
+        """
+        # 提取聊天信息
+        chatting_info = None
+        working_memory_info = None
+        for info in all_plan_info:
+            if isinstance(info, ChattingInfo):
+                chatting_info = info
+            elif isinstance(info, WorkingMemoryInfo):
+                working_memory_info = info
+
+        if not chatting_info:
+            return {
+                "action_type": "no_reply",
+                "action_data": {},
+                "reasoning": "没有检测到新的聊天信息",
+            }
+
+        # 检查是否有新消息需要回复
+        if not chatting_info.new_messages:
+            return {
+                "action_type": "no_reply",
+                "action_data": {},
+                "reasoning": "没有新消息需要回复",
+            }
+
+        # 获取最新消息
+        latest_message = chatting_info.new_messages[-1]
+
+        # 检查工作记忆中是否有相关上下文
+        context = ""
+        if working_memory_info and working_memory_info.related_memory:
+            context = working_memory_info.related_memory
+
+        # 构建回复动作
+        return {
+            "action_type": "reply",
+            "action_data": {
+                "message": latest_message,
+                "context": context,
+                "style": "direct",  # 私聊使用直接回复风格
+            },
+            "reasoning": "收到新的私聊消息，直接回复",
+        }
 
     async def plan(self, all_plan_info: List[InfoBase], running_memorys: List[Dict[str, Any]]) -> Dict[str, Any]:
         """

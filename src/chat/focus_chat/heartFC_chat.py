@@ -383,7 +383,20 @@ class HeartFChatting:
         task_to_name_map = {}
         processor_time_costs = {}  # 新增: 记录每个处理器耗时
 
+        # 获取聊天类型
+        chat_stream = await asyncio.to_thread(chat_manager.get_stream, self.stream_id)
+        is_group_chat = chat_stream.group_info is not None
+
+        # 根据聊天类型选择处理器
+        selected_processors = []
         for processor in self.processors:
+            processor_name = processor.__class__.log_prefix
+            # 私聊时跳过某些处理器
+            if not is_group_chat and processor_name in ["MindProcessor", "ToolProcessor"]:
+                continue
+            selected_processors.append(processor)
+
+        for processor in selected_processors:
             processor_name = processor.__class__.log_prefix
 
             async def run_with_timeout(proc=processor):
@@ -465,9 +478,14 @@ class HeartFChatting:
 
                 self.all_observations = observations
 
+            # 获取聊天类型
+            chat_stream = await asyncio.to_thread(chat_manager.get_stream, self.stream_id)
+            is_group_chat = chat_stream.group_info is not None
+
             with Timer("调整动作", cycle_timers):
                 # 处理特殊的观察
-                await self.action_modifier.modify_actions(observations=observations)
+                if is_group_chat:  # 只在群聊中调整动作
+                    await self.action_modifier.modify_actions(observations=observations)
                 await self.action_observation.observe()
                 observations.append(self.action_observation)
 
@@ -497,59 +515,41 @@ class HeartFChatting:
             }
 
             with Timer("规划器", cycle_timers):
-                plan_result = await self.action_planner.plan(all_plan_info, running_memorys)
+                # 私聊时使用简单规划
+                if not is_group_chat:
+                    plan_result = await self.action_planner.plan_simple(all_plan_info, running_memorys)
+                else:
+                    plan_result = await self.action_planner.plan(all_plan_info, running_memorys)
 
-                loop_plan_info = {
-                    "action_result": plan_result.get("action_result", {}),
-                    "current_mind": plan_result.get("current_mind", ""),
-                    "observed_messages": plan_result.get("observed_messages", ""),
-                }
+            loop_plan_info = {
+                "action_result": plan_result,
+            }
 
             with Timer("执行动作", cycle_timers):
-                action_type, action_data, reasoning = (
-                    plan_result.get("action_result", {}).get("action_type", "error"),
-                    plan_result.get("action_result", {}).get("action_data", {}),
-                    plan_result.get("action_result", {}).get("reasoning", "未提供理由"),
+                action_taken, action_command, action_reason = await self._handle_action(
+                    action=plan_result["action_type"],
+                    reasoning=plan_result["reasoning"],
+                    action_data=plan_result["action_data"],
+                    cycle_timers=cycle_timers,
+                    thinking_id=thinking_id,
                 )
 
-                if action_type == "reply":
-                    action_str = "回复"
-                elif action_type == "no_reply":
-                    action_str = "不回复"
-                else:
-                    action_str = action_type
+            loop_action_info = {
+                "action_taken": action_taken,
+                "command": action_command,
+                "reason": action_reason,
+            }
 
-                logger.debug(f"{self.log_prefix} 麦麦想要：'{action_str}', 原因'{reasoning}'")
-
-                success, reply_text, command = await self._handle_action(
-                    action_type, reasoning, action_data, cycle_timers, thinking_id
-                )
-
-                loop_action_info = {
-                    "action_taken": success,
-                    "reply_text": reply_text,
-                    "command": command,
-                    "taken_time": time.time(),
-                }
-
-            loop_info = {
+            return {
                 "loop_observation_info": loop_observation_info,
                 "loop_processor_info": loop_processor_info,
                 "loop_plan_info": loop_plan_info,
                 "loop_action_info": loop_action_info,
             }
-
-            return loop_info
-
         except Exception as e:
-            logger.error(f"{self.log_prefix} FOCUS聊天处理失败: {e}")
-            logger.error(traceback.format_exc())
-            return {
-                "loop_observation_info": {},
-                "loop_processor_info": {},
-                "loop_plan_info": {},
-                "loop_action_info": {"action_taken": False, "reply_text": "", "command": ""},
-            }
+            logger.error(f"{self.log_prefix} 循环处理出错: {e}")
+            traceback.print_exc()
+            raise
 
     async def _handle_action(
         self,
