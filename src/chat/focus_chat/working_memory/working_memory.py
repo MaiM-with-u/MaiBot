@@ -3,6 +3,8 @@ import asyncio
 import random
 from src.common.logger_manager import get_logger
 from src.chat.focus_chat.working_memory.memory_manager import MemoryManager, MemoryItem
+from src.chat.message_receive.chat_stream import chat_manager
+import time
 
 logger = get_logger(__name__)
 
@@ -15,41 +17,135 @@ class WorkingMemory:
     从属于特定的流，用chat_id来标识
     """
 
-    def __init__(self, chat_id: str, max_memories_per_chat: int = 10, auto_decay_interval: int = 60):
-        """
-        初始化工作记忆管理器
+    def __init__(self, chat_id: str):
+        self.chat_id = chat_id
+        self.is_group_chat = None  # 将在initialize时设置
+        self._memory_items = []
+        self._max_items = 50  # 默认最大条目数
+        self._initialized = False
 
-        Args:
-            max_memories_per_chat: 每个聊天的最大记忆数量
-            auto_decay_interval: 自动衰减记忆的时间间隔(秒)
-        """
-        self.memory_manager = MemoryManager(chat_id)
+    async def initialize(self):
+        """初始化工作记忆，确定聊天类型"""
+        if self._initialized:
+            return
 
-        # 记忆容量上限
-        self.max_memories_per_chat = max_memories_per_chat
+        # 获取聊天类型
+        chat_stream = await asyncio.to_thread(chat_manager.get_stream, self.chat_id)
+        self.is_group_chat = chat_stream.group_info is not None
 
-        # 自动衰减间隔
-        self.auto_decay_interval = auto_decay_interval
+        # 根据聊天类型调整参数
+        if not self.is_group_chat:
+            self._max_items = 20  # 私聊保持较少的记忆条目
+            self._memory_cleanup_threshold = 0.8  # 私聊更激进的清理阈值
+        else:
+            self._max_items = 50  # 群聊保持更多记忆条目
+            self._memory_cleanup_threshold = 0.9  # 群聊较保守的清理阈值
 
-        # 衰减任务
-        self.decay_task = None
+        self._initialized = True
 
-        # 启动自动衰减任务
-        self._start_auto_decay()
+    async def add_memory_item(self, item: MemoryItem):
+        """添加新的记忆项"""
+        if not self._initialized:
+            await self.initialize()
 
-    def _start_auto_decay(self):
-        """启动自动衰减任务"""
-        if self.decay_task is None:
-            self.decay_task = asyncio.create_task(self._auto_decay_loop())
+        # 检查是否需要清理
+        if len(self._memory_items) >= self._max_items * self._memory_cleanup_threshold:
+            await self._cleanup_old_memories()
 
-    async def _auto_decay_loop(self):
-        """自动衰减循环"""
-        while True:
-            await asyncio.sleep(self.auto_decay_interval)
-            try:
-                await self.decay_all_memories()
-            except Exception as e:
-                print(f"自动衰减记忆时出错: {str(e)}")
+        # 私聊时进行额外的重复检查
+        if not self.is_group_chat:
+            # 检查是否有相似内容，有则更新而不是添加
+            for existing_item in self._memory_items:
+                if self._is_similar_content(existing_item.content, item.content):
+                    existing_item.update_with(item)
+                    return
+
+        self._memory_items.append(item)
+        if len(self._memory_items) > self._max_items:
+            self._memory_items.pop(0)
+
+    def _is_similar_content(self, content1: str, content2: str) -> bool:
+        """检查两个内容是否相似"""
+        # 这里可以实现更复杂的相似度检查
+        # 目前简单实现
+        return content1.strip() == content2.strip()
+
+    async def _cleanup_old_memories(self):
+        """清理旧的记忆项"""
+        if not self._memory_items:
+            return
+
+        if not self.is_group_chat:
+            # 私聊：保留最近的对话和重要的记忆
+            self._memory_items = [
+                item for item in self._memory_items
+                if (time.time() - item.timestamp < 3600) or item.importance > 0.7
+            ]
+        else:
+            # 群聊：使用现有的清理逻辑
+            # 按重要性和时间排序
+            self._memory_items.sort(key=lambda x: (x.importance, -x.timestamp), reverse=True)
+            # 保留前80%
+            keep_count = int(self._max_items * 0.8)
+            self._memory_items = self._memory_items[:keep_count]
+
+    async def get_related_memory(self, query: str, limit: int = 5) -> List[MemoryItem]:
+        """获取与查询相关的记忆项"""
+        if not self._initialized:
+            await self.initialize()
+
+        if not self._memory_items:
+            return []
+
+        # 根据聊天类型调整搜索策略
+        if not self.is_group_chat:
+            # 私聊：优先考虑最近的对话
+            recent_limit = min(limit * 2, len(self._memory_items))
+            recent_items = self._memory_items[-recent_limit:]
+            
+            # 计算相关性分数
+            scored_items = []
+            for item in recent_items:
+                score = self._calculate_relevance(query, item.content)
+                if score > 0.3:  # 提高私聊的相关性阈值
+                    scored_items.append((score, item))
+            
+            # 按分数排序并返回前limit个
+            scored_items.sort(reverse=True)
+            return [item for score, item in scored_items[:limit]]
+        else:
+            # 群聊：使用现有的搜索逻辑
+            scored_items = []
+            for item in self._memory_items:
+                score = self._calculate_relevance(query, item.content)
+                if score > 0.2:
+                    scored_items.append((score, item))
+            
+            scored_items.sort(reverse=True)
+            return [item for score, item in scored_items[:limit]]
+
+    def _calculate_relevance(self, query: str, content: str) -> float:
+        """计算查询与内容的相关性分数"""
+        # 这里可以实现更复杂的相关性计算
+        # 目前使用简单的包含关系检查
+        query_words = set(query.split())
+        content_words = set(content.split())
+        common_words = query_words & content_words
+        if not query_words:
+            return 0.0
+        return len(common_words) / len(query_words)
+
+    async def clear_memory(self):
+        """清空工作记忆"""
+        self._memory_items = []
+
+    def get_all_memories(self) -> List[MemoryItem]:
+        """获取所有记忆项"""
+        return self._memory_items.copy()
+
+    def get_memory_count(self) -> int:
+        """获取当前记忆项数量"""
+        return len(self._memory_items)
 
     async def add_memory(self, content: Any, from_source: str = "", tags: Optional[List[str]] = None):
         """
@@ -181,12 +277,3 @@ class WorkingMemory:
                 await self.decay_task
             except asyncio.CancelledError:
                 pass
-
-    def get_all_memories(self) -> List[MemoryItem]:
-        """
-        获取所有记忆项目
-
-        Returns:
-            List[MemoryItem]: 当前工作记忆中的所有记忆项目列表
-        """
-        return self.memory_manager.get_all_items()

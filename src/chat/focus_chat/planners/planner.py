@@ -18,6 +18,7 @@ from src.chat.focus_chat.planners.action_manager import ActionManager
 from json_repair import repair_json
 from src.chat.focus_chat.info.chat_info import ChattingInfo
 from src.chat.focus_chat.info.workingmemory_info import WorkingMemoryInfo
+from src.chat.focus_chat.info.message_recv import MessageRecv
 
 logger = get_logger("planner")
 
@@ -99,48 +100,109 @@ class ActionPlanner:
         Returns:
             Dict[str, Any]: 包含action_type, action_data和reasoning的字典
         """
-        # 提取聊天信息
-        chatting_info = None
-        working_memory_info = None
-        for info in all_plan_info:
-            if isinstance(info, ChattingInfo):
-                chatting_info = info
-            elif isinstance(info, WorkingMemoryInfo):
-                working_memory_info = info
+        try:
+            # 提取聊天信息
+            chatting_info = None
+            working_memory_info = None
+            for info in all_plan_info:
+                if isinstance(info, ChattingInfo):
+                    chatting_info = info
+                elif isinstance(info, WorkingMemoryInfo):
+                    working_memory_info = info
 
-        if not chatting_info:
+            # 基本错误检查
+            if not chatting_info:
+                return {
+                    "action_type": "no_reply",
+                    "action_data": {},
+                    "reasoning": "没有检测到新的聊天信息",
+                }
+
+            # 检查是否有新消息需要回复
+            if not chatting_info.new_messages:
+                return {
+                    "action_type": "no_reply",
+                    "action_data": {},
+                    "reasoning": "没有新消息需要回复",
+                }
+
+            # 获取最新消息
+            latest_message = chatting_info.new_messages[-1]
+
+            try:
+                # 检查消息有效性
+                if not latest_message.processed_plain_text.strip():
+                    return {
+                        "action_type": "no_reply",
+                        "action_data": {},
+                        "reasoning": "消息内容为空",
+                    }
+
+                # 检查是否是系统消息或其他特殊消息
+                if latest_message.message_info.is_system_message:
+                    return {
+                        "action_type": "no_reply",
+                        "action_data": {},
+                        "reasoning": "系统消息，无需回复",
+                    }
+
+                # 检查工作记忆中是否有相关上下文
+                context = ""
+                if working_memory_info and working_memory_info.related_memory:
+                    context = working_memory_info.related_memory
+
+                # 检查是否需要停止专注聊天
+                if self._should_stop_focus_chat(latest_message):
+                    return {
+                        "action_type": "stop_focus_chat",
+                        "action_data": {},
+                        "reasoning": "检测到停止专注聊天的信号",
+                    }
+
+                # 构建回复动作
+                return {
+                    "action_type": "reply",
+                    "action_data": {
+                        "message": latest_message,
+                        "context": context,
+                        "style": "direct",  # 私聊使用直接回复风格
+                        "target": latest_message.processed_plain_text,  # 添加目标消息
+                        "text": self._generate_reply_text(latest_message, context),  # 生成回复文本
+                    },
+                    "reasoning": "收到新的私聊消息，直接回复",
+                }
+
+            except Exception as msg_e:
+                logger.error(f"处理消息时出错: {msg_e}")
+                return {
+                    "action_type": "no_reply",
+                    "action_data": {},
+                    "reasoning": f"处理消息时出错: {str(msg_e)}",
+                }
+
+        except Exception as e:
+            logger.error(f"简单规划器出错: {e}")
             return {
                 "action_type": "no_reply",
                 "action_data": {},
-                "reasoning": "没有检测到新的聊天信息",
+                "reasoning": f"规划器出错: {str(e)}",
             }
 
-        # 检查是否有新消息需要回复
-        if not chatting_info.new_messages:
-            return {
-                "action_type": "no_reply",
-                "action_data": {},
-                "reasoning": "没有新消息需要回复",
-            }
+    def _should_stop_focus_chat(self, message: MessageRecv) -> bool:
+        """
+        检查是否应该停止专注聊天
+        """
+        # 检查消息内容是否包含停止关键词
+        stop_keywords = ["再见", "拜拜", "88", "bye", "goodbye", "晚安"]
+        return any(keyword in message.processed_plain_text.lower() for keyword in stop_keywords)
 
-        # 获取最新消息
-        latest_message = chatting_info.new_messages[-1]
-
-        # 检查工作记忆中是否有相关上下文
-        context = ""
-        if working_memory_info and working_memory_info.related_memory:
-            context = working_memory_info.related_memory
-
-        # 构建回复动作
-        return {
-            "action_type": "reply",
-            "action_data": {
-                "message": latest_message,
-                "context": context,
-                "style": "direct",  # 私聊使用直接回复风格
-            },
-            "reasoning": "收到新的私聊消息，直接回复",
-        }
+    def _generate_reply_text(self, message: MessageRecv, context: str) -> str:
+        """
+        根据消息和上下文生成回复文本
+        """
+        # 这里可以添加更复杂的回复生成逻辑
+        # 目前简单返回消息内容
+        return message.processed_plain_text
 
     async def plan(self, all_plan_info: List[InfoBase], running_memorys: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
