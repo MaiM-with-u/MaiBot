@@ -50,24 +50,24 @@ def init_prompt():
 
     Prompt(
         """
-你可以参考以下的语言习惯，如果情景合适就使用，不要盲目使用,不要生硬使用，而是结合到表达中：
-{style_habbits}
-
-你现在正在群里聊天，以下是群里正在进行的聊天内容：
+你正在和{sender_name}进行私聊。以下是聊天内容：
 {chat_info}
 
-以上是聊天内容，你需要了解聊天记录中的内容
+你的名字是{bot_name}，{prompt_personality}。对于"{target_message}"，你想表达：{in_mind_reply}，原因是：{reason}。
 
-{chat_target}
-你的名字是{bot_name}，{prompt_personality}，在这聊天中，"{target_message}"引起了你的注意，对这句话，你想表达：{in_mind_reply},原因是：{reason}。你现在要思考怎么回复
-你需要使用合适的语法和句法，参考聊天内容，组织一条日常且口语化的回复。
-请你根据情景使用以下句法：
-{grammar_habbits}
-{config_expression_style}，你可以完全重组回复，保留最基本的表达含义就好，但重组后保持语意通顺。
-不要浮夸，不要夸张修辞，平淡且不要输出多余内容(包括前后缀，冒号和引号，括号，表情包，at或 @等 )，只输出一条回复就好。
+请以友好、直接的方式回复。你的回复应该：
+1. 简洁明了，直接表达核心意思
+2. 语气友好但不过分亲密
+3. 保持适当的礼貌和距离感
+4. 避免过于复杂的表达方式
+5. 不要使用群聊中的梗或过于随意的表达
+
+{config_expression_style}
+不要输出多余内容(包括前后缀，冒号和引号，括号，表情包等)，只输出一条回复就好。
+
 现在，你说：
 """,
-        "default_expressor_private_prompt",  # New template for private FOCUSED chat
+        "default_expressor_private_prompt",
     )
 
 

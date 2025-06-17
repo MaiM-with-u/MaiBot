@@ -490,24 +490,52 @@ class HeartFChatting:
                 observations.append(self.action_observation)
 
             # 根据配置决定是否并行执行回忆和处理器阶段
-            # print(global_config.focus_chat.parallel_processing)
             if global_config.focus_chat.parallel_processing:
                 # 并行执行回忆和处理器阶段
                 with Timer("并行回忆和处理", cycle_timers):
                     memory_task = asyncio.create_task(self.memory_activator.activate_memory(observations))
                     processor_task = asyncio.create_task(self._process_processors(observations, []))
 
-                    # 等待两个任务完成
-                    running_memorys, (all_plan_info, processor_time_costs) = await asyncio.gather(
-                        memory_task, processor_task
-                    )
+                    try:
+                        # 等待两个任务完成，设置超时
+                        running_memorys, (all_plan_info, processor_time_costs) = await asyncio.wait_for(
+                            asyncio.gather(memory_task, processor_task),
+                            timeout=global_config.focus_chat.processor_max_time * 2  # 双倍处理器超时时间
+                        )
+                    except asyncio.TimeoutError:
+                        logger.error(f"{self.log_prefix} 并行处理超时")
+                        # 取消未完成的任务
+                        for task in [memory_task, processor_task]:
+                            if not task.done():
+                                task.cancel()
+                        # 返回空结果
+                        return {
+                            "loop_observation_info": loop_observation_info,
+                            "loop_processor_info": {"all_plan_info": [], "processor_time_costs": {}},
+                            "loop_plan_info": {"action_result": {"action_type": "no_reply", "action_data": {}, "reasoning": "处理超时"}},
+                            "loop_action_info": {"action_taken": False, "command": "no_reply", "reason": "处理超时"},
+                        }
             else:
                 # 串行执行
                 with Timer("回忆", cycle_timers):
-                    running_memorys = await self.memory_activator.activate_memory(observations)
+                    try:
+                        running_memorys = await asyncio.wait_for(
+                            self.memory_activator.activate_memory(observations),
+                            timeout=global_config.focus_chat.processor_max_time
+                        )
+                    except asyncio.TimeoutError:
+                        logger.error(f"{self.log_prefix} 回忆处理超时")
+                        running_memorys = []
 
                 with Timer("执行 信息处理器", cycle_timers):
-                    all_plan_info, processor_time_costs = await self._process_processors(observations, running_memorys)
+                    try:
+                        all_plan_info, processor_time_costs = await asyncio.wait_for(
+                            self._process_processors(observations, running_memorys),
+                            timeout=global_config.focus_chat.processor_max_time
+                        )
+                    except asyncio.TimeoutError:
+                        logger.error(f"{self.log_prefix} 信息处理器执行超时")
+                        all_plan_info, processor_time_costs = [], {}
 
             loop_processor_info = {
                 "all_plan_info": all_plan_info,
@@ -515,24 +543,41 @@ class HeartFChatting:
             }
 
             with Timer("规划器", cycle_timers):
-                # 私聊时使用简单规划
-                if not is_group_chat:
-                    plan_result = await self.action_planner.plan_simple(all_plan_info, running_memorys)
-                else:
-                    plan_result = await self.action_planner.plan(all_plan_info, running_memorys)
+                try:
+                    # 私聊时使用简单规划
+                    if not is_group_chat:
+                        plan_result = await asyncio.wait_for(
+                            self.action_planner.plan_simple(all_plan_info, running_memorys),
+                            timeout=global_config.focus_chat.processor_max_time
+                        )
+                    else:
+                        plan_result = await asyncio.wait_for(
+                            self.action_planner.plan(all_plan_info, running_memorys),
+                            timeout=global_config.focus_chat.processor_max_time
+                        )
+                except asyncio.TimeoutError:
+                    logger.error(f"{self.log_prefix} 规划器执行超时")
+                    plan_result = {"action_type": "no_reply", "action_data": {}, "reasoning": "规划超时"}
 
             loop_plan_info = {
                 "action_result": plan_result,
             }
 
             with Timer("执行动作", cycle_timers):
-                action_taken, action_command, action_reason = await self._handle_action(
-                    action=plan_result["action_type"],
-                    reasoning=plan_result["reasoning"],
-                    action_data=plan_result["action_data"],
-                    cycle_timers=cycle_timers,
-                    thinking_id=thinking_id,
-                )
+                try:
+                    action_taken, action_command, action_reason = await asyncio.wait_for(
+                        self._handle_action(
+                            action=plan_result["action_type"],
+                            reasoning=plan_result["reasoning"],
+                            action_data=plan_result["action_data"],
+                            cycle_timers=cycle_timers,
+                            thinking_id=thinking_id,
+                        ),
+                        timeout=global_config.focus_chat.processor_max_time * 2  # 动作执行允许更长时间
+                    )
+                except asyncio.TimeoutError:
+                    logger.error(f"{self.log_prefix} 动作执行超时")
+                    action_taken, action_command, action_reason = False, "no_reply", "执行超时"
 
             loop_action_info = {
                 "action_taken": action_taken,
@@ -546,10 +591,17 @@ class HeartFChatting:
                 "loop_plan_info": loop_plan_info,
                 "loop_action_info": loop_action_info,
             }
+
         except Exception as e:
             logger.error(f"{self.log_prefix} 循环处理出错: {e}")
             traceback.print_exc()
-            raise
+            # 返回一个有效的错误状态
+            return {
+                "loop_observation_info": {"observations": []},
+                "loop_processor_info": {"all_plan_info": [], "processor_time_costs": {}},
+                "loop_plan_info": {"action_result": {"action_type": "no_reply", "action_data": {}, "reasoning": str(e)}},
+                "loop_action_info": {"action_taken": False, "command": "error", "reason": str(e)},
+            }
 
     async def _handle_action(
         self,
