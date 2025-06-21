@@ -28,8 +28,8 @@ services:
 #      - "27017:27017"
     volumes:
       - ./docker-config/mmc/.env:/MaiMBot/.env # 持久化env配置文件
-      - ./docker-config/mmc/maibot_statistics.html:/MaiMBot/maibot_statistics.html #统计数据输出
       - ./docker-config/mmc:/MaiMBot/config # 持久化bot配置文件
+      - ./data/MaiMBot/maibot_statistics.html:/MaiMBot/maibot_statistics.html #统计数据输出
       - ./data/MaiMBot:/MaiMBot/data # NapCat 和 NoneBot 共享此卷，否则发送图片会有问题
     restart: always
     networks:
