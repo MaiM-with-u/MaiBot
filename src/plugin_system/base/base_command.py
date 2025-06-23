@@ -162,6 +162,7 @@ class BaseCommand(ABC):
                 command=command_data,
                 stream_id=chat_stream.stream_id,
                 storage_message=storage_message,
+                display_message=display_message
             )
 
             if success:
