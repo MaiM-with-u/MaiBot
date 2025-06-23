@@ -284,7 +284,7 @@ async def image_to_stream(image_base64: str, stream_id: str, storage_message: bo
     return await _send_to_target("image", image_base64, stream_id, "", typing=False, storage_message=storage_message)
 
 
-async def command_to_stream(command: Union[str, dict], stream_id: str, storage_message: bool = True) -> bool:
+async def command_to_stream(command: Union[str, dict], stream_id: str, storage_message: bool = True, display_message: str = "") -> bool:
     """向指定流发送命令
 
     Args:
@@ -295,7 +295,7 @@ async def command_to_stream(command: Union[str, dict], stream_id: str, storage_m
     Returns:
         bool: 是否发送成功
     """
-    return await _send_to_target("command", command, stream_id, "", typing=False, storage_message=storage_message)
+    return await _send_to_target("command", command, stream_id, display_message, typing=False, storage_message=storage_message)
 
 
 async def custom_to_stream(
