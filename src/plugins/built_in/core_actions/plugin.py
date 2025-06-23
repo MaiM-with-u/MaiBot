@@ -230,9 +230,22 @@ class NoReplyAction(BaseAction):
                     )
                     return True, f"累计消息数量达到{new_message_count}条，直接结束等待 (等待时间: {elapsed_time:.1f}秒)"
 
-                # 如果有新消息且距离上次判断>=1秒，进行LLM判断
-                if new_message_count > 0 and (current_time - last_judge_time) >= min_judge_interval:
-                    logger.info(f"{self.log_prefix} 检测到{new_message_count}条新消息，进行智能判断...")
+                # 判定条件：累计3条消息或等待超过5秒且有新消息
+                time_since_last_judge = current_time - last_judge_time
+                should_judge = (
+                    new_message_count >= 3  # 累计3条消息
+                    or (new_message_count > 0 and time_since_last_judge >= 5.0)  # 等待超过5秒且有新消息
+                )
+
+                if should_judge and time_since_last_judge >= min_judge_interval:
+                    # 判断触发原因
+                    trigger_reason = ""
+                    if new_message_count >= 3:
+                        trigger_reason = f"累计{new_message_count}条消息"
+                    elif time_since_last_judge >= 5.0:
+                        trigger_reason = f"等待{time_since_last_judge:.1f}秒且有{new_message_count}条新消息"
+
+                    logger.info(f"{self.log_prefix} 触发判定({trigger_reason})，进行智能判断...")
 
                     # 获取最近的消息内容用于判断
                     recent_messages = message_api.get_messages_by_time_in_chat(
@@ -307,6 +320,14 @@ class NoReplyAction(BaseAction):
                                     frequency_block = "你今天说话比较多，感觉有点疲惫，想要稍微休息一下。\n"
                                 else:
                                     frequency_block = "你发现自己说话太多了，感觉很累，想要安静一会儿，除非有重要的事情否则不想回复。\n"
+                                    skip_probability = self._skip_probability_heavy
+
+                                # 根据配置和概率决定是否跳过LLM判断
+                                if self._skip_judge_when_tired and random.random() < skip_probability:
+                                    should_skip_llm_judge = True
+                                    logger.info(
+                                        f"{self.log_prefix} 发言过多(超过{over_count}条)，随机决定跳过此次LLM判断(概率{skip_probability * 100:.0f}%)"
+                                    )
 
                                 logger.info(
                                     f"{self.log_prefix} 过去10分钟发言{bot_message_count}条，超过阈值{talk_frequency_threshold}，添加疲惫提示"

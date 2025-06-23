@@ -440,6 +440,7 @@ class DefaultReplyer:
                 chat_info=chat_talking_prompt,
                 memory_block=memory_block,
                 structured_info_block=structured_info_block,
+                relation_info_block=relation_info_block,
                 extra_info_block=extra_info_block,
                 time_block=time_block,
                 keywords_reaction_prompt=keywords_reaction_prompt,

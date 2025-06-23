@@ -41,6 +41,8 @@ class HFCPerformanceLogger:
                 "action_type": cycle_data.get("action_type", "unknown"),
                 "total_time": cycle_data.get("total_time", 0),
                 "step_times": cycle_data.get("step_times", {}),
+                "processor_time_costs": cycle_data.get("processor_time_costs", {}),  # 前处理器时间
+                "post_processor_time_costs": cycle_data.get("post_processor_time_costs", {}),  # 后处理器时间
                 "reasoning": cycle_data.get("reasoning", ""),
                 "success": cycle_data.get("success", False),
             }
@@ -51,9 +53,21 @@ class HFCPerformanceLogger:
             # 立即写入文件（防止数据丢失）
             self._write_session_data()
 
-            logger.debug(
-                f"记录HFC循环数据: cycle_id={record['cycle_id']}, action={record['action_type']}, time={record['total_time']:.2f}s"
-            )
+            # 构建详细的日志信息
+            log_parts = [
+                f"cycle_id={record['cycle_id']}",
+                f"action={record['action_type']}",
+                f"time={record['total_time']:.2f}s",
+            ]
+
+            # 添加后处理器时间信息到日志
+            if record["post_processor_time_costs"]:
+                post_processor_stats = ", ".join(
+                    [f"{name}: {time_cost:.3f}s" for name, time_cost in record["post_processor_time_costs"].items()]
+                )
+                log_parts.append(f"post_processors=({post_processor_stats})")
+
+            logger.debug(f"记录HFC循环数据: {', '.join(log_parts)}")
 
         except Exception as e:
             logger.error(f"记录HFC循环数据失败: {e}")

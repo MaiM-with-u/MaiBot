@@ -22,9 +22,10 @@ class CycleDetail:
 
         # 新字段
         self.loop_observation_info: Dict[str, Any] = {}
-        self.loop_process_info: Dict[str, Any] = {}
+        self.loop_processor_info: Dict[str, Any] = {}  # 前处理器信息
         self.loop_plan_info: Dict[str, Any] = {}
         self.loop_action_info: Dict[str, Any] = {}
+        self.loop_post_processor_info: Dict[str, Any] = {}  # 后处理器信息
 
     def to_dict(self) -> Dict[str, Any]:
         """将循环信息转换为字典格式"""
@@ -76,9 +77,10 @@ class CycleDetail:
             "timers": self.timers,
             "thinking_id": self.thinking_id,
             "loop_observation_info": convert_to_serializable(self.loop_observation_info),
-            "loop_process_info": convert_to_serializable(self.loop_process_info),
+            "loop_processor_info": convert_to_serializable(self.loop_processor_info),
             "loop_plan_info": convert_to_serializable(self.loop_plan_info),
             "loop_action_info": convert_to_serializable(self.loop_action_info),
+            "loop_post_processor_info": convert_to_serializable(self.loop_post_processor_info),
         }
 
     def complete_cycle(self):
@@ -133,3 +135,4 @@ class CycleDetail:
         self.loop_processor_info = loop_info["loop_processor_info"]
         self.loop_plan_info = loop_info["loop_plan_info"]
         self.loop_action_info = loop_info["loop_action_info"]
+        self.loop_post_processor_info = loop_info["loop_post_processor_info"]

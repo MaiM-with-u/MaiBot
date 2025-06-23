@@ -58,6 +58,12 @@ FOCUS_CYCLE_CNT_BY_VERSION = "focus_cycle_count_by_version"
 FOCUS_ACTION_RATIOS_BY_VERSION = "focus_action_ratios_by_version"
 FOCUS_AVG_TIMES_BY_VERSION = "focus_avg_times_by_version"
 
+# 新增: 后处理器统计数据的键
+FOCUS_POST_PROCESSOR_TIMES = "focus_post_processor_times"
+FOCUS_POST_PROCESSOR_COUNT = "focus_post_processor_count"
+FOCUS_POST_PROCESSOR_SUCCESS_RATE = "focus_post_processor_success_rate"
+FOCUS_PROCESSOR_TIMES = "focus_processor_times"  # 前处理器统计
+
 
 class OnlineTimeRecordTask(AsyncTask):
     """在线时间记录任务"""
@@ -495,6 +501,10 @@ class StatisticOutputTask(AsyncTask):
                 FOCUS_AVG_TIMES_BY_VERSION: defaultdict(lambda: defaultdict(list)),
                 "focus_exec_times_by_version_action": defaultdict(lambda: defaultdict(list)),
                 "focus_action_ratios_by_chat": defaultdict(lambda: defaultdict(int)),
+                # 新增：前处理器和后处理器统计字段
+                FOCUS_PROCESSOR_TIMES: defaultdict(list),  # 前处理器时间
+                FOCUS_POST_PROCESSOR_TIMES: defaultdict(list),  # 后处理器时间
+                FOCUS_POST_PROCESSOR_COUNT: defaultdict(int),  # 后处理器执行次数
             }
             for period_key, _ in collect_period
         }
@@ -557,6 +567,10 @@ class StatisticOutputTask(AsyncTask):
                 step_times = cycle_data.get("step_times", {})
                 version = cycle_data.get("version", "unknown")
 
+                # 新增：获取前处理器和后处理器时间
+                processor_time_costs = cycle_data.get("processor_time_costs", {})
+                post_processor_time_costs = cycle_data.get("post_processor_time_costs", {})
+
                 # 更新聊天ID名称映射
                 if chat_id not in self.name_mapping:
                     # 尝试获取实际的聊天名称
@@ -594,6 +608,15 @@ class StatisticOutputTask(AsyncTask):
                                     stat["focus_exec_times_by_chat_action"][chat_id][action_type].append(time_val)
                                     # 按版本和action类型收集执行时间
                                     stat["focus_exec_times_by_version_action"][version][action_type].append(time_val)
+
+                            # 新增：前处理器时间统计
+                            for processor_name, time_val in processor_time_costs.items():
+                                stat[FOCUS_PROCESSOR_TIMES][processor_name].append(time_val)
+
+                            # 新增：后处理器时间统计
+                            for processor_name, time_val in post_processor_time_costs.items():
+                                stat[FOCUS_POST_PROCESSOR_TIMES][processor_name].append(time_val)
+                                stat[FOCUS_POST_PROCESSOR_COUNT][processor_name] += 1
                         break
             except Exception as e:
                 logger.warning(f"Failed to process cycle data: {e}")
@@ -650,6 +673,20 @@ class StatisticOutputTask(AsyncTask):
                         stat["focus_exec_times_by_version_action"][version][action_type] = sum(times) / len(times)
                     else:
                         stat["focus_exec_times_by_version_action"][version][action_type] = 0.0
+
+            # 新增：计算前处理器平均时间
+            for processor_name, times in stat[FOCUS_PROCESSOR_TIMES].items():
+                if times:
+                    stat[FOCUS_PROCESSOR_TIMES][processor_name] = sum(times) / len(times)
+                else:
+                    stat[FOCUS_PROCESSOR_TIMES][processor_name] = 0.0
+
+            # 新增：计算后处理器平均时间
+            for processor_name, times in stat[FOCUS_POST_PROCESSOR_TIMES].items():
+                if times:
+                    stat[FOCUS_POST_PROCESSOR_TIMES][processor_name] = sum(times) / len(times)
+                else:
+                    stat[FOCUS_POST_PROCESSOR_TIMES][processor_name] = 0.0
 
     def _collect_all_statistics(self, now: datetime) -> Dict[str, Dict[str, Any]]:
         """
@@ -893,7 +930,7 @@ class StatisticOutputTask(AsyncTask):
             # format总在线时间
 
             # 按模型分类统计
-            model_rows = "\n".join(
+            "\n".join(
                 [
                     f"<tr>"
                     f"<td>{model_name}</td>"
@@ -907,7 +944,7 @@ class StatisticOutputTask(AsyncTask):
                 ]
             )
             # 按请求类型分类统计
-            type_rows = "\n".join(
+            "\n".join(
                 [
                     f"<tr>"
                     f"<td>{req_type}</td>"
@@ -921,7 +958,7 @@ class StatisticOutputTask(AsyncTask):
                 ]
             )
             # 按模块分类统计
-            module_rows = "\n".join(
+            "\n".join(
                 [
                     f"<tr>"
                     f"<td>{module_name}</td>"
@@ -936,7 +973,7 @@ class StatisticOutputTask(AsyncTask):
             )
 
             # 聊天消息统计
-            chat_rows = "\n".join(
+            "\n".join(
                 [
                     f"<tr><td>{self.name_mapping[chat_id][0]}</td><td>{count}</td></tr>"
                     for chat_id, count in sorted(stat_data[MSG_CNT_BY_CHAT].items())
@@ -958,261 +995,6 @@ class StatisticOutputTask(AsyncTask):
                         for action_type, count in sorted(stat_data[FOCUS_ACTION_RATIOS].items())
                     ]
                 )
-
-                # 按聊天流统计
-                _focus_chat_rows = "\n".join(
-                    [
-                        f"<tr><td>{self.name_mapping.get(chat_id, (chat_id, 0))[0]}</td><td>{count}</td><td>{stat_data[FOCUS_TOTAL_TIME_BY_CHAT].get(chat_id, 0):.2f}秒</td></tr>"
-                        for chat_id, count in sorted(
-                            stat_data[FOCUS_CYCLE_CNT_BY_CHAT].items(), key=lambda x: x[1], reverse=True
-                        )
-                    ]
-                )
-
-                # 全局阶段时间统计
-                _focus_stage_rows = "\n".join(
-                    [
-                        f"<tr><td>{stage}</td><td>{avg_time:.3f}秒</td></tr>"
-                        for stage, avg_time in sorted(stat_data[FOCUS_AVG_TIMES_BY_STAGE].items())
-                    ]
-                )
-
-                # 按Action类型的阶段时间统计
-                focus_action_stage_items = []
-                for action_type, stage_times in stat_data[FOCUS_AVG_TIMES_BY_ACTION].items():
-                    for stage, avg_time in stage_times.items():
-                        focus_action_stage_items.append((action_type, stage, avg_time))
-
-                _focus_action_stage_rows = "\n".join(
-                    [
-                        f"<tr><td>{action_type}</td><td>{stage}</td><td>{avg_time:.3f}秒</td></tr>"
-                        for action_type, stage, avg_time in sorted(focus_action_stage_items)
-                    ]
-                )
-            # 生成HTML
-            return f"""
-            <div id=\"{div_id}\" class=\"tab-content\">
-                <p class=\"info-item\">
-                    <strong>统计时段: </strong>
-                    {start_time.strftime("%Y-%m-%d %H:%M:%S")} ~ {now.strftime("%Y-%m-%d %H:%M:%S")}
-                </p>
-                <p class=\"info-item\"><strong>总在线时间: </strong>{_format_online_time(stat_data[ONLINE_TIME])}</p>
-                <p class=\"info-item\"><strong>总消息数: </strong>{stat_data[TOTAL_MSG_CNT]}</p>
-                <p class=\"info-item\"><strong>总请求数: </strong>{stat_data[TOTAL_REQ_CNT]}</p>
-                <p class=\"info-item\"><strong>总花费: </strong>{stat_data[TOTAL_COST]:.4f} ¥</p>
-                
-                <h2>按模型分类统计</h2>
-                <table>
-                    <thead><tr><th>模型名称</th><th>调用次数</th><th>输入Token</th><th>输出Token</th><th>Token总量</th><th>累计花费</th></tr></thead>
-                    <tbody>
-                        {model_rows}
-                    </tbody>
-                </table>
-                
-                <h2>按模块分类统计</h2>
-                <table>
-                    <thead>
-                        <tr><th>模块名称</th><th>调用次数</th><th>输入Token</th><th>输出Token</th><th>Token总量</th><th>累计花费</th></tr>
-                    </thead>
-                    <tbody>
-                    {module_rows}
-                    </tbody>
-                </table>
-    
-                <h2>按请求类型分类统计</h2>
-                <table>
-                    <thead>
-                        <tr><th>请求类型</th><th>调用次数</th><th>输入Token</th><th>输出Token</th><th>Token总量</th><th>累计花费</th></tr>
-                    </thead>
-                    <tbody>
-                    {type_rows}
-                    </tbody>
-                </table>
-    
-                <h2>聊天消息统计</h2>
-                <table>
-                    <thead>
-                        <tr><th>联系人/群组名称</th><th>消息数量</th></tr>
-                    </thead>
-                    <tbody>
-                    {chat_rows}
-                    </tbody>
-                </table>
-                
-
-            </div>
-            """
-
-        tab_content_list = [
-            _format_stat_data(stat[period[0]], period[0], now - period[1])
-            for period in self.stat_period
-            if period[0] != "all_time"
-        ]
-
-        tab_content_list.append(
-            _format_stat_data(stat["all_time"], "all_time", datetime.fromtimestamp(local_storage["deploy_time"]))
-        )
-
-        # 添加Focus统计内容
-        focus_tab = self._generate_focus_tab(stat)
-        tab_content_list.append(focus_tab)
-
-        # 添加版本对比内容
-        versions_tab = self._generate_versions_tab(stat)
-        tab_content_list.append(versions_tab)
-
-        # 添加图表内容
-        chart_data = self._generate_chart_data(stat)
-        tab_content_list.append(self._generate_chart_tab(chart_data))
-
-        joined_tab_list = "\n".join(tab_list)
-        joined_tab_content = "\n".join(tab_content_list)
-
-        html_template = (
-            """
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MaiBot运行统计报告</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f7f6;
-            color: #333;
-            line-height: 1.6;
-        }
-        .container {
-            max-width: 900px;
-            margin: 20px auto;
-            background-color: #fff;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1, h2 {
-            color: #2c3e50;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
-            margin-top: 0;
-        }
-        h1 {
-            text-align: center;
-            font-size: 2em;
-        }
-        h2 {
-            font-size: 1.5em;
-            margin-top: 30px;
-        }
-        p {
-            margin-bottom: 10px;
-        }
-        .info-item {
-            background-color: #ecf0f1;
-            padding: 8px 12px;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            font-size: 0.95em;
-        }
-        .info-item strong {
-            color: #2980b9;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            font-size: 0.9em;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-        }
-        th {
-            background-color: #3498db;
-            color: white;
-            font-weight: bold;
-        }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            font-size: 0.8em;
-            color: #7f8c8d;
-        }
-        .tabs {
-            overflow: hidden;
-            background: #ecf0f1;
-            display: flex;
-        }
-        .tabs button {
-            background: inherit; border: none; outline: none;
-            padding: 14px 16px; cursor: pointer;
-            transition: 0.3s; font-size: 16px;
-        }
-        .tabs button:hover {
-            background-color: #d4dbdc;
-        }
-        .tabs button.active {
-            background-color: #b3bbbd;
-        }
-        .tab-content {
-            display: none;
-            padding: 20px;
-            background-color: #fff;
-            border: 1px solid #ccc;
-        }
-        .tab-content.active {
-            display: block;
-        }
-    </style>
-</head>
-<body>
-"""
-            + f"""
-    <div class="container">
-        <h1>MaiBot运行统计报告</h1>
-        <p class="info-item"><strong>统计截止时间:</strong> {now.strftime("%Y-%m-%d %H:%M:%S")}</p>
-
-        <div class="tabs">
-            {joined_tab_list}
-        </div>
-
-        {joined_tab_content}
-    </div>
-"""
-            + """
-<script>
-    let i, tab_content, tab_links;
-    tab_content = document.getElementsByClassName("tab-content");
-    tab_links = document.getElementsByClassName("tab-link");
-    
-    tab_content[0].classList.add("active");
-    tab_links[0].classList.add("active");
-
-    function showTab(evt, tabName) {{
-        for (i = 0; i < tab_content.length; i++) tab_content[i].classList.remove("active");
-        for (i = 0; i < tab_links.length; i++) tab_links[i].classList.remove("active");
-        document.getElementById(tabName).classList.add("active");
-        evt.currentTarget.classList.add("active");
-    }}
-</script>
-</body>
-</html>
-        """
-        )
-
-        with open(self.record_file_path, "w", encoding="utf-8") as f:
-            f.write(html_template)
-
-    def _generate_focus_tab(self, stat: dict[str, Any]) -> str:
-        """生成Focus统计独立分页的HTML内容"""
 
         # 为每个时间段准备Focus数据
         focus_sections = []
@@ -1242,8 +1024,8 @@ class StatisticOutputTask(AsyncTask):
             # 按聊天流统计（横向表格，显示各阶段时间差异和不同action的平均时间）
             focus_chat_rows = ""
             if stat_data[FOCUS_AVG_TIMES_BY_CHAT_ACTION]:
-                # 获取前三个阶段（不包括执行动作）
-                basic_stages = ["观察", "并行调整动作、处理", "规划器"]
+                # 获取所有阶段（包括后处理器）
+                basic_stages = ["观察", "并行调整动作、处理", "规划器", "后期处理器", "动作执行"]
                 existing_basic_stages = []
                 for stage in basic_stages:
                     # 检查是否有任何聊天流在这个阶段有数据
@@ -1348,11 +1130,104 @@ class StatisticOutputTask(AsyncTask):
                     chat_action_ratio_table_header = f"<tr><th>聊天流</th>{action_headers}</tr>"
                     focus_chat_action_ratios_rows = chat_action_ratio_table_header + "\n" + "\n".join(chat_ratio_rows)
 
+                # 获取所有action类型（按出现频率排序）
+                all_action_types = sorted(
+                    stat_data[FOCUS_ACTION_RATIOS].keys(), key=lambda x: stat_data[FOCUS_ACTION_RATIOS][x], reverse=True
+                )
+
+                # 为每个聊天流生成一行
+                chat_rows = []
+                for chat_id in sorted(
+                    stat_data[FOCUS_CYCLE_CNT_BY_CHAT].keys(),
+                    key=lambda x: stat_data[FOCUS_CYCLE_CNT_BY_CHAT][x],
+                    reverse=True,
+                ):
+                    chat_name = self.name_mapping.get(chat_id, (chat_id, 0))[0]
+                    cycle_count = stat_data[FOCUS_CYCLE_CNT_BY_CHAT][chat_id]
+
+                    # 获取该聊天流的各阶段平均时间
+                    stage_times = stat_data[FOCUS_AVG_TIMES_BY_CHAT_ACTION].get(chat_id, {})
+
+                    row_cells = [f"<td><strong>{chat_name}</strong><br><small>({cycle_count}次循环)</small></td>"]
+
+                    # 添加基础阶段时间
+                    for stage in existing_basic_stages:
+                        time_val = stage_times.get(stage, 0.0)
+                        row_cells.append(f"<td>{time_val:.3f}秒</td>")
+
+                    # 添加每个action类型的平均执行时间
+                    for action_type in all_action_types:
+                        # 使用真实的按聊天流+action类型分组的执行时间数据
+                        exec_times_by_chat_action = stat_data.get("focus_exec_times_by_chat_action", {})
+                        chat_action_times = exec_times_by_chat_action.get(chat_id, {})
+                        avg_exec_time = chat_action_times.get(action_type, 0.0)
+
+                        if avg_exec_time > 0:
+                            row_cells.append(f"<td>{avg_exec_time:.3f}秒</td>")
+                        else:
+                            row_cells.append("<td>-</td>")
+
+                    chat_rows.append(f"<tr>{''.join(row_cells)}</tr>")
+
+                # 生成表头
+                stage_headers = "".join([f"<th>{stage}</th>" for stage in existing_basic_stages])
+                action_headers = "".join(
+                    [f"<th>{action_type}<br><small>(执行)</small></th>" for action_type in all_action_types]
+                )
+                focus_chat_table_header = f"<tr><th>聊天流</th>{stage_headers}{action_headers}</tr>"
+                focus_chat_rows = focus_chat_table_header + "\n" + "\n".join(chat_rows)
+
+            # 全局阶段时间统计
+            focus_stage_rows = "\n".join(
+                [
+                    f"<tr><td>{stage}</td><td>{avg_time:.3f}秒</td></tr>"
+                    for stage, avg_time in sorted(stat_data[FOCUS_AVG_TIMES_BY_STAGE].items())
+                ]
+            )
+
+            # 聊天流Action选择比例对比表（横向表格）
+            focus_chat_action_ratios_rows = ""
+            if stat_data.get("focus_action_ratios_by_chat"):
+                # 获取所有action类型（按全局频率排序）
+                all_action_types_for_ratio = sorted(
+                    stat_data[FOCUS_ACTION_RATIOS].keys(), key=lambda x: stat_data[FOCUS_ACTION_RATIOS][x], reverse=True
+                )
+
+                if all_action_types_for_ratio:
+                    # 为每个聊天流生成数据行（按循环数排序）
+                    chat_ratio_rows = []
+                    for chat_id in sorted(
+                        stat_data[FOCUS_CYCLE_CNT_BY_CHAT].keys(),
+                        key=lambda x: stat_data[FOCUS_CYCLE_CNT_BY_CHAT][x],
+                        reverse=True,
+                    ):
+                        chat_name = self.name_mapping.get(chat_id, (chat_id, 0))[0]
+                        total_cycles = stat_data[FOCUS_CYCLE_CNT_BY_CHAT][chat_id]
+                        chat_action_counts = stat_data["focus_action_ratios_by_chat"].get(chat_id, {})
+
+                        row_cells = [f"<td><strong>{chat_name}</strong><br><small>({total_cycles}次循环)</small></td>"]
+
+                        # 添加每个action类型的数量和百分比
+                        for action_type in all_action_types_for_ratio:
+                            count = chat_action_counts.get(action_type, 0)
+                            ratio = (count / total_cycles * 100) if total_cycles > 0 else 0
+                            if count > 0:
+                                row_cells.append(f"<td>{count}<br><small>({ratio:.1f}%)</small></td>")
+                            else:
+                                row_cells.append("<td>-<br><small>(0%)</small></td>")
+
+                        chat_ratio_rows.append(f"<tr>{''.join(row_cells)}</tr>")
+
+                    # 生成表头
+                    action_headers = "".join([f"<th>{action_type}</th>" for action_type in all_action_types_for_ratio])
+                    chat_action_ratio_table_header = f"<tr><th>聊天流</th>{action_headers}</tr>"
+                    focus_chat_action_ratios_rows = chat_action_ratio_table_header + "\n" + "\n".join(chat_ratio_rows)
+
             # 按Action类型的阶段时间统计（横向表格）
             focus_action_stage_rows = ""
             if stat_data[FOCUS_AVG_TIMES_BY_ACTION]:
-                # 获取所有阶段（按固定顺序）
-                stage_order = ["观察", "并行调整动作、处理", "规划器", "执行动作"]
+                # 获取所有阶段（按固定顺序，确保与实际Timer名称一致）
+                stage_order = ["观察", "并行调整动作、处理", "规划器", "后期处理器", "动作执行"]
                 all_stages = []
                 for stage in stage_order:
                     if any(stage in stage_times for stage_times in stat_data[FOCUS_AVG_TIMES_BY_ACTION].values()):
@@ -1374,6 +1249,36 @@ class StatisticOutputTask(AsyncTask):
                 stage_headers = "".join([f"<th>{stage}</th>" for stage in all_stages])
                 focus_action_stage_table_header = f"<tr><th>Action类型</th>{stage_headers}</tr>"
                 focus_action_stage_rows = focus_action_stage_table_header + "\n" + "\n".join(action_rows)
+
+            # 新增：前处理器统计表格
+            focus_processor_rows = ""
+            if stat_data.get(FOCUS_PROCESSOR_TIMES):
+                processor_rows = []
+                for processor_name in sorted(stat_data[FOCUS_PROCESSOR_TIMES].keys()):
+                    avg_time = stat_data[FOCUS_PROCESSOR_TIMES][processor_name]
+                    processor_rows.append(f"<tr><td>{processor_name}</td><td>{avg_time:.3f}秒</td></tr>")
+                focus_processor_rows = "\n".join(processor_rows)
+
+            # 新增：前处理器统计表格
+            focus_processor_rows = ""
+            if stat_data.get(FOCUS_PROCESSOR_TIMES):
+                processor_rows = []
+                for processor_name in sorted(stat_data[FOCUS_PROCESSOR_TIMES].keys()):
+                    avg_time = stat_data[FOCUS_PROCESSOR_TIMES][processor_name]
+                    processor_rows.append(f"<tr><td>{processor_name}</td><td>{avg_time:.3f}秒</td></tr>")
+                focus_processor_rows = "\n".join(processor_rows)
+
+            # 新增：后处理器统计表格
+            focus_post_processor_rows = ""
+            if stat_data.get(FOCUS_POST_PROCESSOR_TIMES):
+                post_processor_rows = []
+                for processor_name in sorted(stat_data[FOCUS_POST_PROCESSOR_TIMES].keys()):
+                    avg_time = stat_data[FOCUS_POST_PROCESSOR_TIMES][processor_name]
+                    count = stat_data[FOCUS_POST_PROCESSOR_COUNT].get(processor_name, 0)
+                    post_processor_rows.append(
+                        f"<tr><td>{processor_name}</td><td>{avg_time:.3f}秒</td><td>{count}</td></tr>"
+                    )
+                focus_post_processor_rows = "\n".join(post_processor_rows)
 
             # 计算时间范围
             if period_name == "all_time":
@@ -1436,6 +1341,24 @@ class StatisticOutputTask(AsyncTask):
                         <thead></thead>
                         <tbody>{focus_action_stage_rows}</tbody>
                     </table>
+                </div>
+                
+                <div class="focus-stats-grid">
+                    <div class="focus-stat-item">
+                        <h3>前处理器平均时间</h3>
+                        <table>
+                            <thead><tr><th>处理器名称</th><th>平均耗时</th></tr></thead>
+                            <tbody>{focus_processor_rows}</tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="focus-stat-item">
+                        <h3>后处理器统计</h3>
+                        <table>
+                            <thead><tr><th>处理器名称</th><th>平均耗时</th><th>执行次数</th></tr></thead>
+                            <tbody>{focus_post_processor_rows}</tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
             """
