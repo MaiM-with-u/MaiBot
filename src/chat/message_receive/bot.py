@@ -6,6 +6,7 @@ from src.manager.mood_manager import mood_manager  # 导入情绪管理器
 from src.chat.message_receive.chat_stream import get_chat_manager
 from src.chat.message_receive.message import MessageRecv
 from src.experimental.only_message_process import MessageProcessor
+from src.chat.message_receive.storage import MessageStorage
 from src.experimental.PFC.pfc_manager import PFCManager
 from src.chat.focus_chat.heartflow_message_processor import HeartFCMessageReceiver
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
@@ -148,6 +149,7 @@ class ChatBot:
 
             # 如果是命令且不需要继续处理，则直接返回
             if is_command and not continue_process:
+                await MessageStorage.store_message(message, chat)
                 logger.info(f"命令处理完成，跳过后续消息处理: {cmd_result}")
                 return
 
