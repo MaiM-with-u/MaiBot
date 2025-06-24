@@ -8,7 +8,7 @@ from src.common.message.api import get_global_api
 # from ...common.database import db # 数据库依赖似乎不需要了，注释掉
 from .message import MessageSending, MessageThinking, MessageSet
 
-from .storage import MessageStorage
+from src.chat.message_receive.storage import MessageStorage
 from ...config.config import global_config
 from ..utils.utils import truncate_message, calculate_typing_time, count_messages_between
 

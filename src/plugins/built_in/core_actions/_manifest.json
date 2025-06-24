@@ -39,16 +39,6 @@
         "type": "action",
         "name": "emoji", 
         "description": "发送表情包辅助表达情绪"
-      },
-      {
-        "type": "action",
-        "name": "change_to_focus_chat",
-        "description": "切换到专注聊天，从普通模式切换到专注模式"
-      },
-      {
-        "type": "action",
-        "name": "exit_focus_chat", 
-        "description": "退出专注聊天，从专注模式切换到普通模式"
       }
     ]
   }

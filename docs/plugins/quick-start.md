@@ -67,7 +67,7 @@ class HelloWorldPlugin(BasePlugin):
 
 - 首先，我们在plugin.py中定义了一个HelloWorldPulgin插件类，继承自 `BasePlugin` ，提供基本功能。
 - 通过给类加上，`@register_plugin` 装饰器，我们告诉系统"这是一个插件"
-- `plugin_name` 等是插件的基本信息，必须填写
+- `plugin_name` 等是插件的基本信息，必须填写，**此部分必须与目录名称相同，否则插件无法使用**
 - `get_plugin_components()` 返回插件的功能组件，现在我们没有定义任何action（动作）或者command(指令)，是空的
 
 ### 3. 测试基础插件

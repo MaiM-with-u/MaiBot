@@ -58,6 +58,8 @@ class ActionModifier:
         logger.debug(f"{self.log_prefix}开始完整动作修改流程")
 
         # === 第一阶段：传统观察处理 ===
+        chat_content = None
+
         if observations:
             hfc_obs = None
             chat_obs = None
@@ -78,7 +80,7 @@ class ActionModifier:
             if hfc_obs:
                 obs = hfc_obs
                 # 获取适用于FOCUS模式的动作
-                all_actions = self.action_manager.get_using_actions_for_mode("focus")
+                all_actions = self.all_actions
                 action_changes = await self.analyze_loop_actions(obs)
                 if action_changes["add"] or action_changes["remove"]:
                     # 合并动作变更
@@ -94,9 +96,8 @@ class ActionModifier:
 
             # 处理ChattingObservation - 传统的类型匹配检查
             if chat_obs:
-                obs = chat_obs
                 # 检查动作的关联类型
-                chat_context = get_chat_manager().get_stream(obs.chat_id).context
+                chat_context = get_chat_manager().get_stream(chat_obs.chat_id).context
                 type_mismatched_actions = []
 
                 for action_name in all_actions.keys():
@@ -128,25 +129,12 @@ class ActionModifier:
                 f"{self.log_prefix}传统动作修改完成，当前使用动作: {list(self.action_manager.get_using_actions().keys())}"
             )
 
-        # === chat_mode检查：强制移除非auto模式下的exit_focus_chat ===
-        if global_config.chat.chat_mode != "auto":
-            if "exit_focus_chat" in self.action_manager.get_using_actions():
-                self.action_manager.remove_action_from_using("exit_focus_chat")
-                logger.info(
-                    f"{self.log_prefix}移除动作: exit_focus_chat，原因: chat_mode不为auto（当前模式: {global_config.chat.chat_mode}）"
-                )
+        # 注释：已移除exit_focus_chat动作，现在由no_reply动作处理频率检测退出专注模式
 
         # === 第二阶段：激活类型判定 ===
         # 如果提供了聊天上下文，则进行激活类型判定
         if chat_content is not None:
             logger.debug(f"{self.log_prefix}开始激活类型判定阶段")
-
-            # 保存exit_focus_chat动作（如果存在）
-            exit_focus_action = None
-            if "exit_focus_chat" in self.action_manager.get_using_actions():
-                exit_focus_action = self.action_manager.get_using_actions()["exit_focus_chat"]
-                self.action_manager.remove_action_from_using("exit_focus_chat")
-                logger.debug(f"{self.log_prefix}临时移除exit_focus_chat动作以进行激活类型判定")
 
             # 获取当前使用的动作集（经过第一阶段处理，且适用于FOCUS模式）
             current_using_actions = self.action_manager.get_using_actions()
@@ -197,16 +185,7 @@ class ActionModifier:
                 reason = removal_reasons.get(action_name, "未知原因")
                 logger.info(f"{self.log_prefix}移除动作: {action_name}，原因: {reason}")
 
-            # 恢复exit_focus_chat动作（如果之前存在）
-            if exit_focus_action:
-                # 只有在auto模式下才恢复exit_focus_chat动作
-                if global_config.chat.chat_mode == "auto":
-                    self.action_manager.add_action_to_using("exit_focus_chat")
-                    logger.debug(f"{self.log_prefix}恢复exit_focus_chat动作")
-                else:
-                    logger.debug(
-                        f"{self.log_prefix}跳过恢复exit_focus_chat动作，原因: chat_mode不为auto（当前模式: {global_config.chat.chat_mode}）"
-                    )
+            # 注释：已完全移除exit_focus_chat动作
 
             logger.info(f"{self.log_prefix}激活类型判定完成，最终可用动作: {list(final_activated_actions.keys())}")
 
@@ -576,29 +555,12 @@ class ActionModifier:
         if not recent_cycles:
             return result
 
-        # 统计no_reply的数量
-        no_reply_count = 0
         reply_sequence = []  # 记录最近的动作序列
 
         for cycle in recent_cycles:
             action_result = cycle.loop_plan_info.get("action_result", {})
             action_type = action_result.get("action_type", "unknown")
-            if action_type == "no_reply":
-                no_reply_count += 1
             reply_sequence.append(action_type == "reply")
-
-        # 检查no_reply比例
-        if len(recent_cycles) >= (4 * global_config.chat.exit_focus_threshold) and (
-            no_reply_count / len(recent_cycles)
-        ) >= (0.7 * global_config.chat.exit_focus_threshold):
-            if global_config.chat.chat_mode == "auto":
-                result["add"].append("exit_focus_chat")
-                result["remove"].append("no_reply")
-                result["remove"].append("reply")
-                no_reply_ratio = no_reply_count / len(recent_cycles)
-                logger.info(
-                    f"{self.log_prefix}检测到高no_reply比例: {no_reply_ratio:.2f}，达到退出聊天阈值，将添加exit_focus_chat并移除no_reply/reply动作"
-                )
 
         # 计算连续回复的相关阈值
 
@@ -613,7 +575,7 @@ class ActionModifier:
             last_max_reply_num = reply_sequence[:]
 
         # 详细打印阈值和序列信息，便于调试
-        logger.debug(
+        logger.info(
             f"连续回复阈值: max={max_reply_num}, sec={sec_thres_reply_num}, one={one_thres_reply_num}，"
             f"最近reply序列: {last_max_reply_num}"
         )

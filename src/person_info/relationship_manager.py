@@ -423,8 +423,7 @@ class RelationshipManager:
 
 请根据你对ta过去的了解，和ta最近的行为，修改，整合，原有的了解，总结出对用户 {person_name}(昵称:{nickname})新的了解。
 
-了解可以包含性格，关系，感受，态度，你推测的ta的性别，年龄，外貌，身份，习惯，爱好，重要事件，重要经历等等内容。也可以包含其他点。
-关注友好和不友好的因素，不要忽略。
+了解请包含性格，对你的态度，你推测的ta的年龄，身份，习惯，爱好，重要事件和其他重要属性这几方面内容。
 请严格按照以下给出的信息，不要新增额外内容。
 
 你之前对他的了解是：
@@ -467,23 +466,23 @@ class RelationshipManager:
 
                 relation_value_prompt = f"""
 你的名字是{global_config.bot.nickname}。
-你对{person_name}的了解如下：
-{compressed_summary}
+你最近对{person_name}的了解如下：
+{points_text}
 
 请根据以上信息，评估你和{person_name}的关系，给出两个维度的值：熟悉度和好感度。
-1.  **熟悉度 (familiarity_value)**: 0-100的整数，表示你对ta的熟悉程度。
-    - 0: 完全陌生
-    - 25: 有点眼熟
-    - 50: 比较熟悉
-    - 75: 很熟悉
-    - 100: 非常熟悉，了如指掌
+1.  了解度 (familiarity_value): 0-100的整数，表示这些信息让你对ta的了解增进程度。
+    - 0: 没有任何进一步了解
+    - 25: 有点进一步了解
+    - 50: 有进一步了解
+    - 75: 有更多了解
+    - 100: 有了更多重要的了解
 
-2.  **好感度 (liking_value)**: 0-100的整数，表示你对ta的喜好程度。
+2.  **好感度 (liking_value)**: 0-100的整数，表示这些信息让你对ta的喜。
     - 0: 非常厌恶
     - 25: 有点反感
     - 50: 中立/无感
     - 75: 有点喜欢
-    - 100: 非常喜欢/挚友
+    - 100: 非常喜欢/开心对这个人
 
 请严格按照json格式输出，不要有其他多余内容：
 {{
@@ -501,19 +500,20 @@ class RelationshipManager:
                     new_familiarity_value = int(relation_value_json.get("familiarity_value", 0))
                     new_liking_value = int(relation_value_json.get("liking_value", 50))
 
-                    # 获取数据库中的旧值，如果不存在则使用默认值
-                    old_familiarity_value = await person_info_manager.get_value(person_id, "familiarity_value") or 0
-                    old_liking_value = await person_info_manager.get_value(person_id, "liking_value") or 50
+                    if new_familiarity_value > 25:
+                        old_familiarity_value = await person_info_manager.get_value(person_id, "familiarity_value") or 0
+                        old_familiarity_value += new_familiarity_value - 25 / 75
 
-                    # 计算平均值
-                    final_familiarity_value = (old_familiarity_value + new_familiarity_value) // 2
-                    final_liking_value = (old_liking_value + new_liking_value) // 2
+                    if new_liking_value > 50:
+                        liking_value = await person_info_manager.get_value(person_id, "liking_value") or 50
+                        liking_value += new_liking_value - 50 / 50
+                    if new_liking_value < 50:
+                        liking_value = await person_info_manager.get_value(person_id, "liking_value") or 50
+                        liking_value -= (50 - new_liking_value / 50) * 1.5
 
-                    await person_info_manager.update_one_field(person_id, "familiarity_value", final_familiarity_value)
-                    await person_info_manager.update_one_field(person_id, "liking_value", final_liking_value)
-                    logger.info(
-                        f"更新了与 {person_name} 的关系值: 熟悉度={final_familiarity_value}, 好感度={final_liking_value}"
-                    )
+                    await person_info_manager.update_one_field(person_id, "familiarity_value", liking_value)
+                    await person_info_manager.update_one_field(person_id, "liking_value", liking_value)
+                    logger.info(f"更新了与 {person_name} 的关系值: 熟悉度={liking_value}, 好感度={liking_value}")
                 except (json.JSONDecodeError, ValueError, TypeError) as e:
                     logger.error(f"解析relation_value JSON失败或值无效: {e}, 响应: {relation_value_response}")
 

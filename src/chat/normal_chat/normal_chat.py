@@ -563,21 +563,21 @@ class NormalChat:
                                     self.interest_dict.pop(msg_id, None)
 
                             # 创建并行任务列表
-                            tasks = []
+                            coroutines = []
                             for msg_id, (message, interest_value, is_mentioned) in items_to_process:
-                                task = process_single_message(msg_id, message, interest_value, is_mentioned)
-                                tasks.append(task)
+                                coroutine = process_single_message(msg_id, message, interest_value, is_mentioned)
+                                coroutines.append(coroutine)
 
                             # 并行执行所有任务，限制并发数量避免资源过度消耗
-                            if tasks:
+                            if coroutines:
                                 # 使用信号量控制并发数，最多同时处理5个消息
                                 semaphore = asyncio.Semaphore(5)
 
-                                async def limited_process(task, sem):
+                                async def limited_process(coroutine, sem):
                                     async with sem:
-                                        await task
+                                        await coroutine
 
-                                limited_tasks = [limited_process(task, semaphore) for task in tasks]
+                                limited_tasks = [limited_process(coroutine, semaphore) for coroutine in coroutines]
                                 await asyncio.gather(*limited_tasks, return_exceptions=True)
 
                     except asyncio.CancelledError:

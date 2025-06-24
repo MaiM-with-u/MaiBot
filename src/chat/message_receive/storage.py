@@ -18,7 +18,12 @@ class MessageStorage:
             # 莫越权 救世啊
             pattern = r"<MainRule>.*?</MainRule>|<schedule>.*?</schedule>|<UserMessage>.*?</UserMessage>"
 
+            # print(message)
+
             processed_plain_text = message.processed_plain_text
+
+            # print(processed_plain_text)
+
             if processed_plain_text:
                 filtered_processed_plain_text = re.sub(pattern, "", processed_plain_text, flags=re.DOTALL)
             else:
