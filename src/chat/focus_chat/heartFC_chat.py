@@ -111,15 +111,9 @@ class HeartFChatting:
         self._register_observations()
 
         # 根据配置文件和默认规则确定启用的处理器
-        config_processor_settings = global_config.focus_chat_processor
-        self.enabled_processor_names = []
-
-        for proc_name, (_proc_class, config_key) in PROCESSOR_CLASSES.items():
-            # 检查处理器是否应该启用
-            if not config_key or getattr(config_processor_settings, config_key, True):
-                self.enabled_processor_names.append(proc_name)
-
-        # logger.info(f"{self.log_prefix} 将启用的处理器: {self.enabled_processor_names}")
+        self.enabled_processor_names = ["ChattingInfoProcessor"]
+        if global_config.focus_chat.working_memory_processor:
+            self.enabled_processor_names.append("WorkingMemoryProcessor")
 
         self.processors: List[BaseProcessor] = []
         self._register_default_processors()
@@ -196,7 +190,6 @@ class HeartFChatting:
                 elif name == "WorkingMemoryProcessor":
                     self.processors.append(processor_actual_class(subheartflow_id=self.stream_id))
                 else:
-                    # 对于PROCESSOR_CLASSES中定义但此处未明确处理构造的处理器
                     try:
                         self.processors.append(processor_actual_class())  # 尝试无参构造
                         logger.debug(f"{self.log_prefix} 注册处理器 {name} (尝试无参构造).")
@@ -205,7 +198,6 @@ class HeartFChatting:
                             f"{self.log_prefix} 处理器 {name} 构造失败。它可能需要参数（如 subheartflow_id）但未在注册逻辑中明确处理。"
                         )
             else:
-                # 这理论上不应该发生，因为 enabled_processor_names 是从 PROCESSOR_CLASSES 的键生成的
                 logger.warning(
                     f"{self.log_prefix} 在 PROCESSOR_CLASSES 中未找到名为 '{name}' 的处理器定义，将跳过注册。"
                 )
