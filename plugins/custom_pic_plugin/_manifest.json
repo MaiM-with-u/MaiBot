@@ -1,0 +1,43 @@
+{
+  "manifest_version": 1,
+  "name": "Custom_pic 自定义提示词生图插件",
+  "version": "1.0.0",
+  "description": "我的第一个MaiCore插件,基于豆包生图插件，根据 0.8.0 api 文档修改，进行更改新增，支持魔搭api、火山api、chatany api，包含新增自定义正面提示词、负面提示词，可以调用 lora 模型调整画风生图。",
+  "author": {
+    "name": "Ptrel",
+    "url": "https://github.com/MaiM-with-u"
+  },
+  "license": "GPL-v3.0-or-later",
+  
+  "host_application": {
+    "min_version": "0.8.0",
+    "max_version": "0.8.0"
+  },
+  "homepage_url": "https://github.com/MaiM-with-u/maibot",
+  "repository_url": "https://github.com/MaiM-with-u/maibot",
+  "keywords": ["draw", "Expression", "ai", "image"],
+  "categories": ["Expression", "Picture"],
+  
+  "default_locale": "zh-CN",
+  "locales_path": "_locales",
+  
+  "plugin_info": {
+    "is_built_in": false,
+    "plugin_type": "image_generator",
+    "components": [
+      {
+        "type": "action",
+        "name": "draw_picture",
+        "description": "画一张图",
+        "activation_modes": ["keyword"],
+        "keywords": ["画张图"]
+      }
+    ],
+    "features": [
+      "自定义画风",
+      "高自由度模型",
+      "api自选",
+      "需要一定ai绘图能力"
+    ]
+  }
+}
