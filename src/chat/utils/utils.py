@@ -47,7 +47,8 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> tuple[bool, float]:
     reply_probability = 0.0
     is_at = False
     is_mentioned = False
-
+    if message.is_mentioned is not None:
+        return bool(message.is_mentioned), message.is_mentioned
     if (
         message.message_info.additional_config is not None
         and message.message_info.additional_config.get("is_mentioned") is not None

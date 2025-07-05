@@ -492,7 +492,11 @@ class NormalChat:
                         # 检查是否有用户满足关系构建条件
                         asyncio.create_task(self._check_relation_building_conditions(message))
 
-                        await self.reply_one_message(message)
+                        do_reply = await self.reply_one_message(message)
+                        response_set = do_reply if do_reply else []
+                        factor = 0.5
+                        cnt = sum([len(r) for r in response_set])
+                        await asyncio.sleep(max(1, factor * cnt - 3))  # 等待tts
 
                 # 等待一段时间再检查队列
                 await asyncio.sleep(1)

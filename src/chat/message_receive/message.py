@@ -108,7 +108,7 @@ class MessageRecv(Message):
         self.detailed_plain_text = message_dict.get("detailed_plain_text", "")
         self.is_emoji = False
         self.is_picid = False
-        self.is_mentioned = 0.0
+        self.is_mentioned = None
         self.priority_mode = "interest"
         self.priority_info = None
 
@@ -152,14 +152,10 @@ class MessageRecv(Message):
             elif segment.type == "mention_bot":
                 self.is_mentioned = float(segment.data)
                 return ""
-            elif segment.type == "set_priority_mode":
-                # 处理设置优先级模式的消息段
-                if isinstance(segment.data, str):
-                    self.priority_mode = segment.data
-                return ""
             elif segment.type == "priority_info":
                 if isinstance(segment.data, dict):
                     # 处理优先级信息
+                    self.priority_mode = "priority"
                     self.priority_info = segment.data
                     """
                     {
