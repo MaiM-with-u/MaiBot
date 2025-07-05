@@ -178,12 +178,24 @@ class ImageManager:
         """获取普通图片描述，带查重和保存功能"""
         try:
             # 计算图片哈希
-            # 确保base64字符串只包含ASCII字符
             if isinstance(image_base64, str):
                 image_base64 = image_base64.encode("ascii", errors="ignore").decode("ascii")
             image_bytes = base64.b64decode(image_base64)
             image_hash = hashlib.md5(image_bytes).hexdigest()
-            image_format = Image.open(io.BytesIO(image_bytes)).format.lower()
+
+            # 检查图片是否已存在
+            existing_image = Images.get_or_none(Images.emoji_hash == image_hash)
+            if existing_image:
+                # 更新计数
+                if hasattr(existing_image, 'count') and existing_image.count is not None:
+                    existing_image.count += 1
+                else:
+                    existing_image.count = 1
+                existing_image.save()
+                
+                # 如果已有描述，直接返回
+                if existing_image.description:
+                    return f"[图片：{existing_image.description}]"
 
             # 查询缓存的描述
             cached_description = self._get_description_from_db(image_hash, "image")
@@ -192,6 +204,7 @@ class ImageManager:
                 return f"[图片：{cached_description}]"
 
             # 调用AI获取描述
+            image_format = Image.open(io.BytesIO(image_bytes)).format.lower()
             prompt = "请用中文描述这张图片的内容。如果有文字，请把文字都描述出来，请留意其主题，直观感受，输出为一段平文本，最多50字"
             description, _ = await self._llm.generate_response_for_image(prompt, image_base64, image_format)
 
@@ -199,17 +212,7 @@ class ImageManager:
                 logger.warning("AI未能生成图片描述")
                 return "[图片(描述生成失败)]"
 
-            # 再次检查缓存
-            cached_description = self._get_description_from_db(image_hash, "image")
-            if cached_description:
-                logger.warning(f"虽然生成了描述，但是找到缓存图片描述 {cached_description}")
-                return f"[图片：{cached_description}]"
-
-            logger.debug(f"描述是{description}")
-
-            # 根据配置决定是否保存图片
-
-            # 生成文件名和路径
+            # 保存图片和描述
             current_timestamp = time.time()
             filename = f"{int(current_timestamp)}_{image_hash[:8]}.{image_format}"
             image_dir = os.path.join(self.IMAGE_DIR, "image")
@@ -221,26 +224,31 @@ class ImageManager:
                 with open(file_path, "wb") as f:
                     f.write(image_bytes)
 
-                # 保存到数据库 (Images表)
-                try:
-                    img_obj = Images.get((Images.emoji_hash == image_hash) & (Images.type == "image"))
-                    img_obj.path = file_path
-                    img_obj.description = description
-                    img_obj.timestamp = current_timestamp
-                    img_obj.save()
-                except Images.DoesNotExist:
+                # 保存到数据库，补充缺失字段
+                if existing_image:
+                    existing_image.path = file_path
+                    existing_image.description = description
+                    existing_image.timestamp = current_timestamp
+                    if not hasattr(existing_image, 'image_id') or not existing_image.image_id:
+                        existing_image.image_id = str(uuid.uuid4())
+                    if not hasattr(existing_image, 'vlm_processed') or existing_image.vlm_processed is None:
+                        existing_image.vlm_processed = True
+                    existing_image.save()
+                else:
                     Images.create(
+                        image_id=str(uuid.uuid4()),
                         emoji_hash=image_hash,
                         path=file_path,
                         type="image",
                         description=description,
                         timestamp=current_timestamp,
+                        vlm_processed=True,
+                        count=1,
                     )
-                logger.debug(f"保存图片元数据: {file_path}")
             except Exception as e:
                 logger.error(f"保存图片文件或元数据失败: {str(e)}")
 
-            # 保存描述到数据库 (ImageDescriptions表)
+            # 保存描述到ImageDescriptions表
             self._save_description_to_db(image_hash, description, "image")
 
             return f"[图片：{description}]"

@@ -4,7 +4,7 @@ from typing import Union
 # from ...common.database.database import db  # db is now Peewee's SqliteDatabase instance
 from .message import MessageSending, MessageRecv
 from .chat_stream import ChatStream
-from ...common.database.database_model import Messages, RecalledMessages  # Import Peewee models
+from ...common.database.database_model import Messages, RecalledMessages, Images  # Import Peewee models
 from src.common.logger import get_logger
 
 logger = get_logger("message_storage")
@@ -25,6 +25,7 @@ class MessageStorage:
             # print(processed_plain_text)
 
             if processed_plain_text:
+                processed_plain_text = MessageStorage.replace_image_descriptions(processed_plain_text)
                 filtered_processed_plain_text = re.sub(pattern, "", processed_plain_text, flags=re.DOTALL)
             else:
                 filtered_processed_plain_text = ""
@@ -136,3 +137,28 @@ class MessageStorage:
 
         except Exception as e:
             logger.error(f"更新消息ID失败: {e}")
+
+    @staticmethod
+    def replace_image_descriptions(text: str) -> str:
+        """将[图片：描述]替换为[picid:image_id]"""
+        # 先检查文本中是否有图片标记
+        pattern = r'\[图片：([^\]]+)\]'
+        matches = re.findall(pattern, text)
+        
+        if not matches:
+            logger.debug("文本中没有图片标记，直接返回原文本")
+            return text
+        def replace_match(match):
+            description = match.group(1).strip()
+            try:
+                image_record = (Images.select()
+                            .where(Images.description == description)
+                            .order_by(Images.timestamp.desc())
+                            .first())
+                if image_record:
+                    return f"[picid:{image_record.image_id}]"
+                else:  
+                    return match.group(0)  # 保持原样           
+            except Exception as e:
+                return match.group(0)
+        return re.sub(r'\[图片：([^\]]+)\]', replace_match, text)
