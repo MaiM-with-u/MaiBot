@@ -36,6 +36,11 @@ class SearchKnowledgeFromLPMMTool(BaseTool):
             query = function_args.get("query")
             # threshold = function_args.get("threshold", 0.4)
 
+            # 检查LPMM知识库是否启用
+            if qa_manager is None:
+                logger.debug("LPMM知识库已禁用，跳过知识获取")
+                return {"type": "info", "id": query, "content": "LPMM知识库已禁用"}
+
             # 调用知识库搜索
 
             knowledge_info = qa_manager.get_knowledge(query)
