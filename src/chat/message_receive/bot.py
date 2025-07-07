@@ -166,9 +166,10 @@ class ChatBot:
                 message_data["message_info"]["group_info"]["group_id"] = str(
                     message_data["message_info"]["group_info"]["group_id"]
                 )
-            message_data["message_info"]["user_info"]["user_id"] = str(
-                message_data["message_info"]["user_info"]["user_id"]
-            )
+            if message_data["message_info"].get("user_info") is not None:
+                message_data["message_info"]["user_info"]["user_id"] = str(
+                    message_data["message_info"]["user_info"]["user_id"]
+                )
             # print(message_data)
             # logger.debug(str(message_data))
             message = MessageRecv(message_data)
