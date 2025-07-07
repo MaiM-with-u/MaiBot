@@ -568,9 +568,6 @@ class BasePlugin(ABC):
 
     def register_plugin(self) -> bool:
         """注册插件及其所有组件"""
-        if not self.enable_plugin:
-            logger.info(f"{self.log_prefix} 插件已禁用，跳过注册")
-            return False
 
         components = self.get_plugin_components()
 
