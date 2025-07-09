@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Tuple, Optional, List
 from src.common.logger import get_logger
 from src.plugin_system.base.component_types import CommandInfo, ComponentType
+from src.chat.message_receive.chat_stream import get_chat_manager
 from src.chat.message_receive.message import MessageRecv
 from src.plugin_system.apis import send_api
 
@@ -150,7 +151,10 @@ class BaseCommand(ABC):
         """
         try:
             # 获取聊天流信息
-            chat_stream = self.message.chat_stream
+            user_info = self.message.message_info.user_info
+            group_info = self.message.message_info.group_info
+            chat_stream = get_chat_manager().get_stream_by_info("qq", user_info, group_info)
+            
             if not chat_stream or not hasattr(chat_stream, "stream_id"):
                 logger.error(f"{self.log_prefix} 缺少聊天流或stream_id")
                 return False
