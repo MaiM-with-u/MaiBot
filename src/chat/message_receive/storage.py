@@ -94,6 +94,7 @@ class MessageStorage:
                 interest_value=interest_value,
                 priority_mode=priority_mode,
                 priority_info=priority_info,
+                additional_config=message.message_info.additional_config,
                 is_emoji=is_emoji,
                 is_picid=is_picid,
             )
