@@ -472,10 +472,12 @@ async def get_person_ids_from_messages(messages: List[Dict[str, Any]]) -> List[s
 
 def filter_mai_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    从消息列表中移除麦麦的消息
+    从消息列表中移除麦麦的消息并顺便过滤掉已经被命令截断的消息
     Args:
         messages: 消息列表，每个元素是消息字典
     Returns:
         过滤后的消息列表
     """
-    return [msg for msg in messages if msg.get("user_id") != str(global_config.bot.qq_account)]
+    return [msg for msg in messages if msg.get("user_id") != str(global_config.bot.qq_account)
+            and msg.get("interested_rate") is not None
+            ]
