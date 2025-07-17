@@ -37,6 +37,7 @@ services:
       - ./docker-config/mmc:/MaiMBot/config # 持久化bot配置文件
       - ./data/MaiMBot/maibot_statistics.html:/MaiMBot/maibot_statistics.html #统计数据输出
       - ./data/MaiMBot:/MaiMBot/data # 共享目录
+      - ./data/MaiMBot/plugins:/MaiMBot/plugins # 插件配置
     restart: always
     networks:
       - maim_bot
