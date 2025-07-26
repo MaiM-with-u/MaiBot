@@ -107,10 +107,14 @@ async def generate_reply(
             return False, [], None
 
         logger.debug("[GeneratorAPI] 开始生成回复")
+        
+        if not reply_to and action_data:
+            reply_to = action_data.get("reply_to", "")
+        if not extra_info and action_data:
+            extra_info = action_data.get("extra_info", "")
 
         # 调用回复器生成回复
         success, content, prompt = await replyer.generate_reply_with_context(
-            reply_data=action_data or {},
             reply_to=reply_to,
             extra_info=extra_info,
             available_actions=available_actions,
@@ -136,6 +140,7 @@ async def generate_reply(
 
     except Exception as e:
         logger.error(f"[GeneratorAPI] 生成回复时出错: {e}")
+        logger.error(traceback.format_exc())
         return False, [], None
 
 
@@ -146,15 +151,22 @@ async def rewrite_reply(
     enable_splitter: bool = True,
     enable_chinese_typo: bool = True,
     model_configs: Optional[List[Dict[str, Any]]] = None,
+    raw_reply: str = "",
+    reason: str = "",
+    reply_to: str = "",
 ) -> Tuple[bool, List[Tuple[str, Any]]]:
     """重写回复
 
     Args:
         chat_stream: 聊天流对象（优先）
-        reply_data: 回复数据
+        reply_data: 回复数据字典（备用，当其他参数缺失时从此获取）
         chat_id: 聊天ID（备用）
         enable_splitter: 是否启用消息分割器
         enable_chinese_typo: 是否启用错字生成器
+        model_configs: 模型配置列表
+        raw_reply: 原始回复内容
+        reason: 回复原因
+        reply_to: 回复对象
 
     Returns:
         Tuple[bool, List[Tuple[str, Any]]]: (是否成功, 回复集合)
@@ -168,8 +180,18 @@ async def rewrite_reply(
 
         logger.info("[GeneratorAPI] 开始重写回复")
 
+        # 如果参数缺失，从reply_data中获取
+        if reply_data:
+            raw_reply = raw_reply or reply_data.get("raw_reply", "")
+            reason = reason or reply_data.get("reason", "")
+            reply_to = reply_to or reply_data.get("reply_to", "")
+
         # 调用回复器重写回复
-        success, content = await replyer.rewrite_reply_with_context(reply_data=reply_data or {})
+        success, content = await replyer.rewrite_reply_with_context(
+            raw_reply=raw_reply,
+            reason=reason,
+            reply_to=reply_to,
+        )
         reply_set = []
         if content:
             reply_set = await process_human_text(content, enable_splitter, enable_chinese_typo)

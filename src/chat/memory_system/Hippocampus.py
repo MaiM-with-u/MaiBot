@@ -224,13 +224,14 @@ class Hippocampus:
         return hash((source, target))
 
     @staticmethod
-    def find_topic_llm(text:str, topic_num:int|list[int]):
+    def find_topic_llm(text: str, topic_num: int | list[int]):
+        # sourcery skip: inline-immediately-returned-variable
         topic_num_str = ""
         if isinstance(topic_num, list):
             topic_num_str = f"{topic_num[0]}-{topic_num[1]}"
         else:
             topic_num_str = topic_num
-        
+
         prompt = (
             f"这是一段文字：\n{text}\n\n请你从这段话中总结出最多{topic_num_str}个关键的概念，可以是名词，动词，或者特定人物，帮我列出来，"
             f"将主题用逗号隔开，并加上<>,例如<主题1>,<主题2>......尽可能精简。只需要列举最多{topic_num}个话题就好，不要有序号，不要告诉我其他内容。"
@@ -304,10 +305,10 @@ class Hippocampus:
         # 按相似度降序排序
         memories.sort(key=lambda x: x[2], reverse=True)
         return memories
-    
+
     async def get_keywords_from_text(self, text: str) -> list:
         """从文本中提取关键词。
-        
+
         Args:
             text (str): 输入文本
             fast_retrieval (bool, optional): 是否使用快速检索。默认为False。
@@ -319,25 +320,25 @@ class Hippocampus:
 
         # 使用LLM提取关键词 - 根据详细文本长度分布优化topic_num计算
         text_length = len(text)
-        topic_num:str|list[int] = None
+        topic_num: int | list[int] = 0
         if text_length <= 5:
             words = jieba.cut(text)
             keywords = [word for word in words if len(word) > 1]
             keywords = list(set(keywords))[:3]  # 限制最多3个关键词
-            logger.info(f"提取关键词: {keywords}")
+            if keywords:
+                logger.info(f"提取关键词: {keywords}")
             return keywords
         elif text_length <= 10:
-            topic_num = [1,3]  # 6-10字符: 1个关键词 (27.18%的文本)
+            topic_num = [1, 3]  # 6-10字符: 1个关键词 (27.18%的文本)
         elif text_length <= 20:
-            topic_num = [2,4]  # 11-20字符: 2个关键词 (22.76%的文本)
+            topic_num = [2, 4]  # 11-20字符: 2个关键词 (22.76%的文本)
         elif text_length <= 30:
-            topic_num = [3,5]  # 21-30字符: 3个关键词 (10.33%的文本)
+            topic_num = [3, 5]  # 21-30字符: 3个关键词 (10.33%的文本)
         elif text_length <= 50:
-            topic_num = [4,5]  # 31-50字符: 4个关键词 (9.79%的文本)
+            topic_num = [4, 5]  # 31-50字符: 4个关键词 (9.79%的文本)
         else:
             topic_num = 5  # 51+字符: 5个关键词 (其余长文本)
-        
-        
+
         topics_response, (reasoning_content, model_name) = await self.model_summary.generate_response_async(
             self.find_topic_llm(text, topic_num)
         )
@@ -353,7 +354,8 @@ class Hippocampus:
                 if keyword.strip()
             ]
         
-        logger.info(f"提取关键词: {keywords}")
+        if keywords:
+            logger.info(f"提取关键词: {keywords}")
         
         return keywords 
         
@@ -1310,6 +1312,7 @@ class ParahippocampalGyrus:
         return compressed_memory, similar_topics_dict
 
     async def operation_build_memory(self):
+        # sourcery skip: merge-list-appends-into-extend
         logger.info("------------------------------------开始构建记忆--------------------------------------")
         start_time = time.time()
         memory_samples = self.hippocampus.entorhinal_cortex.get_memory_sample()

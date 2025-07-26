@@ -1,5 +1,5 @@
 [inner]
-version = "4.4.8"
+version = "4.5.0"
 
 #----以下是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 #如果你想要修改配置文件，请在修改后将version的值进行变更
@@ -52,26 +52,26 @@ relation_frequency = 1 # 关系频率，麦麦构建关系的频率
 
 [chat] #麦麦的聊天通用设置
 focus_value = 1 
-# 麦麦的专注思考能力，越低越容易专注，消耗token也越多
+# 麦麦的专注思考能力，越高越容易专注，可能消耗更多token
 # 专注时能更好把握发言时机，能够进行持久的连续对话
 
+willing_amplifier = 1 # 麦麦回复意愿
+
 max_context_size = 25 # 上下文长度
-thinking_timeout = 20 # 麦麦一次回复最长思考规划时间，超过这个时间的思考会放弃（往往是api反应太慢）
+thinking_timeout = 40 # 麦麦一次回复最长思考规划时间，超过这个时间的思考会放弃（往往是api反应太慢）
 replyer_random_probability = 0.5 # 首要replyer模型被选择的概率
 
 mentioned_bot_inevitable_reply = true # 提及 bot 大概率回复
 at_bot_inevitable_reply = true # @bot 或 提及bot 大概率回复
 
-use_s4u_prompt_mode = true # 是否使用 s4u 对话构建模式，该模式会更好的把握当前对话对象的对话内容，但是对群聊整理理解能力较差（测试功能！！可能有未知问题！！)
-
 
 talk_frequency = 1 # 麦麦回复频率，越高，麦麦回复越频繁
 
-time_based_talk_frequency = ["8:00,1", "12:00,1.5", "18:00,2", "01:00,0.5"]
+time_based_talk_frequency = ["8:00,1", "12:00,1.2", "18:00,1.5", "01:00,0.6"]
 # 基于时段的回复频率配置（可选）
 # 格式：time_based_talk_frequency = ["HH:MM,frequency", ...]
 # 示例：
-# time_based_talk_frequency = ["8:00,1", "12:00,2", "18:00,1.5", "00:00,0.5"]
+# time_based_talk_frequency = ["8:00,1", "12:00,1.2", "18:00,1.5", "00:00,0.6"]
 # 说明：表示从该时间开始使用该频率，直到下一个时间点
 # 注意：如果没有配置，则使用上面的默认 talk_frequency 值
 
@@ -105,11 +105,9 @@ ban_msgs_regex = [
 
 [normal_chat] #普通聊天
 willing_mode = "classical" # 回复意愿模式 —— 经典模式：classical，mxp模式：mxp，自定义模式：custom（需要你自己实现）
-response_interested_rate_amplifier = 1 # 麦麦回复兴趣度放大系数
 
 [tool]
-enable_in_normal_chat = false # 是否在普通聊天中启用工具
-enable_in_focus_chat = true # 是否在专注聊天中启用工具
+enable_tool = false # 是否在普通聊天中启用工具
 
 [emoji]
 emoji_chance = 0.6 # 麦麦激活表情包动作的概率

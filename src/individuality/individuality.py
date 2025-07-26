@@ -273,15 +273,19 @@ class Individuality:
                 prompt=prompt,
             )
 
-            if response.strip():
+            if response and response.strip():
                 personality_parts.append(response.strip())
                 logger.info(f"精简人格侧面: {response.strip()}")
             else:
                 logger.error(f"使用LLM压缩人设时出错: {response}")
+                # 压缩失败时使用原始内容
+                if personality_side:
+                    personality_parts.append(personality_side)
+            
             if personality_parts:
                 personality_result = "。".join(personality_parts)
             else:
-                personality_result = personality_core
+                personality_result = personality_core or "友好活泼"
         else:
             personality_result = personality_core
             if personality_side:
@@ -308,13 +312,14 @@ class Individuality:
                 prompt=prompt,
             )
 
-            if response.strip():
+            if response and response.strip():
                 identity_result = response.strip()
                 logger.info(f"精简身份: {identity_result}")
             else:
                 logger.error(f"使用LLM压缩身份时出错: {response}")
+                identity_result = identity
         else:
-            identity_result = "。".join(identity)
+            identity_result = identity
 
         return identity_result
 

@@ -4,14 +4,33 @@
 
 ## 新手入门
 
-- [📖 快速开始指南](quick-start.md) - 5分钟创建你的第一个插件
+- [📖 快速开始指南](quick-start.md) - 快速创建你的第一个插件
 
 ## 组件功能详解
 
 - [🧱 Action组件详解](action-components.md) - 掌握最核心的Action组件
 - [💻 Command组件详解](command-components.md) - 学习直接响应命令的组件
-- [⚙️ 配置管理指南](configuration-guide.md) - 学会使用自动生成的插件配置文件
+- [⚙️ 配置文件系统指南](configuration-guide.md) - 学会使用自动生成的插件配置文件
 - [📄 Manifest系统指南](manifest-guide.md) - 了解插件元数据管理和配置架构
+
+Command vs Action 选择指南
+
+1. 使用Command的场景
+
+- ✅ 用户需要明确调用特定功能
+- ✅ 需要精确的参数控制
+- ✅ 管理和配置操作
+- ✅ 查询和信息显示
+- ✅ 系统维护命令
+
+2. 使用Action的场景
+
+- ✅ 增强麦麦的智能行为
+- ✅ 根据上下文自动触发
+- ✅ 情绪和表情表达
+- ✅ 智能建议和帮助
+- ✅ 随机化的互动
+
 
 ## API浏览
 
@@ -53,3 +72,9 @@
 2. 查看相关示例代码
 3. 参考其他类似插件
 4. 提交文档仓库issue
+
+## 一个方便的小设计
+
+我们在`__init__.py`中定义了一个`__all__`变量，包含了所有需要导出的类和函数。
+这样在其他地方导入时，可以直接使用 `from src.plugin_system import *` 来导入所有插件相关的类和函数。
+或者你可以直接使用 `from src.plugin_system import BasePlugin, register_plugin, ComponentInfo` 之类的方式来导入你需要的部分。

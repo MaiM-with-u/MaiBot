@@ -8,10 +8,9 @@ from pathlib import Path
 
 from src.common.logger import get_logger
 from src.plugin_system.base.plugin_base import PluginBase
-from src.plugin_system.base.component_types import ComponentType, PythonDependency
+from src.plugin_system.base.component_types import ComponentType
 from src.plugin_system.utils.manifest_utils import VersionComparator
 from .component_registry import component_registry
-from .dependency_manager import dependency_manager
 
 logger = get_logger("plugin_manager")
 
@@ -206,104 +205,6 @@ class PluginManager:
             Optional[BasePlugin]: 插件实例或None
         """
         return self.loaded_plugins.get(plugin_name)
-
-    def check_all_dependencies(self, auto_install: bool = False) -> Dict[str, Any]:
-        """检查所有插件的Python依赖包
-
-        Args:
-            auto_install: 是否自动安装缺失的依赖包
-
-        Returns:
-            Dict[str, any]: 检查结果摘要
-        """
-        logger.info("开始检查所有插件的Python依赖包...")
-
-        all_required_missing: List[PythonDependency] = []
-        all_optional_missing: List[PythonDependency] = []
-        plugin_status = {}
-
-        for plugin_name in self.loaded_plugins:
-            plugin_info = component_registry.get_plugin_info(plugin_name)
-            if not plugin_info or not plugin_info.python_dependencies:
-                plugin_status[plugin_name] = {"status": "no_dependencies", "missing": []}
-                continue
-
-            logger.info(f"检查插件 {plugin_name} 的依赖...")
-
-            missing_required, missing_optional = dependency_manager.check_dependencies(plugin_info.python_dependencies)
-
-            if missing_required:
-                all_required_missing.extend(missing_required)
-                plugin_status[plugin_name] = {
-                    "status": "missing_required",
-                    "missing": [dep.package_name for dep in missing_required],
-                    "optional_missing": [dep.package_name for dep in missing_optional],
-                }
-                logger.error(f"插件 {plugin_name} 缺少必需依赖: {[dep.package_name for dep in missing_required]}")
-            elif missing_optional:
-                all_optional_missing.extend(missing_optional)
-                plugin_status[plugin_name] = {
-                    "status": "missing_optional",
-                    "missing": [],
-                    "optional_missing": [dep.package_name for dep in missing_optional],
-                }
-                logger.warning(f"插件 {plugin_name} 缺少可选依赖: {[dep.package_name for dep in missing_optional]}")
-            else:
-                plugin_status[plugin_name] = {"status": "ok", "missing": []}
-                logger.info(f"插件 {plugin_name} 依赖检查通过")
-
-        # 汇总结果
-        total_missing = len({dep.package_name for dep in all_required_missing})
-        total_optional_missing = len({dep.package_name for dep in all_optional_missing})
-
-        logger.info(f"依赖检查完成 - 缺少必需包: {total_missing}个, 缺少可选包: {total_optional_missing}个")
-
-        # 如果需要自动安装
-        install_success = True
-        if auto_install and all_required_missing:
-            unique_required = {dep.package_name: dep for dep in all_required_missing}
-            logger.info(f"开始自动安装 {len(unique_required)} 个必需依赖包...")
-            install_success = dependency_manager.install_dependencies(list(unique_required.values()), auto_install=True)
-
-        return {
-            "total_plugins_checked": len(plugin_status),
-            "plugins_with_missing_required": len(
-                [p for p in plugin_status.values() if p["status"] == "missing_required"]
-            ),
-            "plugins_with_missing_optional": len(
-                [p for p in plugin_status.values() if p["status"] == "missing_optional"]
-            ),
-            "total_missing_required": total_missing,
-            "total_missing_optional": total_optional_missing,
-            "plugin_status": plugin_status,
-            "auto_install_attempted": auto_install and bool(all_required_missing),
-            "auto_install_success": install_success,
-            "install_summary": dependency_manager.get_install_summary(),
-        }
-
-    def generate_plugin_requirements(self, output_path: str = "plugin_requirements.txt") -> bool:
-        """生成所有插件依赖的requirements文件
-
-        Args:
-            output_path: 输出文件路径
-
-        Returns:
-            bool: 生成是否成功
-        """
-        logger.info("开始生成插件依赖requirements文件...")
-
-        all_dependencies = []
-
-        for plugin_name in self.loaded_plugins:
-            plugin_info = component_registry.get_plugin_info(plugin_name)
-            if plugin_info and plugin_info.python_dependencies:
-                all_dependencies.append(plugin_info.python_dependencies)
-
-        if not all_dependencies:
-            logger.info("没有找到任何插件依赖")
-            return False
-
-        return dependency_manager.generate_requirements_file(all_dependencies, output_path)
 
     # === 查询方法 ===
     def list_loaded_plugins(self) -> List[str]:

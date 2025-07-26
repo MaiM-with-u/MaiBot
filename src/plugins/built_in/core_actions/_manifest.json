@@ -25,11 +25,6 @@
     "plugin_type": "action_provider",
     "components": [
       {
-        "type": "action",
-        "name": "reply",
-        "description": "参与聊天回复，发送文本进行表达"
-      },
-      {
         "type": "action", 
         "name": "no_reply",
         "description": "暂时不回复消息，等待新消息或超时"

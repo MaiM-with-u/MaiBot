@@ -12,7 +12,7 @@ from src.chat.message_receive.storage import MessageStorage
 from src.chat.heart_flow.heartflow import heartflow
 from src.chat.utils.utils import is_mentioned_bot_in_message
 from src.chat.utils.timer_calculator import Timer
-from src.chat.utils.chat_message_builder import replace_user_references_in_content
+from src.chat.utils.chat_message_builder import replace_user_references_sync
 from src.common.logger import get_logger
 from src.person_info.relationship_manager import get_relationship_manager
 from src.mood.mood_manager import mood_manager
@@ -151,10 +151,9 @@ class HeartFCMessageReceiver:
             processed_plain_text = re.sub(picid_pattern, "[图片]", message.processed_plain_text)
             
             # 应用用户引用格式替换，将回复<aaa:bbb>和@<aaa:bbb>格式转换为可读格式
-            processed_plain_text = replace_user_references_in_content(
-                processed_plain_text, 
-                message.message_info.platform, 
-                is_async=False, 
+            processed_plain_text = replace_user_references_sync(
+                processed_plain_text,
+                message.message_info.platform, # type: ignore
                 replace_bot_name=True
             )
 

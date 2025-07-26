@@ -2,7 +2,7 @@ import json
 import time
 import random
 
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Any
 from json_repair import repair_json
 
 from src.llm_models.utils_model import LLMRequest
@@ -117,36 +117,42 @@ class ExpressionSelector:
 
     def get_random_expressions(
         self, chat_id: str, total_num: int, style_percentage: float, grammar_percentage: float
-    ) -> Tuple[List[Dict[str, str]], List[Dict[str, str]]]:
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         # 支持多chat_id合并抽选
         related_chat_ids = self.get_related_chat_ids(chat_id)
-        style_exprs = []
-        grammar_exprs = []
-        for cid in related_chat_ids:
-            style_query = Expression.select().where((Expression.chat_id == cid) & (Expression.type == "style"))
-            grammar_query = Expression.select().where((Expression.chat_id == cid) & (Expression.type == "grammar"))
-            style_exprs.extend([
-                {
-                    "situation": expr.situation,
-                    "style": expr.style,
-                    "count": expr.count,
-                    "last_active_time": expr.last_active_time,
-                    "source_id": cid,
-                    "type": "style",
-                    "create_date": expr.create_date if expr.create_date is not None else expr.last_active_time,
-                } for expr in style_query
-            ])
-            grammar_exprs.extend([
-                {
-                    "situation": expr.situation,
-                    "style": expr.style,
-                    "count": expr.count,
-                    "last_active_time": expr.last_active_time,
-                    "source_id": cid,
-                    "type": "grammar",
-                    "create_date": expr.create_date if expr.create_date is not None else expr.last_active_time,
-                } for expr in grammar_query
-            ])
+        
+        # 优化：一次性查询所有相关chat_id的表达方式
+        style_query = Expression.select().where(
+            (Expression.chat_id.in_(related_chat_ids)) & (Expression.type == "style")
+        )
+        grammar_query = Expression.select().where(
+            (Expression.chat_id.in_(related_chat_ids)) & (Expression.type == "grammar")
+        )
+        
+        style_exprs = [
+            {
+                "situation": expr.situation,
+                "style": expr.style,
+                "count": expr.count,
+                "last_active_time": expr.last_active_time,
+                "source_id": expr.chat_id,
+                "type": "style",
+                "create_date": expr.create_date if expr.create_date is not None else expr.last_active_time,
+            } for expr in style_query
+        ]
+        
+        grammar_exprs = [
+            {
+                "situation": expr.situation,
+                "style": expr.style,
+                "count": expr.count,
+                "last_active_time": expr.last_active_time,
+                "source_id": expr.chat_id,
+                "type": "grammar",
+                "create_date": expr.create_date if expr.create_date is not None else expr.last_active_time,
+            } for expr in grammar_query
+        ]
+        
         style_num = int(total_num * style_percentage)
         grammar_num = int(total_num * grammar_percentage)
         # 按权重抽样（使用count作为权重）
@@ -162,7 +168,7 @@ class ExpressionSelector:
             selected_grammar = []
         return selected_style, selected_grammar
 
-    def update_expressions_count_batch(self, expressions_to_update: List[Dict[str, str]], increment: float = 0.1):
+    def update_expressions_count_batch(self, expressions_to_update: List[Dict[str, Any]], increment: float = 0.1):
         """对一批表达方式更新count值，按chat_id+type分组后一次性写入数据库"""
         if not expressions_to_update:
             return
@@ -203,7 +209,7 @@ class ExpressionSelector:
         max_num: int = 10,
         min_num: int = 5,
         target_message: Optional[str] = None,
-    ) -> List[Dict[str, str]]:
+    ) -> List[Dict[str, Any]]:
         # sourcery skip: inline-variable, list-comprehension
         """使用LLM选择适合的表达方式"""
 
@@ -273,6 +279,7 @@ class ExpressionSelector:
 
             if not isinstance(result, dict) or "selected_situations" not in result:
                 logger.error("LLM返回格式错误")
+                logger.info(f"LLM返回结果: \n{content}")
                 return []
 
             selected_indices = result["selected_situations"]

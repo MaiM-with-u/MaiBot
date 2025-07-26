@@ -9,7 +9,8 @@ from src.common.logger import get_logger
 
 # 导入API模块 - 标准Python包方式
 from src.plugin_system.apis import emoji_api, llm_api, message_api
-from src.plugins.built_in.core_actions.no_reply import NoReplyAction
+# 注释：不再需要导入NoReplyAction，因为计数器管理已移至heartFC_chat.py
+# from src.plugins.built_in.core_actions.no_reply import NoReplyAction
 from src.config.config import global_config
 
 
@@ -20,10 +21,14 @@ class EmojiAction(BaseAction):
     """表情动作 - 发送表情包"""
 
     # 激活设置
-    activation_type = ActionActivationType.RANDOM
+    if global_config.emoji.emoji_activate_type == "llm":
+        activation_type = ActionActivationType.LLM_JUDGE
+        random_activation_probability = 0
+    else:
+        activation_type = ActionActivationType.RANDOM
+        random_activation_probability = global_config.emoji.emoji_chance
     mode_enable = ChatMode.ALL
     parallel_action = True
-    random_activation_probability = 0.2  # 默认值，可通过配置覆盖
 
     # 动作基本信息
     action_name = "emoji"
@@ -143,8 +148,8 @@ class EmojiAction(BaseAction):
                 logger.error(f"{self.log_prefix} 表情包发送失败")
                 return False, "表情包发送失败"
 
-            # 重置NoReplyAction的连续计数器
-            NoReplyAction.reset_consecutive_count()
+            # 注释：重置NoReplyAction的连续计数器现在由heartFC_chat.py统一管理
+            # NoReplyAction.reset_consecutive_count()
 
             return True, f"发送表情包: {emoji_description}"
 

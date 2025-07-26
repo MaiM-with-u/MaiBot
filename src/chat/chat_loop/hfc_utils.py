@@ -1,10 +1,13 @@
 import time
-
 from typing import Optional, Dict, Any
 
 from src.config.config import global_config
-from src.common.message_repository import count_messages
 from src.common.logger import get_logger
+from src.chat.message_receive.chat_stream import get_chat_manager
+from src.plugin_system.apis import send_api
+from maim_message.message_base import GroupInfo
+
+from src.common.message_repository import count_messages
 
 logger = get_logger(__name__)
 
@@ -106,3 +109,30 @@ def get_recent_message_stats(minutes: float = 30, chat_id: Optional[str] = None)
     bot_reply_count = count_messages(bot_filter)
 
     return {"bot_reply_count": bot_reply_count, "total_message_count": total_message_count}
+
+
+async def send_typing():
+    group_info = GroupInfo(platform="amaidesu_default", group_id="114514", group_name="内心")
+
+    chat = await get_chat_manager().get_or_create_stream(
+        platform="amaidesu_default",
+        user_info=None,
+        group_info=group_info,
+    )
+
+    await send_api.custom_to_stream(
+        message_type="state", content="typing", stream_id=chat.stream_id, storage_message=False
+    )
+
+async def stop_typing():
+    group_info = GroupInfo(platform="amaidesu_default", group_id="114514", group_name="内心")
+
+    chat = await get_chat_manager().get_or_create_stream(
+        platform="amaidesu_default",
+        user_info=None,
+        group_info=group_info,
+    )
+
+    await send_api.custom_to_stream(
+        message_type="state", content="stop_typing", stream_id=chat.stream_id, storage_message=False
+    )

@@ -51,7 +51,7 @@ def init_prompt() -> None:
 当"想说明某个具体的事实观点，但懒得明说，或者不便明说，或表达一种默契"，使用"懂的都懂"
 当"当涉及游戏相关时，表示意外的夸赞，略带戏谑意味"时，使用"这么强！"
 
-注意不要总结你自己（SELF）的发言
+请注意：不要总结你自己（SELF）的发言
 现在请你概括
 """
     Prompt(learn_style_prompt, "learn_style_prompt")
@@ -330,48 +330,8 @@ class ExpressionLearner:
         """
         current_time = time.time()
 
-        # 全局衰减所有已存储的表达方式
-        for type in ["style", "grammar"]:
-            base_dir = os.path.join("data", "expression", f"learnt_{type}")
-            if not os.path.exists(base_dir):
-                logger.debug(f"目录不存在，跳过衰减: {base_dir}")
-                continue
-
-            try:
-                chat_ids = os.listdir(base_dir)
-                logger.debug(f"在 {base_dir} 中找到 {len(chat_ids)} 个聊天ID目录进行衰减")
-            except Exception as e:
-                logger.error(f"读取目录失败 {base_dir}: {e}")
-                continue
-
-            for chat_id in chat_ids:
-                file_path = os.path.join(base_dir, chat_id, "expressions.json")
-                if not os.path.exists(file_path):
-                    continue
-
-                try:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        expressions = json.load(f)
-
-                    if not isinstance(expressions, list):
-                        logger.warning(f"表达方式文件格式错误，跳过衰减: {file_path}")
-                        continue
-
-                    # 应用全局衰减
-                    decayed_expressions = self.apply_decay_to_expressions(expressions, current_time)
-
-                    # 保存衰减后的结果
-                    with open(file_path, "w", encoding="utf-8") as f:
-                        json.dump(decayed_expressions, f, ensure_ascii=False, indent=2)
-                        
-                    logger.debug(f"已对 {file_path} 应用衰减，剩余 {len(decayed_expressions)} 个表达方式")
-                except json.JSONDecodeError as e:
-                    logger.error(f"JSON解析失败，跳过衰减 {file_path}: {e}")
-                except PermissionError as e:
-                    logger.error(f"权限不足，无法更新 {file_path}: {e}")
-                except Exception as e:
-                    logger.error(f"全局衰减{type}表达方式失败 {file_path}: {e}")
-                    continue
+        # 全局衰减所有已存储的表达方式（直接操作数据库）
+        self._apply_global_decay_to_database(current_time)
 
         learnt_style: Optional[List[Tuple[str, str, str]]] = []
         learnt_grammar: Optional[List[Tuple[str, str, str]]] = []
@@ -387,6 +347,42 @@ class ExpressionLearner:
                 return [], []
 
         return learnt_style, learnt_grammar
+
+    def _apply_global_decay_to_database(self, current_time: float) -> None:
+        """
+        对数据库中的所有表达方式应用全局衰减
+        """
+        try:
+            # 获取所有表达方式
+            all_expressions = Expression.select()
+            
+            updated_count = 0
+            deleted_count = 0
+            
+            for expr in all_expressions:
+                # 计算时间差
+                last_active = expr.last_active_time
+                time_diff_days = (current_time - last_active) / (24 * 3600)  # 转换为天
+                
+                # 计算衰减值
+                decay_value = self.calculate_decay_factor(time_diff_days)
+                new_count = max(0.01, expr.count - decay_value)
+                
+                if new_count <= 0.01:
+                    # 如果count太小，删除这个表达方式
+                    expr.delete_instance()
+                    deleted_count += 1
+                else:
+                    # 更新count
+                    expr.count = new_count
+                    expr.save()
+                    updated_count += 1
+            
+            if updated_count > 0 or deleted_count > 0:
+                logger.info(f"全局衰减完成：更新了 {updated_count} 个表达方式，删除了 {deleted_count} 个表达方式")
+                
+        except Exception as e:
+            logger.error(f"数据库全局衰减失败: {e}")
 
     def calculate_decay_factor(self, time_diff_days: float) -> float:
         """
@@ -409,30 +405,6 @@ class ExpressionLearner:
         decay = a * (time_diff_days**2)
 
         return min(0.01, decay)
-
-    def apply_decay_to_expressions(
-        self, expressions: List[Dict[str, Any]], current_time: float
-    ) -> List[Dict[str, Any]]:
-        """
-        对表达式列表应用衰减
-        返回衰减后的表达式列表，移除count小于0的项
-        """
-        result = []
-        for expr in expressions:
-            # 确保last_active_time存在，如果不存在则使用current_time
-            if "last_active_time" not in expr:
-                expr["last_active_time"] = current_time
-
-            last_active = expr["last_active_time"]
-            time_diff_days = (current_time - last_active) / (24 * 3600)  # 转换为天
-
-            decay_value = self.calculate_decay_factor(time_diff_days)
-            expr["count"] = max(0.01, expr.get("count", 1) - decay_value)
-
-            if expr["count"] > 0:
-                result.append(expr)
-
-        return result
 
     async def learn_and_store(self, type: str, num: int = 10) -> List[Tuple[str, str, str]]:
         # sourcery skip: use-join

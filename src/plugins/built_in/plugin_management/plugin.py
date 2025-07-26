@@ -428,13 +428,14 @@ class PluginManagementPlugin(BasePlugin):
     config_file_name: str = "config.toml"
     config_schema: dict = {
         "plugin": {
-            "enable": ConfigField(bool, default=False, description="是否启用插件"),
-            "permission": ConfigField(list, default=[], description="有权限使用插件管理命令的用户列表"),
+            "enabled": ConfigField(bool, default=False, description="是否启用插件"),
+            "config_version": ConfigField(type=str, default="1.1.0", description="配置文件版本"),
+            "permission": ConfigField(list, default=[], description="有权限使用插件管理命令的用户列表，请填写字符串形式的用户ID"),
         },
     }
 
     def get_plugin_components(self) -> List[Tuple[CommandInfo, Type[BaseCommand]]]:
         components = []
-        if self.get_config("plugin.enable", True):
+        if self.get_config("plugin.enabled", True):
             components.append((ManagementCommand.get_command_info(), ManagementCommand))
         return components

@@ -19,11 +19,9 @@
     await send_api.custom_message("video", video_data, "123456", True)
 """
 
-import asyncio
 import traceback
 import time
 import difflib
-import re
 from typing import Optional, Union
 from src.common.logger import get_logger
 
@@ -31,7 +29,7 @@ from src.common.logger import get_logger
 from src.chat.message_receive.chat_stream import get_chat_manager
 from src.chat.message_receive.uni_message_sender import HeartFCSender
 from src.chat.message_receive.message import MessageSending, MessageRecv
-from src.chat.utils.chat_message_builder import get_raw_msg_before_timestamp_with_chat, replace_user_references_in_content
+from src.chat.utils.chat_message_builder import get_raw_msg_before_timestamp_with_chat, replace_user_references_async
 from src.person_info.person_info import get_person_info_manager
 from maim_message import Seg, UserInfo
 from src.config.config import global_config
@@ -185,7 +183,7 @@ async def _find_reply_message(target_stream, reply_to: str) -> Optional[MessageR
                 translate_text = message["processed_plain_text"]
 
                 # 使用独立函数处理用户引用格式
-                translate_text = await replace_user_references_in_content(translate_text, platform, is_async=True)
+                translate_text = await replace_user_references_async(translate_text, platform)
 
                 similarity = difflib.SequenceMatcher(None, text, translate_text).ratio()
                 if similarity >= 0.9:

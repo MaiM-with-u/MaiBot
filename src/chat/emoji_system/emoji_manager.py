@@ -525,9 +525,9 @@ class EmojiManager:
         如果文件已被删除，则执行对象的删除方法并从列表中移除
         """
         try:
-            if not self.emoji_objects:
-                logger.warning("[检查] emoji_objects为空，跳过完整性检查")
-                return
+            # if not self.emoji_objects:
+            #     logger.warning("[检查] emoji_objects为空，跳过完整性检查")
+            #     return
 
             total_count = len(self.emoji_objects)
             self.emoji_num = total_count
@@ -706,6 +706,38 @@ class EmojiManager:
             if not emoji.is_deleted and emoji.hash == emoji_hash:
                 return emoji
         return None  # 如果循环结束还没找到，则返回 None
+
+    async def get_emoji_description_by_hash(self, emoji_hash: str) -> Optional[str]:
+        """根据哈希值获取已注册表情包的描述
+        
+        Args:
+            emoji_hash: 表情包的哈希值
+            
+        Returns:
+            Optional[str]: 表情包描述，如果未找到则返回None
+        """
+        try:
+            # 先从内存中查找
+            emoji = await self.get_emoji_from_manager(emoji_hash)
+            if emoji and emoji.description:
+                logger.info(f"[缓存命中] 从内存获取表情包描述: {emoji.description[:50]}...")
+                return emoji.description
+            
+            # 如果内存中没有，从数据库查找
+            self._ensure_db()
+            try:
+                emoji_record = Emoji.get_or_none(Emoji.emoji_hash == emoji_hash)
+                if emoji_record and emoji_record.description:
+                    logger.info(f"[缓存命中] 从数据库获取表情包描述: {emoji_record.description[:50]}...")
+                    return emoji_record.description
+            except Exception as e:
+                logger.error(f"从数据库查询表情包描述时出错: {e}")
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"获取表情包描述失败 (Hash: {emoji_hash}): {str(e)}")
+            return None
 
     async def delete_emoji(self, emoji_hash: str) -> bool:
         """根据哈希值删除表情包

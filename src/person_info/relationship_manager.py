@@ -139,7 +139,7 @@ class RelationshipManager:
 请用json格式输出，引起了你的兴趣，或者有什么需要你记忆的点。
 并为每个点赋予1-10的权重，权重越高，表示越重要。
 格式如下:
-{{
+[
     {{
         "point": "{person_name}想让我记住他的生日，我回答确认了，他的生日是11月23日",
         "weight": 10
@@ -156,13 +156,10 @@ class RelationshipManager:
         "point": "{person_name}喜欢吃辣，具体来说，没有辣的食物ta都不喜欢吃，可能是因为ta是湖南人。",
         "weight": 7
     }}
-}}
+]
 
-如果没有，就输出none,或points为空：
-{{
-    "point": "none",
-    "weight": 0
-}}
+如果没有，就输出none,或返回空数组：
+[]
 """
 
         # 调用LLM生成印象
@@ -184,17 +181,25 @@ class RelationshipManager:
         try:
             points = repair_json(points)
             points_data = json.loads(points)
-            if points_data == "none" or not points_data or points_data.get("point") == "none":
+            
+            # 只处理正确的格式，错误格式直接跳过
+            if points_data == "none" or not points_data:
                 points_list = []
+            elif isinstance(points_data, str) and points_data.lower() == "none":
+                points_list = []
+            elif isinstance(points_data, list):
+                # 正确格式：数组格式 [{"point": "...", "weight": 10}, ...]
+                if not points_data:  # 空数组
+                    points_list = []
+                else:
+                    points_list = [(item["point"], float(item["weight"]), current_time) for item in points_data]
             else:
-                # logger.info(f"points_data: {points_data}")
-                if isinstance(points_data, dict) and "points" in points_data:
-                    points_data = points_data["points"]
-                if not isinstance(points_data, list):
-                    points_data = [points_data]
-                # 添加可读时间到每个point
-                points_list = [(item["point"], float(item["weight"]), current_time) for item in points_data]
+                # 错误格式，直接跳过不解析
+                logger.warning(f"LLM返回了错误的JSON格式，跳过解析: {type(points_data)}, 内容: {points_data}")
+                points_list = []
 
+            # 权重过滤逻辑
+            if points_list:
                 original_points_list = list(points_list)
                 points_list.clear()
                 discarded_count = 0

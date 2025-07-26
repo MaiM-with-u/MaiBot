@@ -2,7 +2,7 @@ import time  # 导入 time 模块以获取当前时间
 import random
 import re
 
-from typing import List, Dict, Any, Tuple, Optional, Union, Callable
+from typing import List, Dict, Any, Tuple, Optional, Callable
 from rich.traceback import install
 
 from src.config.config import global_config
@@ -10,61 +10,48 @@ from src.common.message_repository import find_messages, count_messages
 from src.common.database.database_model import ActionRecords
 from src.common.database.database_model import Images
 from src.person_info.person_info import PersonInfoManager, get_person_info_manager
-from src.chat.utils.utils import translate_timestamp_to_human_readable,assign_message_ids
+from src.chat.utils.utils import translate_timestamp_to_human_readable, assign_message_ids
 
 install(extra_lines=3)
 
 
-def replace_user_references_in_content(
+def replace_user_references_sync(
     content: str,
     platform: str,
-    name_resolver: Union[Callable[[str, str], str], Callable[[str, str], Any]] = None,
-    is_async: bool = False,
-    replace_bot_name: bool = True
-) -> Union[str, Any]:
+    name_resolver: Optional[Callable[[str, str], str]] = None,
+    replace_bot_name: bool = True,
+) -> str:
     """
     替换内容中的用户引用格式，包括回复<aaa:bbb>和@<aaa:bbb>格式
-    
+
     Args:
         content: 要处理的内容字符串
         platform: 平台标识
         name_resolver: 名称解析函数，接收(platform, user_id)参数，返回用户名称
-                      如果为None，则使用默认的person_info_manager
-        is_async: 是否为异步模式
+                       如果为None，则使用默认的person_info_manager
         replace_bot_name: 是否将机器人的user_id替换为"机器人昵称(你)"
-    
+
     Returns:
-        处理后的内容字符串（同步模式）或awaitable对象（异步模式）
+        str: 处理后的内容字符串
     """
-    if is_async:
-        return _replace_user_references_async(content, platform, name_resolver, replace_bot_name)
-    else:
-        return _replace_user_references_sync(content, platform, name_resolver, replace_bot_name)
-
-
-def _replace_user_references_sync(
-    content: str,
-    platform: str,
-    name_resolver: Optional[Callable[[str, str], str]] = None,
-    replace_bot_name: bool = True
-) -> str:
-    """同步版本的用户引用替换"""
     if name_resolver is None:
         person_info_manager = get_person_info_manager()
+
         def default_resolver(platform: str, user_id: str) -> str:
             # 检查是否是机器人自己
             if replace_bot_name and user_id == global_config.bot.qq_account:
                 return f"{global_config.bot.nickname}(你)"
             person_id = PersonInfoManager.get_person_id(platform, user_id)
-            return person_info_manager.get_value_sync(person_id, "person_name") or user_id
+            return person_info_manager.get_value_sync(person_id, "person_name") or user_id  # type: ignore
+
         name_resolver = default_resolver
-    
+
     # 处理回复<aaa:bbb>格式
     reply_pattern = r"回复<([^:<>]+):([^:<>]+)>"
     match = re.search(reply_pattern, content)
     if match:
-        aaa = match.group(1)
-        bbb = match.group(2)
+        aaa = match[1]
+        bbb = match[2]
         try:
             # 检查是否是机器人自己
             if replace_bot_name and bbb == global_config.bot.qq_account:
@@ -75,7 +62,7 @@ def _replace_user_references_sync(
         except Exception:
             # 如果解析失败，使用原始昵称
             content = re.sub(reply_pattern, f"回复 {aaa}", content, count=1)
-    
+
     # 处理@<aaa:bbb>格式
     at_pattern = r"@<([^:<>]+):([^:<>]+)>"
     at_matches = list(re.finditer(at_pattern, content))
@@ -83,7 +70,7 @@ def _replace_user_references_sync(
         new_content = ""
         last_end = 0
         for m in at_matches:
-            new_content += content[last_end:m.start()]
+            new_content += content[last_end : m.start()]
             aaa = m.group(1)
             bbb = m.group(2)
             try:
@@ -99,27 +86,41 @@ def _replace_user_references_sync(
             last_end = m.end()
         new_content += content[last_end:]
         content = new_content
-    
+
     return content
 
 
-async def _replace_user_references_async(
+async def replace_user_references_async(
     content: str,
     platform: str,
     name_resolver: Optional[Callable[[str, str], Any]] = None,
-    replace_bot_name: bool = True
+    replace_bot_name: bool = True,
 ) -> str:
-    """异步版本的用户引用替换"""
+    """
+    替换内容中的用户引用格式，包括回复<aaa:bbb>和@<aaa:bbb>格式
+
+    Args:
+        content: 要处理的内容字符串
+        platform: 平台标识
+        name_resolver: 名称解析函数，接收(platform, user_id)参数，返回用户名称
+                       如果为None，则使用默认的person_info_manager
+        replace_bot_name: 是否将机器人的user_id替换为"机器人昵称(你)"
+
+    Returns:
+        str: 处理后的内容字符串
+    """
     if name_resolver is None:
         person_info_manager = get_person_info_manager()
+
         async def default_resolver(platform: str, user_id: str) -> str:
             # 检查是否是机器人自己
             if replace_bot_name and user_id == global_config.bot.qq_account:
                 return f"{global_config.bot.nickname}(你)"
             person_id = PersonInfoManager.get_person_id(platform, user_id)
-            return await person_info_manager.get_value(person_id, "person_name") or user_id
+            return await person_info_manager.get_value(person_id, "person_name") or user_id  # type: ignore
+
         name_resolver = default_resolver
-    
+
     # 处理回复<aaa:bbb>格式
     reply_pattern = r"回复<([^:<>]+):([^:<>]+)>"
     match = re.search(reply_pattern, content)
@@ -136,7 +137,7 @@ async def _replace_user_references_async(
         except Exception:
             # 如果解析失败，使用原始昵称
             content = re.sub(reply_pattern, f"回复 {aaa}", content, count=1)
-    
+
     # 处理@<aaa:bbb>格式
     at_pattern = r"@<([^:<>]+):([^:<>]+)>"
     at_matches = list(re.finditer(at_pattern, content))
@@ -144,7 +145,7 @@ async def _replace_user_references_async(
         new_content = ""
         last_end = 0
         for m in at_matches:
-            new_content += content[last_end:m.start()]
+            new_content += content[last_end : m.start()]
             aaa = m.group(1)
             bbb = m.group(2)
             try:
@@ -160,7 +161,7 @@ async def _replace_user_references_async(
             last_end = m.end()
         new_content += content[last_end:]
         content = new_content
-    
+
     return content
 
 
@@ -524,7 +525,7 @@ def _build_readable_messages_internal(
                 person_name = "某人"
 
         # 使用独立函数处理用户引用格式
-        content = replace_user_references_in_content(content, platform, is_async=False, replace_bot_name=replace_bot_name)
+        content = replace_user_references_sync(content, platform, replace_bot_name=replace_bot_name)
 
         target_str = "这是QQ的一个功能，用于提及某人，但没那么明显"
         if target_str in content and random.random() < 0.6:
@@ -778,6 +779,7 @@ async def build_readable_messages_with_list(
 
     return formatted_string, details_list
 
+
 def build_readable_messages_with_id(
     messages: List[Dict[str, Any]],
     replace_bot_name: bool = True,
@@ -793,9 +795,9 @@ def build_readable_messages_with_id(
     允许通过参数控制格式化行为。
     """
     message_id_list = assign_message_ids(messages)
-    
+
     formatted_string = build_readable_messages(
-        messages = messages,
+        messages=messages,
         replace_bot_name=replace_bot_name,
         merge_messages=merge_messages,
         timestamp_mode=timestamp_mode,
@@ -806,10 +808,7 @@ def build_readable_messages_with_id(
         message_id_list=message_id_list,
     )
 
-    
-    
-    
-    return formatted_string , message_id_list
+    return formatted_string, message_id_list
 
 
 def build_readable_messages(
@@ -894,7 +893,13 @@ def build_readable_messages(
     if read_mark <= 0:
         # 没有有效的 read_mark，直接格式化所有消息
         formatted_string, _, pic_id_mapping, _ = _build_readable_messages_internal(
-            copy_messages, replace_bot_name, merge_messages, timestamp_mode, truncate, show_pic=show_pic, message_id_list=message_id_list
+            copy_messages,
+            replace_bot_name,
+            merge_messages,
+            timestamp_mode,
+            truncate,
+            show_pic=show_pic,
+            message_id_list=message_id_list,
         )
 
         # 生成图片映射信息并添加到最前面
@@ -1017,7 +1022,7 @@ async def build_anonymous_messages(messages: List[Dict[str, Any]]) -> str:
 
     for msg in messages:
         try:
-            platform = msg.get("chat_info_platform")
+            platform: str = msg.get("chat_info_platform")  # type: ignore
             user_id = msg.get("user_id")
             _timestamp = msg.get("time")
             content: str = ""
@@ -1046,8 +1051,8 @@ async def build_anonymous_messages(messages: List[Dict[str, Any]]) -> str:
                     return get_anon_name(platform, user_id)
                 except Exception:
                     return "?"
-            
-            content = replace_user_references_in_content(content, platform, anon_name_resolver, is_async=False, replace_bot_name=False)
+
+            content = replace_user_references_sync(content, platform, anon_name_resolver, replace_bot_name=False)
 
             header = f"{anon_name}说 "
             output_lines.append(header)

@@ -68,6 +68,8 @@ class ChatConfig(ConfigBase):
 
     max_context_size: int = 18
     """上下文长度"""
+    
+    willing_amplifier: float = 1.0
 
     replyer_random_probability: float = 0.5
     """
@@ -75,14 +77,11 @@ class ChatConfig(ConfigBase):
     选择普通模型的概率为 1 - reasoning_normal_model_probability
     """
 
-    thinking_timeout: int = 30
+    thinking_timeout: int = 40
     """麦麦最长思考规划时间，超过这个时间的思考会放弃（往往是api反应太慢）"""
 
     talk_frequency: float = 1
     """回复频率阈值"""
-
-    use_s4u_prompt_mode: bool = False
-    """是否使用 s4u 对话构建模式，该模式会分开处理当前对话对象和其他所有对话的内容进行 prompt 构建"""
 
     mentioned_bot_inevitable_reply: bool = False
     """提及 bot 必然回复"""
@@ -273,12 +272,6 @@ class NormalChatConfig(ConfigBase):
     willing_mode: str = "classical"
     """意愿模式"""
 
-    response_interested_rate_amplifier: float = 1.0
-    """回复兴趣度放大系数"""
-
-
-
-
 @dataclass
 class ExpressionConfig(ConfigBase):
     """表达配置类"""
@@ -306,11 +299,8 @@ class ExpressionConfig(ConfigBase):
 class ToolConfig(ConfigBase):
     """工具配置类"""
 
-    enable_in_normal_chat: bool = False
-    """是否在普通聊天中启用工具"""
-
-    enable_in_focus_chat: bool = True
-    """是否在专注聊天中启用工具"""
+    enable_tool: bool = False
+    """是否在聊天中启用工具"""
     
 @dataclass
 class VoiceConfig(ConfigBase):

@@ -36,7 +36,7 @@ def compare_dicts(new, old, path=None, new_comments=None, old_comments=None, log
             continue
         if key not in old:
             comment = get_key_comment(new, key)
-            logs.append(f"新增: {'.'.join(path + [str(key)])}  注释: {comment if comment else '无'}")
+            logs.append(f"新增: {'.'.join(path + [str(key)])}  注释: {comment or '无'}")
         elif isinstance(new[key], (dict, Table)) and isinstance(old.get(key), (dict, Table)):
             compare_dicts(new[key], old[key], path + [str(key)], new_comments, old_comments, logs)
     # 删减项
@@ -45,7 +45,7 @@ def compare_dicts(new, old, path=None, new_comments=None, old_comments=None, log
             continue
         if key not in new:
             comment = get_key_comment(old, key)
-            logs.append(f"删减: {'.'.join(path + [str(key)])}  注释: {comment if comment else '无'}")
+            logs.append(f"删减: {'.'.join(path + [str(key)])}  注释: {comment or '无'}")
     return logs
 
 

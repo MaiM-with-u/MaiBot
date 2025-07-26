@@ -8,9 +8,8 @@
 from typing import List, Tuple, Type
 
 # 导入新插件系统
-from src.plugin_system import BasePlugin, register_plugin, ComponentInfo, ActionActivationType
+from src.plugin_system import BasePlugin, register_plugin, ComponentInfo
 from src.plugin_system.base.config_types import ConfigField
-from src.config.config import global_config
 
 # 导入依赖的系统组件
 from src.common.logger import get_logger
@@ -18,7 +17,6 @@ from src.common.logger import get_logger
 # 导入API模块 - 标准Python包方式
 from src.plugins.built_in.core_actions.no_reply import NoReplyAction
 from src.plugins.built_in.core_actions.emoji import EmojiAction
-from src.plugins.built_in.core_actions.reply import ReplyAction
 
 logger = get_logger("core_actions")
 
@@ -52,10 +50,9 @@ class CoreActionsPlugin(BasePlugin):
     config_schema: dict = {
         "plugin": {
             "enabled": ConfigField(type=bool, default=True, description="是否启用插件"),
-            "config_version": ConfigField(type=str, default="0.4.0", description="配置文件版本"),
+            "config_version": ConfigField(type=str, default="0.5.0", description="配置文件版本"),
         },
         "components": {
-            "enable_reply": ConfigField(type=bool, default=True, description="是否启用回复动作"),
             "enable_no_reply": ConfigField(type=bool, default=True, description="是否启用不回复动作"),
             "enable_emoji": ConfigField(type=bool, default=True, description="是否启用发送表情/图片动作"),
         },
@@ -64,23 +61,12 @@ class CoreActionsPlugin(BasePlugin):
     def get_plugin_components(self) -> List[Tuple[ComponentInfo, Type]]:
         """返回插件包含的组件列表"""
 
-        if global_config.emoji.emoji_activate_type == "llm":
-            EmojiAction.random_activation_probability = 0.0
-            EmojiAction.activation_type = ActionActivationType.LLM_JUDGE
-
-        elif global_config.emoji.emoji_activate_type == "random":
-            EmojiAction.random_activation_probability = global_config.emoji.emoji_chance
-            EmojiAction.activation_type = ActionActivationType.RANDOM
-
         # --- 根据配置注册组件 ---
         components = []
-        if self.get_config("components.enable_reply", True):
-            components.append((ReplyAction.get_action_info(), ReplyAction))
         if self.get_config("components.enable_no_reply", True):
             components.append((NoReplyAction.get_action_info(), NoReplyAction))
         if self.get_config("components.enable_emoji", True):
             components.append((EmojiAction.get_action_info(), EmojiAction))
 
-        # components.append((DeepReplyAction.get_action_info(), DeepReplyAction))
 
         return components
