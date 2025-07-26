@@ -29,7 +29,7 @@ from rich.progress import (
 from src.manager.local_store_manager import local_storage
 from src.chat.utils.utils import get_embedding
 from src.config.config import global_config
-
+from tqdm import tqdm
 
 install(extra_lines=3)
 ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -317,18 +317,31 @@ class EmbeddingStore:
 
 class EmbeddingManager:
     def __init__(self):
+        # self.paragraphs_embedding_store = EmbeddingStore(
+        #     local_storage["pg_namespace"] + "-paragraph",  # 不再共用一个命名空间
+        #     EMBEDDING_DATA_DIR_STR,
+        # )
+        # self.entities_embedding_store = EmbeddingStore(
+        #     local_storage["pg_namespace"] + "-entity",
+        #     EMBEDDING_DATA_DIR_STR,
+        # )
+        # self.relation_embedding_store = EmbeddingStore(
+        #     local_storage["pg_namespace"] + "-relation",
+        #     EMBEDDING_DATA_DIR_STR,
+        # )
         self.paragraphs_embedding_store = EmbeddingStore(
-            local_storage["pg_namespace"],  # type: ignore
+            "paragraph",  # 不再共用一个命名空间
             EMBEDDING_DATA_DIR_STR,
         )
         self.entities_embedding_store = EmbeddingStore(
-            local_storage["pg_namespace"],  # type: ignore
+            "entity",
             EMBEDDING_DATA_DIR_STR,
         )
         self.relation_embedding_store = EmbeddingStore(
-            local_storage["pg_namespace"],  # type: ignore
+            "relation",
             EMBEDDING_DATA_DIR_STR,
         )
+
         self.stored_pg_hashes = set()
 
     def check_all_embedding_model_consistency(self):
@@ -395,3 +408,34 @@ class EmbeddingManager:
         self.paragraphs_embedding_store.build_faiss_index()
         self.entities_embedding_store.build_faiss_index()
         self.relation_embedding_store.build_faiss_index()
+
+    def store_entity_data_set(self, entity_hash_map: dict[str, str]) -> None:
+        """为每个实体生成嵌入并保存，entity_hash_map: {hash: text}"""
+        texts = list(entity_hash_map.values())
+        hashes = list(entity_hash_map.keys())
+
+        logger.info(f"正在生成 {len(texts)} 个实体的嵌入向量...")
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            MofNCompleteColumn(),
+            "•",
+            TimeElapsedColumn(),
+            "<",
+            TimeRemainingColumn(),
+            transient=False,
+        ) as progress:
+            task = progress.add_task("嵌入实体", total=len(texts))
+            for hash_id, text in zip(hashes, texts):
+                item_hash = self.entities_embedding_store.namespace + "-entity-" + hash_id
+                if item_hash in self.entities_embedding_store.store:
+                    progress.update(task, advance=1)
+                    continue
+                embedding = self.entities_embedding_store._get_embedding(text)
+                self.entities_embedding_store.store[item_hash] = EmbeddingStoreItem(item_hash, embedding, text)
+                progress.update(task, advance=1)
+
+        logger.info(f"成功嵌入实体数：{len(self.entities_embedding_store.store)}")
