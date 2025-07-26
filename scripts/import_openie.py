@@ -200,8 +200,26 @@ def handle_import_openie(openie_data: OpenIE, embed_manager: EmbeddingManager, k
         logger.info("正在重新构建向量索引")
         embed_manager.rebuild_faiss_index()
         logger.info("向量索引构建完成")
+        # 对实体进行嵌入并存储
         embed_manager.save_to_file()
-        logger.info("Embedding完成")
+        logger.info("段落Embedding完成")
+
+        # 新增实体Embedding
+        all_entities = set()
+        for entity_list in entity_list_data.values():
+            all_entities.update(entity_list)
+
+        entity_hash_map = {
+            get_sha256(entity): entity
+            for entity in all_entities
+        }
+
+        if entity_hash_map:
+            logger.info(f"开始对 {len(entity_hash_map)} 个实体生成向量嵌入")
+            embed_manager.store_entity_data_set(entity_hash_map)
+            embed_manager.save_to_file()
+            logger.info("实体嵌入完成")
+
         # 构建新段落的RAG
         logger.info("开始构建RAG")
         kg_manager.build_kg(triple_list_data, embed_manager)

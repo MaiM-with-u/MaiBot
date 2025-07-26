@@ -16,6 +16,8 @@ from src.common.database.database_model import LLMUsage  # 导入 LLMUsage 模�
 from src.config.config import global_config
 from src.common.tcp_connector import get_tcp_connector
 from rich.traceback import install
+from dotenv import load_dotenv
+
 
 install(extra_lines=3)
 
@@ -121,8 +123,10 @@ class LLMRequest:
         
         try:
             # print(f"model['provider']: {model['provider']}")
-            self.api_key = os.environ[f"{model['provider']}_KEY"]
-            self.base_url = os.environ[f"{model['provider']}_BASE_URL"]
+            # self.api_key = os.environ[f"{model['provider']}_KEY"] # 这是原来的写法，没法读取变量
+            # self.base_url = os.environ[f"{model['provider']}_BASE_URL"]
+            self.api_key = os.environ.get(f"{model['provider']}_KEY") # 改成这种写法，能读取变量
+            self.base_url = os.environ.get(f"{model['provider']}_BASE_URL")
             logger.debug(f"🔍 [模型初始化] 成功获取环境变量: {model['provider']}_KEY 和 {model['provider']}_BASE_URL")
         except AttributeError as e:
             logger.error(f"原始 model dict 信息：{model}")
