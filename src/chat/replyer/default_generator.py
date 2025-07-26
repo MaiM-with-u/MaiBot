@@ -29,7 +29,6 @@ from src.chat.memory_system.instant_memory import InstantMemory
 from src.mood.mood_manager import mood_manager
 from src.person_info.relationship_fetcher import relationship_fetcher_manager
 from src.person_info.person_info import get_person_info_manager
-from src.tools.tool_executor import ToolExecutor
 from src.plugin_system.base.component_types import ActionInfo
 
 logger = get_logger("replyer")
@@ -139,6 +138,8 @@ class DefaultReplyer:
         self.heart_fc_sender = HeartFCSender()
         self.memory_activator = MemoryActivator()
         self.instant_memory = InstantMemory(chat_id=self.chat_stream.stream_id)
+
+        from src.plugin_system.core.tool_use import ToolExecutor # 延迟导入ToolExecutor，不然会循环依赖
         self.tool_executor = ToolExecutor(chat_id=self.chat_stream.stream_id, enable_cache=True, cache_ttl=3)
 
     def _select_weighted_model_config(self) -> Dict[str, Any]:

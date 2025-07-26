@@ -1,9 +1,11 @@
 from typing import List, Tuple, Type
+from src.plugin_system.apis import tool_api
 from src.plugin_system import (
     BasePlugin,
     register_plugin,
     BaseAction,
     BaseCommand,
+    BaseTool,
     ComponentInfo,
     ActionActivationType,
     ConfigField,
@@ -12,6 +14,32 @@ from src.plugin_system import (
     MaiMessages,
 )
 
+class HelloTool(BaseTool):
+    """问候工具 - 用于发送问候消息"""
+
+    name = "hello_tool"
+    description = "发送问候消息"
+    parameters = {
+        "type": "object",
+        "properties": {
+            "greeting_message": {
+                "type": "string",
+                "description": "要发送的问候消息"
+            },
+        },
+        "required": ["greeting_message"]
+    }
+    available_for_llm = True
+
+
+    async def execute(self, function_args):
+        """执行问候工具"""
+        import random
+        greeting_message = random.choice(function_args.get("greeting_message", ["嗨！很高兴见到你！😊"]))
+        return {
+            "name": self.name,
+            "content": greeting_message
+        }
 
 # ===== Action组件 =====
 class HelloAction(BaseAction):
@@ -30,7 +58,10 @@ class HelloAction(BaseAction):
     async def execute(self) -> Tuple[bool, str]:
         """执行问候动作 - 这是核心功能"""
         # 发送问候消息
-        greeting_message = self.action_data.get("greeting_message", "")
+        hello_tool = tool_api.get_tool_instance("hello_tool")
+        greeting_message = await hello_tool.execute({
+            "greeting_message": self.action_data.get("greeting_message", "")
+        })
         base_message = self.get_config("greeting.message", "嗨！很开心见到你！😊")
         message = base_message + greeting_message
         await self.send_text(message)
@@ -132,7 +163,7 @@ class HelloWorldPlugin(BasePlugin):
             "enabled": ConfigField(type=bool, default=False, description="是否启用插件"),
         },
         "greeting": {
-            "message": ConfigField(type=str, default="嗨！很开心见到你！😊", description="默认问候消息"),
+            "message": ConfigField(type=list, default=["嗨！很开心见到你！😊","Ciallo～(∠・ω< )⌒★"], description="默认问候消息"),
             "enable_emoji": ConfigField(type=bool, default=True, description="是否启用表情符号"),
         },
         "time": {"format": ConfigField(type=str, default="%Y-%m-%d %H:%M:%S", description="时间显示格式")},
@@ -142,6 +173,7 @@ class HelloWorldPlugin(BasePlugin):
     def get_plugin_components(self) -> List[Tuple[ComponentInfo, Type]]:
         return [
             (HelloAction.get_action_info(), HelloAction),
+            (HelloTool.get_tool_info(), HelloTool),  # 添加问候工具
             (ByeAction.get_action_info(), ByeAction),  # 添加告别Action
             (TimeCommand.get_command_info(), TimeCommand),
             (PrintMessage.get_handler_info(), PrintMessage),

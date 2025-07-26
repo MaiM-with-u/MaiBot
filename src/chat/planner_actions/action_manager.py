@@ -3,7 +3,7 @@ from src.plugin_system.base.base_action import BaseAction
 from src.chat.message_receive.chat_stream import ChatStream
 from src.common.logger import get_logger
 from src.plugin_system.core.component_registry import component_registry
-from src.plugin_system.base.component_types import ComponentType, ActionActivationType, ChatMode, ActionInfo
+from src.plugin_system.base.component_types import ComponentType, ActionInfo
 
 logger = get_logger("action_manager")
 
@@ -14,11 +14,6 @@ class ActionManager:
 
     现在统一使用新插件系统，简化了原有的新旧兼容逻辑。
     """
-
-    # 类常量
-    DEFAULT_RANDOM_PROBABILITY = 0.3
-    DEFAULT_MODE = ChatMode.ALL
-    DEFAULT_ACTIVATION_TYPE = ActionActivationType.ALWAYS
 
     def __init__(self):
         """初始化动作管理器"""

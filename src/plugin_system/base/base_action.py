@@ -384,7 +384,7 @@ class BaseAction(ABC):
             keyword_case_sensitive=getattr(cls, "keyword_case_sensitive", False),
             mode_enable=getattr(cls, "mode_enable", ChatMode.ALL),
             parallel_action=getattr(cls, "parallel_action", True),
-            random_activation_probability=getattr(cls, "random_activation_probability", 0.3),
+            random_activation_probability=getattr(cls, "random_activation_probability", 0.0),
             llm_judge_prompt=getattr(cls, "llm_judge_prompt", ""),
             # 使用正确的字段名
             action_parameters=getattr(cls, "action_parameters", {}).copy(),

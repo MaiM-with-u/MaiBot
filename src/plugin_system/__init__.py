@@ -9,6 +9,7 @@ from .base import (
     BasePlugin,
     BaseAction,
     BaseCommand,
+    BaseTool,
     ConfigField,
     ComponentType,
     ActionActivationType,
@@ -34,6 +35,7 @@ from .utils import (
 
 from .apis import (
     chat_api,
+    tool_api,  
     component_manage_api,
     config_api,
     database_api,
@@ -55,6 +57,7 @@ __version__ = "1.0.0"
 __all__ = [
     # API 模块
     "chat_api",
+    "tool_api",
     "component_manage_api",
     "config_api",
     "database_api",
@@ -72,6 +75,7 @@ __all__ = [
     "BasePlugin",
     "BaseAction",
     "BaseCommand",
+    "BaseTool",
     "BaseEventHandler",
     # 类型定义
     "ComponentType",

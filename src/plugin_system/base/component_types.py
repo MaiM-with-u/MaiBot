@@ -10,6 +10,7 @@ class ComponentType(Enum):
 
     ACTION = "action"  # 动作组件
     COMMAND = "command"  # 命令组件
+    TOOL = "tool"  # 服务组件（预留）
     SCHEDULER = "scheduler"  # 定时任务组件（预留）
     EVENT_HANDLER = "event_handler"  # 事件处理组件（预留）
 
@@ -144,7 +145,18 @@ class CommandInfo(ComponentInfo):
     def __post_init__(self):
         super().__post_init__()
         self.component_type = ComponentType.COMMAND
+        
+@dataclass
+class ToolInfo(ComponentInfo):
+    """工具组件信息"""
 
+    tool_parameters: Dict[str, Any] = field(default_factory=dict)  # 工具参数定义
+    available_for_llm: bool = False  # 是否可供LLM使用
+    tool_description: str = ""  # 工具描述
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.component_type = ComponentType.TOOL   
 
 @dataclass
 class EventHandlerInfo(ComponentInfo):

@@ -174,7 +174,7 @@ class ActionModifier:
                 continue  # 总是激活，无需处理
 
             elif activation_type == ActionActivationType.RANDOM:
-                probability = action_info.random_activation_probability or ActionManager.DEFAULT_RANDOM_PROBABILITY
+                probability = action_info.random_activation_probability
                 if random.random() >= probability:
                     reason = f"RANDOM类型未触发（概率{probability}）"
                     deactivated_actions.append((action_name, reason))

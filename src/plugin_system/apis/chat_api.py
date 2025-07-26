@@ -32,6 +32,7 @@ class ChatManager:
 
     @staticmethod
     def get_all_streams(platform: Optional[str] | SpecialTypes = "qq") -> List[ChatStream]:
+        # sourcery skip: for-append-to-extend
         """获取所有聊天流
 
         Args:
@@ -57,6 +58,7 @@ class ChatManager:
 
     @staticmethod
     def get_group_streams(platform: Optional[str] | SpecialTypes = "qq") -> List[ChatStream]:
+        # sourcery skip: for-append-to-extend
         """获取所有群聊聊天流
 
         Args:
@@ -79,6 +81,7 @@ class ChatManager:
 
     @staticmethod
     def get_private_streams(platform: Optional[str] | SpecialTypes = "qq") -> List[ChatStream]:
+        # sourcery skip: for-append-to-extend
         """获取所有私聊聊天流
 
         Args:
@@ -105,7 +108,7 @@ class ChatManager:
     @staticmethod
     def get_group_stream_by_group_id(
         group_id: str, platform: Optional[str] | SpecialTypes = "qq"
-    ) -> Optional[ChatStream]:
+    ) -> Optional[ChatStream]:  # sourcery skip: remove-unnecessary-cast
         """根据群ID获取聊天流
 
         Args:
@@ -142,7 +145,7 @@ class ChatManager:
     @staticmethod
     def get_private_stream_by_user_id(
         user_id: str, platform: Optional[str] | SpecialTypes = "qq"
-    ) -> Optional[ChatStream]:
+    ) -> Optional[ChatStream]:  # sourcery skip: remove-unnecessary-cast
         """根据用户ID获取私聊流
 
         Args:
