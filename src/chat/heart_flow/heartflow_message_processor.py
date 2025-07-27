@@ -54,13 +54,21 @@ async def _calculate_interest(message: MessageRecv) -> Tuple[float, bool]:
     is_mentioned, _ = is_mentioned_bot_in_message(message)
     interested_rate = 0.0
 
-    with Timer("记忆激活"):
-        interested_rate = await hippocampus_manager.get_activate_from_text(
-            message.processed_plain_text,
-            max_depth= 5,
-            fast_retrieval=False,
-        )
-        logger.debug(f"记忆激活率: {interested_rate:.2f}")
+    # 检查记忆系统是否启用
+    if global_config.memory.enable_memory:
+        with Timer("记忆激活"):
+            try:
+                interested_rate = await hippocampus_manager.get_activate_from_text(
+                    message.processed_plain_text,
+                    max_depth= 5,
+                    fast_retrieval=False,
+                )
+                logger.debug(f"记忆激活率: {interested_rate:.2f}")
+            except Exception as e:
+                logger.warning(f"记忆激活失败: {e}")
+                interested_rate = 0.0
+    else:
+        logger.debug("记忆系统已禁用，跳过记忆激活")
 
     text_len = len(message.processed_plain_text)
     # 根据文本长度分布调整兴趣度，采用分段函数实现更精确的兴趣度计算
