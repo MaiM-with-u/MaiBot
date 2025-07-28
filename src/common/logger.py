@@ -334,7 +334,7 @@ MODULE_COLORS = {
     "llm_models": "\033[36m",  # 青色
     "remote": "\033[38;5;242m",  # 深灰色，更不显眼
     "planner": "\033[36m",
-    "memory": "\033[34m",
+    "memory": "\033[38;5;117m",  # 天蓝色
     "hfc": "\033[38;5;81m",  # 稍微暗一些的青色，保持可读
     "action_manager": "\033[38;5;208m",  # 橙色，不与replyer重复
     # 关系系统
@@ -352,7 +352,7 @@ MODULE_COLORS = {
     "expressor": "\033[38;5;166m",  # 橙色
     # 专注聊天模块
     "replyer": "\033[38;5;166m",  # 橙色
-    "memory_activator": "\033[34m",  # 绿色
+    "memory_activator": "\033[38;5;117m",  # 天蓝色
     # 插件系统
     "plugins": "\033[31m",  # 红色
     "plugin_api": "\033[33m",  # 黄色
@@ -451,7 +451,7 @@ class ModuleColoredConsoleRenderer:
         # 日志级别颜色
         self._level_colors = {
             "debug": "\033[38;5;208m",  # 橙色
-            "info": "\033[34m",  # 蓝色
+            "info": "\033[38;5;117m",  # 天蓝色
             "success": "\033[32m",  # 绿色
             "warning": "\033[33m",  # 黄色
             "error": "\033[31m",  # 红色
