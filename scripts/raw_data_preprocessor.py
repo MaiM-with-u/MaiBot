@@ -73,3 +73,30 @@ def load_raw_data() -> tuple[list[str], list[str]]:
     logger.info(f"共读取到{len(raw_data)}条数据")
 
     return sha256_list, raw_data
+
+# chatgpt
+import json
+from datetime import datetime
+
+if __name__ == "__main__":
+    sha256_list, raw_data = load_raw_data()
+
+    # 构造导出路径
+    output_dir = os.path.join(ROOT_PATH, "data/imported_lpmm_data")
+    os.makedirs(output_dir, exist_ok=True)
+
+    now = datetime.now().strftime("%m-%d-%H-%M")
+    output_path = os.path.join(output_dir, f"{now}-imported-data.json")
+
+    # 写入 JSON 文件
+    # with open(output_path, "w", encoding="utf-8") as f:
+    #     json.dump({
+    #         "sha256_list": sha256_list,
+    #         "raw_data": raw_data
+    #     }, f, ensure_ascii=False, indent=2)
+    # 上面那些是AI写的，我看了下旧版生成的文件格式，实际上只保存[raw_data]就行，后面的info_extraction.py和import_openie.py会正常运行
+    # 下面这段只保存 raw_data，和旧版保存的文件格式一致
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(raw_data, f, ensure_ascii=False, indent=2)
+
+    logger.info(f"数据处理完成，已写入：{output_path}")
