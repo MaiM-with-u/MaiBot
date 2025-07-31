@@ -1,4 +1,3 @@
-# --- START OF FINAL src/chat/knowledge/knowledge_lib.py ---
 from src.chat.knowledge.lpmmconfig import global_config
 from src.chat.knowledge.embedding_store import EmbeddingManager
 from src.chat.knowledge.llm_client import LLMClient
@@ -145,4 +144,3 @@ if bot_global_config.lpmm_knowledge.enable:
 else:
     logger.info("LPMM知识库已禁用，跳过初始化")
     # 创建空的占位符对象，避免导入错误
-# --- END OF FINAL src/chat/knowledge/knowledge_lib.py ---

@@ -1,4 +1,3 @@
-# --- START OF FILE src/chat/knowledge/embedding_store.py ---
 from dataclasses import dataclass
 import json
 import os
@@ -319,4 +318,3 @@ class EmbeddingManager:
         self.paragraphs_embedding_store.build_faiss_index()
         self.entities_embedding_store.build_faiss_index()
         self.relation_embedding_store.build_faiss_index()
-# --- END OF FILE src/chat/knowledge/embedding_store.py ---
