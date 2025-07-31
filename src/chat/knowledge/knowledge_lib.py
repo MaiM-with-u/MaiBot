@@ -1,3 +1,4 @@
+# --- START OF FINAL src/chat/knowledge/knowledge_lib.py ---
 from src.chat.knowledge.lpmmconfig import global_config
 from src.chat.knowledge.embedding_store import EmbeddingManager
 from src.chat.knowledge.llm_client import LLMClient
@@ -8,6 +9,7 @@ from src.chat.knowledge.global_logger import logger
 from src.config.config import global_config as bot_global_config
 from src.manager.local_store_manager import local_storage
 import os
+from multiprocessing import Manager # <--- MODIFIED: 导入Manager
 
 INVALID_ENTITY = [
     "",
@@ -96,8 +98,13 @@ if bot_global_config.lpmm_knowledge.enable:
             global_config["llm_providers"][key]["api_key"],  # type: ignore
         )
 
+    # <--- MODIFIED: 创建Manager和Lock ---
+    manager = Manager()
+    lock = manager.Lock()
+    # --->
+
     # 初始化Embedding库
-    embed_manager = EmbeddingManager()
+    embed_manager = EmbeddingManager(lock) # <--- MODIFIED: 传递lock
     logger.info("正在从文件加载Embedding库")
     try:
         embed_manager.load_from_file()
@@ -138,3 +145,4 @@ if bot_global_config.lpmm_knowledge.enable:
 else:
     logger.info("LPMM知识库已禁用，跳过初始化")
     # 创建空的占位符对象，避免导入错误
+# --- END OF FINAL src/chat/knowledge/knowledge_lib.py ---
