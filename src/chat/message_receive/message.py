@@ -203,7 +203,7 @@ class MessageRecvS4U(MessageRecv):
         self.is_superchat = False
         self.gift_info = None
         self.gift_name = None
-        self.gift_count = None
+        self.gift_count: Optional[str] = None
         self.superchat_info = None
         self.superchat_price = None
         self.superchat_message_text = None
@@ -444,7 +444,7 @@ class MessageSending(MessageProcessBase):
         is_emoji: bool = False,
         thinking_start_time: float = 0,
         apply_set_reply_logic: bool = False,
-        reply_to: str = None,  # type: ignore
+        reply_to: Optional[str] = None,
     ):
         # 调用父类初始化
         super().__init__(

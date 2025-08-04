@@ -11,7 +11,7 @@ from src.common.logger import get_logger
 from src.common.database.database import db
 from src.common.database.database_model import PersonInfo
 from src.llm_models.utils_model import LLMRequest
-from src.config.config import global_config
+from src.config.config import global_config, model_config
 
 
 """
@@ -54,11 +54,7 @@ person_info_default = {
 class PersonInfoManager:
     def __init__(self):
         self.person_name_list = {}
-        # TODO: API-Adapter修改标记
-        self.qv_name_llm = LLMRequest(
-            model=global_config.model.utils,
-            request_type="relation.qv_name",
-        )
+        self.qv_name_llm = LLMRequest(model_set=model_config.model_task_config.utils, request_type="relation.qv_name")
         try:
             db.connect(reuse_if_open=True)
             # 设置连接池参数
@@ -199,7 +195,7 @@ class PersonInfoManager:
                 if existing:
                     logger.debug(f"用户 {p_data['person_id']} 已存在，跳过创建")
                     return True
-                
+
                 # 尝试创建
                 PersonInfo.create(**p_data)
                 return True
@@ -376,7 +372,7 @@ class PersonInfoManager:
                 "nickname": "昵称",
                 "reason": "理由"
             }"""
-            response, (reasoning_content, model_name) = await self.qv_name_llm.generate_response_async(qv_name_prompt)
+            response, _ = await self.qv_name_llm.generate_response_async(qv_name_prompt)
             # logger.info(f"取名提示词：{qv_name_prompt}\n取名回复：{response}")
             result = self._extract_json_from_text(response)
 
@@ -592,7 +588,7 @@ class PersonInfoManager:
             record = PersonInfo.get_or_none(PersonInfo.person_id == p_id)
             if record:
                 return record, False  # 记录存在，未创建
-                
+
             # 记录不存在，尝试创建
             try:
                 PersonInfo.create(**init_data)
@@ -622,7 +618,7 @@ class PersonInfoManager:
             "points": [],
             "forgotten_points": [],
         }
-        
+
         # 序列化JSON字段
         for key in JSON_SERIALIZED_FIELDS:
             if key in initial_data:
@@ -630,12 +626,12 @@ class PersonInfoManager:
                     initial_data[key] = json.dumps(initial_data[key], ensure_ascii=False)
                 elif initial_data[key] is None:
                     initial_data[key] = json.dumps([], ensure_ascii=False)
-        
+
         model_fields = PersonInfo._meta.fields.keys()  # type: ignore
         filtered_initial_data = {k: v for k, v in initial_data.items() if v is not None and k in model_fields}
 
         record, was_created = await asyncio.to_thread(_db_get_or_create_sync, person_id, filtered_initial_data)
-        
+
         if was_created:
             logger.info(f"用户 {platform}:{user_id} (person_id: {person_id}) 不存在，将创建新记录 (Peewee)。")
             logger.info(f"已为 {person_id} 创建新记录，初始数据 (filtered for model): {filtered_initial_data}")

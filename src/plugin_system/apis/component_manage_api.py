@@ -5,6 +5,7 @@ from src.plugin_system.base.component_types import (
     EventHandlerInfo,
     PluginInfo,
     ComponentType,
+    ToolInfo,
 )
 
 
@@ -119,6 +120,21 @@ def get_registered_command_info(command_name: str) -> Optional[CommandInfo]:
     return component_registry.get_registered_command_info(command_name)
 
 
+def get_registered_tool_info(tool_name: str) -> Optional[ToolInfo]:
+    """
+    获取指定 Tool 的注册信息。
+
+    Args:
+        tool_name (str): Tool 名称。
+
+    Returns:
+        ToolInfo: Tool 信息对象，如果 Tool 不存在则返回 None。
+    """
+    from src.plugin_system.core.component_registry import component_registry
+
+    return component_registry.get_registered_tool_info(tool_name)
+
+
 # === EventHandler 特定查询方法 ===
 def get_registered_event_handler_info(
     event_handler_name: str,
@@ -191,6 +207,8 @@ def locally_enable_component(component_name: str, component_type: ComponentType,
             return global_announcement_manager.enable_specific_chat_action(stream_id, component_name)
         case ComponentType.COMMAND:
             return global_announcement_manager.enable_specific_chat_command(stream_id, component_name)
+        case ComponentType.TOOL:
+            return global_announcement_manager.enable_specific_chat_tool(stream_id, component_name)
         case ComponentType.EVENT_HANDLER:
             return global_announcement_manager.enable_specific_chat_event_handler(stream_id, component_name)
         case _:
@@ -216,10 +234,13 @@ def locally_disable_component(component_name: str, component_type: ComponentType
             return global_announcement_manager.disable_specific_chat_action(stream_id, component_name)
         case ComponentType.COMMAND:
             return global_announcement_manager.disable_specific_chat_command(stream_id, component_name)
+        case ComponentType.TOOL:
+            return global_announcement_manager.disable_specific_chat_tool(stream_id, component_name)
         case ComponentType.EVENT_HANDLER:
             return global_announcement_manager.disable_specific_chat_event_handler(stream_id, component_name)
         case _:
             raise ValueError(f"未知 component type: {component_type}")
+
 
 def get_locally_disabled_components(stream_id: str, component_type: ComponentType) -> list[str]:
     """
@@ -239,6 +260,8 @@ def get_locally_disabled_components(stream_id: str, component_type: ComponentTyp
             return global_announcement_manager.get_disabled_chat_actions(stream_id)
         case ComponentType.COMMAND:
             return global_announcement_manager.get_disabled_chat_commands(stream_id)
+        case ComponentType.TOOL:
+            return global_announcement_manager.get_disabled_chat_tools(stream_id)
         case ComponentType.EVENT_HANDLER:
             return global_announcement_manager.get_disabled_chat_event_handlers(stream_id)
         case _:

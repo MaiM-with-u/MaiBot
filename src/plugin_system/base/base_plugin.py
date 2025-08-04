@@ -3,10 +3,11 @@ from typing import List, Type, Tuple, Union
 from .plugin_base import PluginBase
 
 from src.common.logger import get_logger
-from src.plugin_system.base.component_types import ActionInfo, CommandInfo, EventHandlerInfo
+from src.plugin_system.base.component_types import ActionInfo, CommandInfo, EventHandlerInfo, ToolInfo
 from .base_action import BaseAction
 from .base_command import BaseCommand
 from .base_events_handler import BaseEventHandler
+from .base_tool import BaseTool
 
 logger = get_logger("base_plugin")
 
@@ -31,6 +32,7 @@ class BasePlugin(PluginBase):
             Tuple[ActionInfo, Type[BaseAction]],
             Tuple[CommandInfo, Type[BaseCommand]],
             Tuple[EventHandlerInfo, Type[BaseEventHandler]],
+            Tuple[ToolInfo, Type[BaseTool]],
         ]
     ]:
         """获取插件包含的组件列表

@@ -1,6 +1,7 @@
-from typing import Dict, Any, Optional, List
+from typing import Dict, Optional, List, Tuple
 
 from src.common.logger import get_logger
+from src.config.api_ada_configs import TaskConfig
 from src.chat.message_receive.chat_stream import ChatStream, get_chat_manager
 from src.chat.replyer.default_generator import DefaultReplyer
 
@@ -15,7 +16,7 @@ class ReplyerManager:
         self,
         chat_stream: Optional[ChatStream] = None,
         chat_id: Optional[str] = None,
-        model_configs: Optional[List[Dict[str, Any]]] = None,
+        model_set_with_weight: Optional[List[Tuple[TaskConfig, float]]] = None,
         request_type: str = "replyer",
     ) -> Optional[DefaultReplyer]:
         """
@@ -49,7 +50,7 @@ class ReplyerManager:
         # model_configs 只在此时（初始化时）生效
         replyer = DefaultReplyer(
             chat_stream=target_stream,
-            model_configs=model_configs,  # 可以是None，此时使用默认模型
+            model_set_with_weight=model_set_with_weight,  # 可以是None，此时使用默认模型
             request_type=request_type,
         )
         self._repliers[stream_id] = replyer

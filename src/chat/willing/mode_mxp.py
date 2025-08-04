@@ -19,13 +19,13 @@ Mxp 模式：梦溪畔独家赞助
 下下策是询问一个菜鸟（@梦溪畔）
 """
 
-from .willing_manager import BaseWillingManager
 from typing import Dict
 import asyncio
 import time
 import math
 
 from src.chat.message_receive.chat_stream import ChatStream
+from .willing_manager import BaseWillingManager
 
 
 class MxpWillingManager(BaseWillingManager):

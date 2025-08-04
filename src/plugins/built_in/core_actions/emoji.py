@@ -58,6 +58,7 @@ class EmojiAction(BaseAction):
     associated_types = ["emoji"]
 
     async def execute(self) -> Tuple[bool, str]:
+        # sourcery skip: assign-if-exp, introduce-default-else, swap-if-else-branches, use-named-expression
         """执行表情动作"""
         logger.info(f"{self.log_prefix} 决定发送表情")
 

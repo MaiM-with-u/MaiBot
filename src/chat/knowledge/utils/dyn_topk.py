@@ -5,6 +5,10 @@ def dyn_select_top_k(
     score: List[Tuple[Any, float]], jmp_factor: float, var_factor: float
 ) -> List[Tuple[Any, float, float]]:
     """动态TopK选择"""
+    # 检查输入列表是否为空
+    if not score:
+        return []
+    
     # 按照分数排序（降序）
     sorted_score = sorted(score, key=lambda x: x[1], reverse=True)
 

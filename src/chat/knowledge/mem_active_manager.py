@@ -1,3 +1,4 @@
+raise DeprecationWarning("MemoryActiveManager is not used yet, please do not import it")
 from .lpmmconfig import global_config
 from .embedding_store import EmbeddingManager
 from .llm_client import LLMClient

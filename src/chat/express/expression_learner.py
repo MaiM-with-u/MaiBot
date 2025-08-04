@@ -7,12 +7,12 @@ from datetime import datetime
 from typing import List, Dict, Optional, Any, Tuple
 
 from src.common.logger import get_logger
+from src.common.database.database_model import Expression
 from src.llm_models.utils_model import LLMRequest
-from src.config.config import global_config
+from src.config.config import model_config
 from src.chat.utils.chat_message_builder import get_raw_msg_by_timestamp_random, build_anonymous_messages
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 from src.chat.message_receive.chat_stream import get_chat_manager
-from src.common.database.database_model import Expression
 
 
 MAX_EXPRESSION_COUNT = 300
@@ -80,11 +80,8 @@ def init_prompt() -> None:
 
 class ExpressionLearner:
     def __init__(self) -> None:
-        # TODO: API-Adapter修改标记
         self.express_learn_model: LLMRequest = LLMRequest(
-            model=global_config.model.replyer_1,
-            temperature=0.3,
-            request_type="expressor.learner",
+            model_set=model_config.model_task_config.replyer_1, request_type="expressor.learner"
         )
         self.llm_model = None
         self._ensure_expression_directories()
@@ -101,7 +98,7 @@ class ExpressionLearner:
             os.path.join(base_dir, "learnt_style"),
             os.path.join(base_dir, "learnt_grammar"),
         ]
-        
+
         for directory in directories_to_create:
             try:
                 os.makedirs(directory, exist_ok=True)
@@ -116,7 +113,7 @@ class ExpressionLearner:
         """
         base_dir = os.path.join("data", "expression")
         done_flag = os.path.join(base_dir, "done.done")
-        
+
         # 确保基础目录存在
         try:
             os.makedirs(base_dir, exist_ok=True)
@@ -124,28 +121,28 @@ class ExpressionLearner:
         except Exception as e:
             logger.error(f"创建表达方式目录失败: {e}")
             return
-        
+
         if os.path.exists(done_flag):
             logger.info("表达方式JSON已迁移，无需重复迁移。")
             return
-            
+
         logger.info("开始迁移表达方式JSON到数据库...")
         migrated_count = 0
-        
+
         for type in ["learnt_style", "learnt_grammar"]:
             type_str = "style" if type == "learnt_style" else "grammar"
             type_dir = os.path.join(base_dir, type)
             if not os.path.exists(type_dir):
                 logger.debug(f"目录不存在，跳过: {type_dir}")
                 continue
-                
+
             try:
                 chat_ids = os.listdir(type_dir)
                 logger.debug(f"在 {type_dir} 中找到 {len(chat_ids)} 个聊天ID目录")
             except Exception as e:
                 logger.error(f"读取目录失败 {type_dir}: {e}")
                 continue
-                
+
             for chat_id in chat_ids:
                 expr_file = os.path.join(type_dir, chat_id, "expressions.json")
                 if not os.path.exists(expr_file):
@@ -153,24 +150,24 @@ class ExpressionLearner:
                 try:
                     with open(expr_file, "r", encoding="utf-8") as f:
                         expressions = json.load(f)
-                    
+
                     if not isinstance(expressions, list):
                         logger.warning(f"表达方式文件格式错误，跳过: {expr_file}")
                         continue
-                        
+
                     for expr in expressions:
                         if not isinstance(expr, dict):
                             continue
-                            
+
                         situation = expr.get("situation")
                         style_val = expr.get("style")
                         count = expr.get("count", 1)
                         last_active_time = expr.get("last_active_time", time.time())
-                        
+
                         if not situation or not style_val:
                             logger.warning(f"表达方式缺少必要字段，跳过: {expr}")
                             continue
-                        
+
                         # 查重：同chat_id+type+situation+style
                         from src.common.database.database_model import Expression
 
@@ -201,7 +198,7 @@ class ExpressionLearner:
                     logger.error(f"JSON解析失败 {expr_file}: {e}")
                 except Exception as e:
                     logger.error(f"迁移表达方式 {expr_file} 失败: {e}")
-        
+
         # 标记迁移完成
         try:
             # 确保done.done文件的父目录存在
@@ -209,7 +206,7 @@ class ExpressionLearner:
             if not os.path.exists(done_parent_dir):
                 os.makedirs(done_parent_dir, exist_ok=True)
                 logger.debug(f"为done.done创建父目录: {done_parent_dir}")
-            
+
             with open(done_flag, "w", encoding="utf-8") as f:
                 f.write("done\n")
             logger.info(f"表达方式JSON迁移已完成，共迁移 {migrated_count} 个表达方式，已写入done.done标记文件")
@@ -229,13 +226,13 @@ class ExpressionLearner:
             # 查找所有create_date为空的表达方式
             old_expressions = Expression.select().where(Expression.create_date.is_null())
             updated_count = 0
-            
+
             for expr in old_expressions:
                 # 使用last_active_time作为create_date
                 expr.create_date = expr.last_active_time
                 expr.save()
                 updated_count += 1
-            
+
             if updated_count > 0:
                 logger.info(f"已为 {updated_count} 个老的表达方式设置创建日期")
         except Exception as e:
@@ -287,25 +284,29 @@ class ExpressionLearner:
         获取指定chat_id的表达方式创建信息，按创建日期排序
         """
         try:
-            expressions = (Expression.select()
-                         .where(Expression.chat_id == chat_id)
-                         .order_by(Expression.create_date.desc())
-                         .limit(limit))
-            
+            expressions = (
+                Expression.select()
+                .where(Expression.chat_id == chat_id)
+                .order_by(Expression.create_date.desc())
+                .limit(limit)
+            )
+
             result = []
             for expr in expressions:
                 create_date = expr.create_date if expr.create_date is not None else expr.last_active_time
-                result.append({
-                    "situation": expr.situation,
-                    "style": expr.style,
-                    "type": expr.type,
-                    "count": expr.count,
-                    "create_date": create_date,
-                    "create_date_formatted": format_create_date(create_date),
-                    "last_active_time": expr.last_active_time,
-                    "last_active_formatted": format_create_date(expr.last_active_time),
-                })
-            
+                result.append(
+                    {
+                        "situation": expr.situation,
+                        "style": expr.style,
+                        "type": expr.type,
+                        "count": expr.count,
+                        "create_date": create_date,
+                        "create_date_formatted": format_create_date(create_date),
+                        "last_active_time": expr.last_active_time,
+                        "last_active_formatted": format_create_date(expr.last_active_time),
+                    }
+                )
+
             return result
         except Exception as e:
             logger.error(f"获取表达方式创建信息失败: {e}")
@@ -355,19 +356,19 @@ class ExpressionLearner:
         try:
             # 获取所有表达方式
             all_expressions = Expression.select()
-            
+
             updated_count = 0
             deleted_count = 0
-            
+
             for expr in all_expressions:
                 # 计算时间差
                 last_active = expr.last_active_time
                 time_diff_days = (current_time - last_active) / (24 * 3600)  # 转换为天
-                
+
                 # 计算衰减值
                 decay_value = self.calculate_decay_factor(time_diff_days)
                 new_count = max(0.01, expr.count - decay_value)
-                
+
                 if new_count <= 0.01:
                     # 如果count太小，删除这个表达方式
                     expr.delete_instance()
@@ -377,10 +378,10 @@ class ExpressionLearner:
                     expr.count = new_count
                     expr.save()
                     updated_count += 1
-            
+
             if updated_count > 0 or deleted_count > 0:
                 logger.info(f"全局衰减完成：更新了 {updated_count} 个表达方式，删除了 {deleted_count} 个表达方式")
-                
+
         except Exception as e:
             logger.error(f"数据库全局衰减失败: {e}")
 
@@ -527,7 +528,7 @@ class ExpressionLearner:
         logger.debug(f"学习{type_str}的prompt: {prompt}")
 
         try:
-            response, _ = await self.express_learn_model.generate_response_async(prompt)
+            response, _ = await self.express_learn_model.generate_response_async(prompt, temperature=0.3)
         except Exception as e:
             logger.error(f"学习{type_str}失败: {e}")
             return None

@@ -41,6 +41,7 @@ config/bot_config.toml.bak
 config/lpmm_config.toml
 config/lpmm_config.toml.bak
 template/compare/bot_config_template.toml
+template/compare/model_config_template.toml
 （测试版）麦麦生成人格.bat
 （临时版）麦麦开始学习.bat
 src/plugins/utils/statistic.py
@@ -322,3 +323,4 @@ run_pet.bat
 config.toml
 
 interested_rates.txt
+MaiBot.code-workspace

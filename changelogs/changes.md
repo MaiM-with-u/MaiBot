@@ -25,6 +25,7 @@
   - 这意味着你终于可以动态控制是否继续后续消息的处理了。
 8. 移除了dependency_manager，但是依然保留了`python_dependencies`属性，等待后续重构。
   - 一并移除了文档有关manager的内容。
+9. 增加了工具的有关api
 
 # 插件系统修改
 1. 现在所有的匹配模式不再是关键字了，而是枚举类。**（可能有遗漏）**
@@ -57,30 +58,12 @@
 15. 实现了组件的局部禁用，也就是针对某一个聊天禁用的功能。
   - 通过`disable_specific_chat_action`，`enable_specific_chat_action`，`disable_specific_chat_command`，`enable_specific_chat_command`，`disable_specific_chat_event_handler`，`enable_specific_chat_event_handler`来操作
   - 同样不保存到配置文件~
+16. 把`BaseTool`一并合并进入了插件系统
 
 # 官方插件修改
 1. `HelloWorld`插件现在有一个样例的`EventHandler`。
-2. 内置插件增加了一个通过`Command`来管理插件的功能。具体是使用`/pm`命令唤起。
-
-### TODO
-把这个看起来就很别扭的config获取方式改一下
-
-
-# 吐槽
-```python
-plugin_path = Path(plugin_file)
-if plugin_path.parent.name != "plugins":
-    # 插件包格式：parent_dir.plugin
-    module_name = f"plugins.{plugin_path.parent.name}.plugin"
-else:
-    # 单文件格式：plugins.filename
-    module_name = f"plugins.{plugin_path.stem}"
-```
-```python
-plugin_path = Path(plugin_file)
-module_name = ".".join(plugin_path.parent.parts)
-```
-这两个区别很大的。
+2. 内置插件增加了一个通过`Command`来管理插件的功能。具体是使用`/pm`命令唤起。（需要自行启用）
+3. `HelloWorld`插件现在有一个样例的`CompareNumbersTool`。
 
 ### 执笔BGM
 塞壬唱片！

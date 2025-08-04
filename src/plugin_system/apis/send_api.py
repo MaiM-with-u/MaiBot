@@ -49,7 +49,7 @@ async def _send_to_target(
     display_message: str = "",
     typing: bool = False,
     reply_to: str = "",
-    reply_to_platform_id: str = "",
+    reply_to_platform_id: Optional[str] = None,
     storage_message: bool = True,
     show_log: bool = True,
 ) -> bool:
@@ -60,8 +60,11 @@ async def _send_to_target(
         content: 消息内容
         stream_id: 目标流ID
         display_message: 显示消息
-        typing: 是否显示正在输入
-        reply_to: 回复消息的格式，如"发送者:消息内容"
+        typing: 是否模拟打字等待。
+        reply_to: 回复消息，格式为"发送者:消息内容"
+        reply_to_platform_id: 回复消息，格式为"平台:用户ID"，如果不提供则自动查找（插件开发者禁用！）
+        storage_message: 是否存储消息到数据库
+        show_log: 发送是否显示日志
 
     Returns:
         bool: 是否发送成功
@@ -97,6 +100,10 @@ async def _send_to_target(
         anchor_message = None
         if reply_to:
             anchor_message = await _find_reply_message(target_stream, reply_to)
+            if anchor_message and anchor_message.message_info.user_info and not reply_to_platform_id:
+                reply_to_platform_id = (
+                    f"{anchor_message.message_info.platform}:{anchor_message.message_info.user_info.user_id}"
+                )
 
         # 构建发送消息对象
         bot_message = MessageSending(
@@ -262,12 +269,22 @@ async def text_to_stream(
         stream_id: 聊天流ID
         typing: 是否显示正在输入
         reply_to: 回复消息，格式为"发送者:消息内容"
+        reply_to_platform_id: 回复消息，格式为"平台:用户ID"，如果不提供则自动查找（插件开发者禁用！）
         storage_message: 是否存储消息到数据库
 
     Returns:
         bool: 是否发送成功
     """
-    return await _send_to_target("text", text, stream_id, "", typing, reply_to, reply_to_platform_id, storage_message)
+    return await _send_to_target(
+        "text",
+        text,
+        stream_id,
+        "",
+        typing,
+        reply_to,
+        reply_to_platform_id=reply_to_platform_id,
+        storage_message=storage_message,
+    )
 
 
 async def emoji_to_stream(emoji_base64: str, stream_id: str, storage_message: bool = True) -> bool:
@@ -318,7 +335,7 @@ async def command_to_stream(
 
 async def custom_to_stream(
     message_type: str,
-    content: str,
+    content: str | dict,
     stream_id: str,
     display_message: str = "",
     typing: bool = False,
@@ -349,250 +366,4 @@ async def custom_to_stream(
         reply_to=reply_to,
         storage_message=storage_message,
         show_log=show_log,
-    )
-
-
-async def text_to_group(
-    text: str,
-    group_id: str,
-    platform: str = "qq",
-    typing: bool = False,
-    reply_to: str = "",
-    storage_message: bool = True,
-) -> bool:
-    """向群聊发送文本消息
-
-    Args:
-        text: 要发送的文本内容
-        group_id: 群聊ID
-        platform: 平台，默认为"qq"
-        typing: 是否显示正在输入
-        reply_to: 回复消息，格式为"发送者:消息内容"
-
-    Returns:
-        bool: 是否发送成功
-    """
-    stream_id = get_chat_manager().get_stream_id(platform, group_id, True)
-
-    return await _send_to_target("text", text, stream_id, "", typing, reply_to, storage_message=storage_message)
-
-
-async def text_to_user(
-    text: str,
-    user_id: str,
-    platform: str = "qq",
-    typing: bool = False,
-    reply_to: str = "",
-    storage_message: bool = True,
-) -> bool:
-    """向用户发送私聊文本消息
-
-    Args:
-        text: 要发送的文本内容
-        user_id: 用户ID
-        platform: 平台，默认为"qq"
-        typing: 是否显示正在输入
-        reply_to: 回复消息，格式为"发送者:消息内容"
-
-    Returns:
-        bool: 是否发送成功
-    """
-    stream_id = get_chat_manager().get_stream_id(platform, user_id, False)
-    return await _send_to_target("text", text, stream_id, "", typing, reply_to, storage_message=storage_message)
-
-
-async def emoji_to_group(emoji_base64: str, group_id: str, platform: str = "qq", storage_message: bool = True) -> bool:
-    """向群聊发送表情包
-
-    Args:
-        emoji_base64: 表情包的base64编码
-        group_id: 群聊ID
-        platform: 平台，默认为"qq"
-
-    Returns:
-        bool: 是否发送成功
-    """
-    stream_id = get_chat_manager().get_stream_id(platform, group_id, True)
-    return await _send_to_target("emoji", emoji_base64, stream_id, "", typing=False, storage_message=storage_message)
-
-
-async def emoji_to_user(emoji_base64: str, user_id: str, platform: str = "qq", storage_message: bool = True) -> bool:
-    """向用户发送表情包
-
-    Args:
-        emoji_base64: 表情包的base64编码
-        user_id: 用户ID
-        platform: 平台，默认为"qq"
-
-    Returns:
-        bool: 是否发送成功
-    """
-    stream_id = get_chat_manager().get_stream_id(platform, user_id, False)
-    return await _send_to_target("emoji", emoji_base64, stream_id, "", typing=False, storage_message=storage_message)
-
-
-async def image_to_group(image_base64: str, group_id: str, platform: str = "qq", storage_message: bool = True) -> bool:
-    """向群聊发送图片
-
-    Args:
-        image_base64: 图片的base64编码
-        group_id: 群聊ID
-        platform: 平台，默认为"qq"
-
-    Returns:
-        bool: 是否发送成功
-    """
-    stream_id = get_chat_manager().get_stream_id(platform, group_id, True)
-    return await _send_to_target("image", image_base64, stream_id, "", typing=False, storage_message=storage_message)
-
-
-async def image_to_user(image_base64: str, user_id: str, platform: str = "qq", storage_message: bool = True) -> bool:
-    """向用户发送图片
-
-    Args:
-        image_base64: 图片的base64编码
-        user_id: 用户ID
-        platform: 平台，默认为"qq"
-
-    Returns:
-        bool: 是否发送成功
-    """
-    stream_id = get_chat_manager().get_stream_id(platform, user_id, False)
-    return await _send_to_target("image", image_base64, stream_id, "", typing=False)
-
-
-async def command_to_group(command: str, group_id: str, platform: str = "qq", storage_message: bool = True) -> bool:
-    """向群聊发送命令
-
-    Args:
-        command: 命令
-        group_id: 群聊ID
-        platform: 平台，默认为"qq"
-
-    Returns:
-        bool: 是否发送成功
-    """
-    stream_id = get_chat_manager().get_stream_id(platform, group_id, True)
-    return await _send_to_target("command", command, stream_id, "", typing=False, storage_message=storage_message)
-
-
-async def command_to_user(command: str, user_id: str, platform: str = "qq", storage_message: bool = True) -> bool:
-    """向用户发送命令
-
-    Args:
-        command: 命令
-        user_id: 用户ID
-        platform: 平台，默认为"qq"
-
-    Returns:
-        bool: 是否发送成功
-    """
-    stream_id = get_chat_manager().get_stream_id(platform, user_id, False)
-    return await _send_to_target("command", command, stream_id, "", typing=False, storage_message=storage_message)
-
-
-# =============================================================================
-# 通用发送函数 - 支持任意消息类型
-# =============================================================================
-
-
-async def custom_to_group(
-    message_type: str,
-    content: str,
-    group_id: str,
-    platform: str = "qq",
-    display_message: str = "",
-    typing: bool = False,
-    reply_to: str = "",
-    storage_message: bool = True,
-) -> bool:
-    """向群聊发送自定义类型消息
-
-    Args:
-        message_type: 消息类型，如"text"、"image"、"emoji"、"video"、"file"等
-        content: 消息内容（通常是base64编码或文本）
-        group_id: 群聊ID
-        platform: 平台，默认为"qq"
-        display_message: 显示消息
-        typing: 是否显示正在输入
-        reply_to: 回复消息，格式为"发送者:消息内容"
-
-    Returns:
-        bool: 是否发送成功
-    """
-    stream_id = get_chat_manager().get_stream_id(platform, group_id, True)
-    return await _send_to_target(
-        message_type, content, stream_id, display_message, typing, reply_to, storage_message=storage_message
-    )
-
-
-async def custom_to_user(
-    message_type: str,
-    content: str,
-    user_id: str,
-    platform: str = "qq",
-    display_message: str = "",
-    typing: bool = False,
-    reply_to: str = "",
-    storage_message: bool = True,
-) -> bool:
-    """向用户发送自定义类型消息
-
-    Args:
-        message_type: 消息类型，如"text"、"image"、"emoji"、"video"、"file"等
-        content: 消息内容（通常是base64编码或文本）
-        user_id: 用户ID
-        platform: 平台，默认为"qq"
-        display_message: 显示消息
-        typing: 是否显示正在输入
-        reply_to: 回复消息，格式为"发送者:消息内容"
-
-    Returns:
-        bool: 是否发送成功
-    """
-    stream_id = get_chat_manager().get_stream_id(platform, user_id, False)
-    return await _send_to_target(
-        message_type, content, stream_id, display_message, typing, reply_to, storage_message=storage_message
-    )
-
-
-async def custom_message(
-    message_type: str,
-    content: str,
-    target_id: str,
-    is_group: bool = True,
-    platform: str = "qq",
-    display_message: str = "",
-    typing: bool = False,
-    reply_to: str = "",
-    storage_message: bool = True,
-) -> bool:
-    """发送自定义消息的通用接口
-
-    Args:
-        message_type: 消息类型，如"text"、"image"、"emoji"、"video"、"file"、"audio"等
-        content: 消息内容
-        target_id: 目标ID（群ID或用户ID）
-        is_group: 是否为群聊，True为群聊，False为私聊
-        platform: 平台，默认为"qq"
-        display_message: 显示消息
-        typing: 是否显示正在输入
-        reply_to: 回复消息，格式为"发送者:消息内容"
-
-    Returns:
-        bool: 是否发送成功
-
-    示例:
-        # 发送视频到群聊
-        await send_api.custom_message("video", video_base64, "123456", True)
-
-        # 发送文件到用户
-        await send_api.custom_message("file", file_base64, "987654", False)
-
-        # 发送音频到群聊并回复特定消息
-        await send_api.custom_message("audio", audio_base64, "123456", True, reply_to="张三:你好")
-    """
-    stream_id = get_chat_manager().get_stream_id(platform, target_id, is_group)
-    return await _send_to_target(
-        message_type, content, stream_id, display_message, typing, reply_to, storage_message=storage_message
     )

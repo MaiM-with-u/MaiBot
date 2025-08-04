@@ -1,9 +1,10 @@
 from typing import Dict, Optional, Type
-from src.plugin_system.base.base_action import BaseAction
+
 from src.chat.message_receive.chat_stream import ChatStream
 from src.common.logger import get_logger
 from src.plugin_system.core.component_registry import component_registry
 from src.plugin_system.base.component_types import ComponentType, ActionInfo
+from src.plugin_system.base.base_action import BaseAction
 
 logger = get_logger("action_manager")
 

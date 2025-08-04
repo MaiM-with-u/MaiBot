@@ -414,7 +414,7 @@ class HeartFChatting:
                     else:
                         logger.warning(f"{self.log_prefix} 预生成的回复任务未生成有效内容")
 
-            action_message: Dict[str, Any] = message_data or target_message  # type: ignore
+            action_message = message_data or target_message
             if action_type == "reply":
                 # 等待回复生成完毕
                 if self.loop_mode == ChatMode.NORMAL:

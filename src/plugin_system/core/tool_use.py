@@ -1,14 +1,16 @@
-from src.llm_models.utils_model import LLMRequest
-from src.config.config import global_config
 import time
-from src.common.logger import get_logger
+from typing import List, Dict, Tuple, Optional, Any
+from src.plugin_system.apis.tool_api import get_llm_available_tool_definitions, get_tool_instance
+from src.plugin_system.base.base_tool import BaseTool
+from src.plugin_system.core.global_announcement_manager import global_announcement_manager
+from src.llm_models.utils_model import LLMRequest
+from src.llm_models.payload_content import ToolCall
+from src.config.config import global_config, model_config
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
-from src.tools.tool_use import ToolUser
-from src.chat.utils.json_utils import process_llm_tool_calls
-from typing import List, Dict, Tuple, Optional
 from src.chat.message_receive.chat_stream import get_chat_manager
+from src.common.logger import get_logger
 
-logger = get_logger("tool_executor")
+logger = get_logger("tool_use")
 
 
 def init_tool_executor_prompt():
@@ -26,6 +28,10 @@ def init_tool_executor_prompt():
 If you need to use a tool, please directly call the corresponding tool function. If you do not need to use any tool, simply output "No tool needed".
 """
     Prompt(tool_executor_prompt, "tool_executor_prompt")
+
+
+# 初始化提示词
+init_tool_executor_prompt()
 
 
 class ToolExecutor:
@@ -46,13 +52,7 @@ class ToolExecutor:
         self.chat_stream = get_chat_manager().get_stream(self.chat_id)
         self.log_prefix = f"[{get_chat_manager().get_stream_name(self.chat_id) or self.chat_id}]"
 
-        self.llm_model = LLMRequest(
-            model=global_config.model.tool_use,
-            request_type="tool_executor",
-        )
-
-        # 初始化工具实例
-        self.tool_instance = ToolUser()
+        self.llm_model = LLMRequest(model_set=model_config.model_task_config.tool_use, request_type="tool_executor")
 
         # 缓存配置
         self.enable_cache = enable_cache
@@ -63,7 +63,7 @@ class ToolExecutor:
 
     async def execute_from_chat_message(
         self, target_message: str, chat_history: str, sender: str, return_details: bool = False
-    ) -> Tuple[List[Dict], List[str], str]:
+    ) -> Tuple[List[Dict[str, Any]], List[str], str]:
         """从聊天消息执行工具
 
         Args:
@@ -73,7 +73,7 @@ class ToolExecutor:
             return_details: 是否返回详细信息(使用的工具列表和提示词)
 
         Returns:
-            如果return_details为False: List[Dict] - 工具执行结果列表
+            如果return_details为False: Tuple[List[Dict], List[str], str] - (工具执行结果列表, 空, 空)
             如果return_details为True: Tuple[List[Dict], List[str], str] - (结果列表, 使用的工具, 提示词)
         """
 
@@ -82,15 +82,15 @@ class ToolExecutor:
         if cached_result := self._get_from_cache(cache_key):
             logger.info(f"{self.log_prefix}使用缓存结果，跳过工具执行")
             if not return_details:
-                return cached_result, [], "使用缓存结果"
+                return cached_result, [], ""
 
             # 从缓存结果中提取工具名称
             used_tools = [result.get("tool_name", "unknown") for result in cached_result]
-            return cached_result, used_tools, "使用缓存结果"
+            return cached_result, used_tools, ""
 
         # 缓存未命中，执行工具调用
         # 获取可用工具
-        tools = self.tool_instance._define_tools()
+        tools = self._get_tool_definitions()
 
         # 获取当前时间
         time_now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -110,17 +110,12 @@ class ToolExecutor:
         logger.debug(f"{self.log_prefix}开始LLM工具调用分析")
 
         # 调用LLM进行工具决策
-        response, other_info = await self.llm_model.generate_response_async(prompt=prompt, tools=tools)
-
-        # 解析LLM响应
-        if len(other_info) == 3:
-            reasoning_content, model_name, tool_calls = other_info
-        else:
-            reasoning_content, model_name = other_info
-            tool_calls = None
+        response, (reasoning_content, model_name, tool_calls) = await self.llm_model.generate_response_async(
+            prompt=prompt, tools=tools
+        )
 
         # 执行工具调用
-        tool_results, used_tools = await self._execute_tool_calls(tool_calls)
+        tool_results, used_tools = await self.execute_tool_calls(tool_calls)
 
         # 缓存结果
         if tool_results:
@@ -134,7 +129,12 @@ class ToolExecutor:
         else:
             return tool_results, [], ""
 
-    async def _execute_tool_calls(self, tool_calls) -> Tuple[List[Dict], List[str]]:
+    def _get_tool_definitions(self) -> List[Dict[str, Any]]:
+        all_tools = get_llm_available_tool_definitions()
+        user_disabled_tools = global_announcement_manager.get_disabled_chat_tools(self.chat_id)
+        return [definition for name, definition in all_tools if name not in user_disabled_tools]
+
+    async def execute_tool_calls(self, tool_calls: Optional[List[ToolCall]]) -> Tuple[List[Dict[str, Any]], List[str]]:
         """执行工具调用
 
         Args:
@@ -143,36 +143,23 @@ class ToolExecutor:
         Returns:
             Tuple[List[Dict], List[str]]: (工具执行结果列表, 使用的工具名称列表)
         """
-        tool_results = []
+        tool_results: List[Dict[str, Any]] = []
         used_tools = []
 
         if not tool_calls:
             logger.debug(f"{self.log_prefix}无需执行工具")
-            return tool_results, used_tools
+            return [], []
 
         logger.info(f"{self.log_prefix}开始执行工具调用: {tool_calls}")
 
-        # 处理工具调用
-        success, valid_tool_calls, error_msg = process_llm_tool_calls(tool_calls)
-
-        if not success:
-            logger.error(f"{self.log_prefix}工具调用解析失败: {error_msg}")
-            return tool_results, used_tools
-
-        if not valid_tool_calls:
-            logger.debug(f"{self.log_prefix}无有效工具调用")
-            return tool_results, used_tools
-
         # 执行每个工具调用
-        for tool_call in valid_tool_calls:
+        for tool_call in tool_calls:
             try:
-                tool_name = tool_call.get("name", "unknown_tool")
-                used_tools.append(tool_name)
-
+                tool_name = tool_call.func_name
                 logger.debug(f"{self.log_prefix}执行工具: {tool_name}")
 
                 # 执行工具
-                result = await self.tool_instance.execute_tool_call(tool_call)
+                result = await self.execute_tool_call(tool_call)
 
                 if result:
                     tool_info = {
@@ -182,15 +169,15 @@ class ToolExecutor:
                         "tool_name": tool_name,
                         "timestamp": time.time(),
                     }
-                    tool_results.append(tool_info)
-
-                    logger.info(f"{self.log_prefix}工具{tool_name}执行成功，类型: {tool_info['type']}")
                     content = tool_info["content"]
                     if not isinstance(content, (str, list, tuple)):
-                        content = str(content)
+                        tool_info["content"] = str(content)
+
+                    tool_results.append(tool_info)
+                    used_tools.append(tool_name)
+                    logger.info(f"{self.log_prefix}工具{tool_name}执行成功，类型: {tool_info['type']}")
                     preview = content[:200]
                     logger.debug(f"{self.log_prefix}工具{tool_name}结果内容: {preview}...")
-
             except Exception as e:
                 logger.error(f"{self.log_prefix}工具{tool_name}执行失败: {e}")
                 # 添加错误信息到结果中
@@ -204,6 +191,42 @@ class ToolExecutor:
                 tool_results.append(error_info)
 
         return tool_results, used_tools
+
+    async def execute_tool_call(self, tool_call: ToolCall, tool_instance: Optional[BaseTool] = None) -> Optional[Dict[str, Any]]:
+        # sourcery skip: use-assigned-variable
+        """执行单个工具调用
+
+        Args:
+            tool_call: 工具调用对象
+
+        Returns:
+            Optional[Dict]: 工具调用结果，如果失败则返回None
+        """
+        try:
+            function_name = tool_call.func_name
+            function_args = tool_call.args or {}
+            function_args["llm_called"] = True  # 标记为LLM调用
+
+            # 获取对应工具实例
+            tool_instance = tool_instance or get_tool_instance(function_name)
+            if not tool_instance:
+                logger.warning(f"未知工具名称: {function_name}")
+                return None
+
+            # 执行工具
+            result = await tool_instance.execute(function_args)
+            if result:
+                return {
+                    "tool_call_id": tool_call.call_id,
+                    "role": "tool",
+                    "name": function_name,
+                    "type": "function",
+                    "content": result["content"],
+                }
+            return None
+        except Exception as e:
+            logger.error(f"执行工具调用时发生错误: {str(e)}")
+            raise e
 
     def _generate_cache_key(self, target_message: str, chat_history: str, sender: str) -> str:
         """生成缓存键
@@ -272,18 +295,7 @@ class ToolExecutor:
         if expired_keys:
             logger.debug(f"{self.log_prefix}清理了{len(expired_keys)}个过期缓存")
 
-    def get_available_tools(self) -> List[str]:
-        """获取可用工具列表
-
-        Returns:
-            List[str]: 可用工具名称列表
-        """
-        tools = self.tool_instance._define_tools()
-        return [tool.get("function", {}).get("name", "unknown") for tool in tools]
-
-    async def execute_specific_tool(
-        self, tool_name: str, tool_args: Dict, validate_args: bool = True
-    ) -> Optional[Dict]:
+    async def execute_specific_tool_simple(self, tool_name: str, tool_args: Dict) -> Optional[Dict]:
         """直接执行指定工具
 
         Args:
@@ -295,11 +307,15 @@ class ToolExecutor:
             Optional[Dict]: 工具执行结果，失败时返回None
         """
         try:
-            tool_call = {"name": tool_name, "arguments": tool_args}
+            tool_call = ToolCall(
+                call_id=f"direct_tool_{time.time()}",
+                func_name=tool_name,
+                args=tool_args,
+            )
 
             logger.info(f"{self.log_prefix}直接执行工具: {tool_name}")
 
-            result = await self.tool_instance.execute_tool_call(tool_call)
+            result = await self.execute_tool_call(tool_call)
 
             if result:
                 tool_info = {
@@ -366,12 +382,8 @@ class ToolExecutor:
             logger.info(f"{self.log_prefix}缓存TTL修改为: {cache_ttl}")
 
 
-# 初始化提示词
-init_tool_executor_prompt()
-
-
 """
-使用示例：
+ToolExecutor使用示例：
 
 # 1. 基础使用 - 从聊天消息执行工具（启用缓存，默认TTL=3）
 executor = ToolExecutor(executor_id="my_executor")
@@ -394,13 +406,12 @@ results, used_tools, prompt = await executor.execute_from_chat_message(
 )
 
 # 5. 直接执行特定工具
-result = await executor.execute_specific_tool(
+result = await executor.execute_specific_tool_simple(
     tool_name="get_knowledge",
     tool_args={"query": "机器学习"}
 )
 
 # 6. 缓存管理
-available_tools = executor.get_available_tools()
 cache_status = executor.get_cache_status()  # 查看缓存状态
 executor.clear_cache()  # 清空缓存
 executor.set_cache_config(cache_ttl=5)  # 动态修改缓存配置

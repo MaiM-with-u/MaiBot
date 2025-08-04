@@ -8,15 +8,15 @@ import traceback
 import io
 import re
 import binascii
+
 from typing import Optional, Tuple, List, Any
 from PIL import Image
 from rich.traceback import install
 
-
 from src.common.database.database_model import Emoji
 from src.common.database.database import db as peewee_db
 from src.common.logger import get_logger
-from src.config.config import global_config
+from src.config.config import global_config, model_config
 from src.chat.utils.utils_image import image_path_to_base64, get_image_manager
 from src.llm_models.utils_model import LLMRequest
 
@@ -379,9 +379,9 @@ class EmojiManager:
 
         self._scan_task = None
 
-        self.vlm = LLMRequest(model=global_config.model.vlm, temperature=0.3, max_tokens=1000, request_type="emoji")
+        self.vlm = LLMRequest(model_set=model_config.model_task_config.vlm, request_type="emoji")
         self.llm_emotion_judge = LLMRequest(
-            model=global_config.model.utils, max_tokens=600, request_type="emoji"
+            model_set=model_config.model_task_config.utils, request_type="emoji"
         )  # 更高的温度，更少的token（后续可以根据情绪来调整温度）
 
         self.emoji_num = 0
@@ -492,6 +492,7 @@ class EmojiManager:
             return None
 
     def _levenshtein_distance(self, s1: str, s2: str) -> int:
+        # sourcery skip: simplify-empty-collection-comparison, simplify-len-comparison, simplify-str-len-comparison
         """计算两个字符串的编辑距离
 
         Args:
@@ -629,11 +630,11 @@ class EmojiManager:
                         if success:
                             # 注册成功则跳出循环
                             break
-                        else:
-                            # 注册失败则删除对应文件
-                            file_path = os.path.join(EMOJI_DIR, filename)
-                            os.remove(file_path)
-                            logger.warning(f"[清理] 删除注册失败的表情包文件: {filename}")
+
+                        # 注册失败则删除对应文件
+                        file_path = os.path.join(EMOJI_DIR, filename)
+                        os.remove(file_path)
+                        logger.warning(f"[清理] 删除注册失败的表情包文件: {filename}")
                 except Exception as e:
                     logger.error(f"[错误] 扫描表情包目录失败: {str(e)}")
 
@@ -694,6 +695,7 @@ class EmojiManager:
             return []
 
     async def get_emoji_from_manager(self, emoji_hash: str) -> Optional["MaiEmoji"]:
+        # sourcery skip: use-next
         """从内存中的 emoji_objects 列表获取表情包
 
         参数:
@@ -709,10 +711,10 @@ class EmojiManager:
 
     async def get_emoji_description_by_hash(self, emoji_hash: str) -> Optional[str]:
         """根据哈希值获取已注册表情包的描述
-        
+
         Args:
             emoji_hash: 表情包的哈希值
-            
+
         Returns:
             Optional[str]: 表情包描述，如果未找到则返回None
         """
@@ -722,7 +724,7 @@ class EmojiManager:
             if emoji and emoji.description:
                 logger.info(f"[缓存命中] 从内存获取表情包描述: {emoji.description[:50]}...")
                 return emoji.description
-            
+
             # 如果内存中没有，从数据库查找
             self._ensure_db()
             try:
@@ -732,9 +734,9 @@ class EmojiManager:
                     return emoji_record.description
             except Exception as e:
                 logger.error(f"从数据库查询表情包描述时出错: {e}")
-            
+
             return None
-            
+
         except Exception as e:
             logger.error(f"获取表情包描述失败 (Hash: {emoji_hash}): {str(e)}")
             return None
@@ -779,6 +781,7 @@ class EmojiManager:
             return False
 
     async def replace_a_emoji(self, new_emoji: "MaiEmoji") -> bool:
+        # sourcery skip: use-getitem-for-re-match-groups
         """替换一个表情包
 
         Args:
@@ -820,7 +823,7 @@ class EmojiManager:
             )
 
             # 调用大模型进行决策
-            decision, _ = await self.llm_emotion_judge.generate_response_async(prompt, temperature=0.8)
+            decision, _ = await self.llm_emotion_judge.generate_response_async(prompt, temperature=0.8, max_tokens=600)
             logger.info(f"[决策] 结果: {decision}")
 
             # 解析决策结果
@@ -828,9 +831,7 @@ class EmojiManager:
                 logger.info("[决策] 不删除任何表情包")
                 return False
 
-            # 尝试从决策中提取表情包编号
-            match = re.search(r"删除编号(\d+)", decision)
-            if match:
+            if match := re.search(r"删除编号(\d+)", decision):
                 emoji_index = int(match.group(1)) - 1  # 转换为0-based索引
 
                 # 检查索引是否有效
@@ -889,6 +890,7 @@ class EmojiManager:
             existing_description = None
             try:
                 from src.common.database.database_model import Images
+
                 existing_image = Images.get_or_none((Images.emoji_hash == image_hash) & (Images.type == "emoji"))
                 if existing_image and existing_image.description:
                     existing_description = existing_image.description
@@ -902,15 +904,21 @@ class EmojiManager:
                 logger.info("[优化] 复用已有的详细描述，跳过VLM调用")
             else:
                 logger.info("[VLM分析] 生成新的详细描述")
-                if image_format == "gif" or image_format == "GIF":
+                if image_format in ["gif", "GIF"]:
                     image_base64 = get_image_manager().transform_gif(image_base64)  # type: ignore
                     if not image_base64:
                         raise RuntimeError("GIF表情包转换失败")
                     prompt = "这是一个动态图表情包，每一张图代表了动态图的某一帧，黑色背景代表透明，描述一下表情包表达的情感和内容，描述细节，从互联网梗,meme的角度去分析"
-                    description, _ = await self.vlm.generate_response_for_image(prompt, image_base64, "jpg")
+                    description, _ = await self.vlm.generate_response_for_image(
+                        prompt, image_base64, "jpg", temperature=0.3, max_tokens=1000
+                    )
                 else:
-                    prompt = "这是一个表情包，请详细描述一下表情包所表达的情感和内容，描述细节，从互联网梗,meme的角度去分析"
-                    description, _ = await self.vlm.generate_response_for_image(prompt, image_base64, image_format)
+                    prompt = (
+                        "这是一个表情包，请详细描述一下表情包所表达的情感和内容，描述细节，从互联网梗,meme的角度去分析"
+                    )
+                    description, _ = await self.vlm.generate_response_for_image(
+                        prompt, image_base64, image_format, temperature=0.3, max_tokens=1000
+                    )
 
             # 审核表情包
             if global_config.emoji.content_filtration:
@@ -922,7 +930,9 @@ class EmojiManager:
                     4. 不要出现5个以上文字
                     请回答这个表情包是否满足上述要求，是则回答是，否则回答否，不要出现任何其他内容
                 '''
-                content, _ = await self.vlm.generate_response_for_image(prompt, image_base64, image_format)
+                content, _ = await self.vlm.generate_response_for_image(
+                    prompt, image_base64, image_format, temperature=0.3, max_tokens=1000
+                )
                 if content == "否":
                     return "", []
 
@@ -933,7 +943,9 @@ class EmojiManager:
             你可以关注其幽默和讽刺意味，动用贴吧，微博，小红书的知识，必须从互联网梗,meme的角度去分析
             请直接输出描述，不要出现任何其他内容，如果有多个描述，可以用逗号分隔
             """
-            emotions_text, _ = await self.llm_emotion_judge.generate_response_async(emotion_prompt, temperature=0.7)
+            emotions_text, _ = await self.llm_emotion_judge.generate_response_async(
+                emotion_prompt, temperature=0.7, max_tokens=600
+            )
 
             # 处理情感列表
             emotions = [e.strip() for e in emotions_text.split(",") if e.strip()]

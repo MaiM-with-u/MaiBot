@@ -214,51 +214,49 @@ class SuperChatManager:
     def build_superchat_display_string(self, chat_id: str, max_count: int = 10) -> str:
         """构建SuperChat显示字符串"""
         superchats = self.get_superchats_by_chat(chat_id)
-        
+
         if not superchats:
             return ""
-        
+
         # 限制显示数量
         display_superchats = superchats[:max_count]
-        
-        lines = []
-        lines.append("📢 当前有效超级弹幕：")
-        
+
+        lines = ["📢 当前有效超级弹幕："]
         for i, sc in enumerate(display_superchats, 1):
             remaining_minutes = int(sc.remaining_time() / 60)
             remaining_seconds = int(sc.remaining_time() % 60)
-            
+
             time_display = f"{remaining_minutes}分{remaining_seconds}秒" if remaining_minutes > 0 else f"{remaining_seconds}秒"
-            
+
             line = f"{i}. 【{sc.price}元】{sc.user_nickname}: {sc.message_text}"
             if len(line) > 100:  # 限制单行长度
-                line = line[:97] + "..."
+                line = f"{line[:97]}..."
             line += f" (剩余{time_display})"
             lines.append(line)
-        
+
         if len(superchats) > max_count:
             lines.append(f"... 还有{len(superchats) - max_count}条SuperChat")
-        
+
         return "\n".join(lines)
     
     def build_superchat_summary_string(self, chat_id: str) -> str:
         """构建SuperChat摘要字符串"""
         superchats = self.get_superchats_by_chat(chat_id)
-        
+
         if not superchats:
             return "当前没有有效的超级弹幕"
         lines = []
         for sc in superchats:
             single_sc_str = f"{sc.user_nickname} - {sc.price}元 - {sc.message_text}"
             if len(single_sc_str) > 100:
-                single_sc_str = single_sc_str[:97] + "..."
+                single_sc_str = f"{single_sc_str[:97]}..."
             single_sc_str += f" (剩余{int(sc.remaining_time())}秒)"
             lines.append(single_sc_str)
-        
+
         total_amount = sum(sc.price for sc in superchats)
         count = len(superchats)
         highest_amount = max(sc.price for sc in superchats)
-        
+
         final_str = f"当前有{count}条超级弹幕，总金额{total_amount}元，最高单笔{highest_amount}元"
         if lines:
             final_str += "\n" + "\n".join(lines)
@@ -287,7 +285,7 @@ class SuperChatManager:
             "lowest_amount": min(amounts)
         }
     
-    async def shutdown(self):
+    async def shutdown(self):  # sourcery skip: use-contextlib-suppress
         """关闭管理器，清理资源"""
         if self._cleanup_task and not self._cleanup_task.done():
             self._cleanup_task.cancel()
@@ -300,6 +298,7 @@ class SuperChatManager:
 
 
 
+# sourcery skip: assign-if-exp
 if ENABLE_S4U:
     super_chat_manager = SuperChatManager()
 else:

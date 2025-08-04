@@ -1,5 +1,5 @@
 [inner]
-version = "4.5.0"
+version = "6.0.0"
 
 #----以下是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 #如果你想要修改配置文件，请在修改后将version的值进行变更
@@ -213,133 +213,8 @@ file_log_level = "DEBUG" # 文件日志级别，可选: DEBUG, INFO, WARNING, ER
 suppress_libraries = ["faiss","httpx", "urllib3", "asyncio", "websockets", "httpcore", "requests", "peewee", "openai","uvicorn","jieba"] # 完全屏蔽的库
 library_log_levels = { "aiohttp" = "WARNING"} # 设置特定库的日志级别
 
-#下面的模型若使用硅基流动则不需要更改，使用ds官方则改成.env自定义的宏，使用自定义模型则选择定位相似的模型自己填写
-
-# stream = <true|false> : 用于指定模型是否是使用流式输出
-# pri_in = <float> : 用于指定模型输入价格
-# pri_out = <float> : 用于指定模型输出价格
-# temp = <float> : 用于指定模型温度
-# enable_thinking = <true|false> : 用于指定模型是否启用思考
-# thinking_budget = <int> : 用于指定模型思考最长长度
-
 [debug]
 show_prompt = false # 是否显示prompt
-
-
-[model]
-model_max_output_length = 1024 # 模型单次返回的最大token数
-
-#------------必填：组件模型------------
-
-[model.utils] # 在麦麦的一些组件中使用的模型，例如表情包模块，取名模块，关系模块，是麦麦必须的模型
-name = "Pro/deepseek-ai/DeepSeek-V3"
-provider = "SILICONFLOW"
-pri_in = 2 #模型的输入价格（非必填，可以记录消耗）
-pri_out = 8 #模型的输出价格（非必填，可以记录消耗）
-#默认temp 0.2 如果你使用的是老V3或者其他模型，请自己修改temp参数
-temp = 0.2 #模型的温度，新V3建议0.1-0.3
-
-[model.utils_small] # 在麦麦的一些组件中使用的小模型，消耗量较大，建议使用速度较快的小模型
-# 强烈建议使用免费的小模型
-name = "Qwen/Qwen3-8B"
-provider = "SILICONFLOW"
-pri_in = 0
-pri_out = 0
-temp = 0.7
-enable_thinking = false # 是否启用思考
-
-[model.replyer_1] # 首要回复模型，还用于表达器和表达方式学习
-name = "Pro/deepseek-ai/DeepSeek-V3"
-provider = "SILICONFLOW"
-pri_in = 2 #模型的输入价格（非必填，可以记录消耗）
-pri_out = 8 #模型的输出价格（非必填，可以记录消耗）
-#默认temp 0.2 如果你使用的是老V3或者其他模型，请自己修改temp参数
-temp = 0.2 #模型的温度，新V3建议0.1-0.3
-
-[model.replyer_2] # 次要回复模型
-name = "Pro/deepseek-ai/DeepSeek-V3"
-provider = "SILICONFLOW"
-pri_in = 2 #模型的输入价格（非必填，可以记录消耗）
-pri_out = 8 #模型的输出价格（非必填，可以记录消耗）
-#默认temp 0.2 如果你使用的是老V3或者其他模型，请自己修改temp参数
-temp = 0.2 #模型的温度，新V3建议0.1-0.3
-
-[model.planner] #决策：负责决定麦麦该做什么的模型
-name = "Pro/deepseek-ai/DeepSeek-V3"
-provider = "SILICONFLOW"
-pri_in = 2
-pri_out = 8
-temp = 0.3
-
-[model.emotion] #负责麦麦的情绪变化
-name = "Pro/deepseek-ai/DeepSeek-V3"
-provider = "SILICONFLOW"
-pri_in = 2
-pri_out = 8
-temp = 0.3
-
-
-[model.memory] # 记忆模型
-name = "Qwen/Qwen3-30B-A3B"
-provider = "SILICONFLOW"
-pri_in = 0.7
-pri_out = 2.8
-temp = 0.7
-enable_thinking = false # 是否启用思考
-
-[model.vlm] # 图像识别模型
-name = "Pro/Qwen/Qwen2.5-VL-7B-Instruct"
-provider = "SILICONFLOW"
-pri_in = 0.35
-pri_out = 0.35
-
-[model.voice] # 语音识别模型
-name = "FunAudioLLM/SenseVoiceSmall"
-provider = "SILICONFLOW"
-pri_in = 0
-pri_out = 0
-
-[model.tool_use] #工具调用模型，需要使用支持工具调用的模型
-name = "Qwen/Qwen3-14B"
-provider = "SILICONFLOW"
-pri_in = 0.5
-pri_out = 2
-temp = 0.7
-enable_thinking = false # 是否启用思考（qwen3 only）
-
-#嵌入模型
-[model.embedding]
-name = "BAAI/bge-m3"
-provider = "SILICONFLOW"
-pri_in = 0
-pri_out = 0
-
-
-#------------LPMM知识库模型------------
-
-[model.lpmm_entity_extract] # 实体提取模型
-name = "Pro/deepseek-ai/DeepSeek-V3"
-provider = "SILICONFLOW"
-pri_in = 2
-pri_out = 8
-temp = 0.2
-
-
-[model.lpmm_rdf_build] # RDF构建模型
-name = "Pro/deepseek-ai/DeepSeek-V3"
-provider = "SILICONFLOW"
-pri_in = 2
-pri_out = 8
-temp = 0.2
-
-
-[model.lpmm_qa] # 问答模型
-name = "Qwen/Qwen3-30B-A3B"
-provider = "SILICONFLOW"
-pri_in = 0.7
-pri_out = 2.8
-temp = 0.7
-enable_thinking = false # 是否启用思考
 
 [maim_message]
 auth_token = [] # 认证令牌，用于API验证，为空则不启用验证
@@ -357,7 +232,3 @@ enable = true
 
 [experimental] #实验性功能
 enable_friend_chat = false # 是否启用好友聊天
-
-
-
-

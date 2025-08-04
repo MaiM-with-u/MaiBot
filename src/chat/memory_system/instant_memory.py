@@ -3,13 +3,16 @@ import time
 import re
 import json
 import ast
-from json_repair import repair_json
-from src.llm_models.utils_model import LLMRequest
-from src.common.logger import get_logger
 import traceback
 
-from src.config.config import global_config
+from json_repair import repair_json
+from datetime import datetime, timedelta
+
+from src.llm_models.utils_model import LLMRequest
+from src.common.logger import get_logger
 from src.common.database.database_model import Memory  # Peewee Models导入
+from src.config.config import model_config
+
 
 logger = get_logger(__name__)
 
@@ -35,8 +38,7 @@ class InstantMemory:
         self.chat_id = chat_id
         self.last_view_time = time.time()
         self.summary_model = LLMRequest(
-            model=global_config.model.memory,
-            temperature=0.5,
+            model_set=model_config.model_task_config.memory,
             request_type="memory.summary",
         )
 
@@ -48,14 +50,11 @@ class InstantMemory:
         """
 
         try:
-            response, _ = await self.summary_model.generate_response_async(prompt)
+            response, _ = await self.summary_model.generate_response_async(prompt, temperature=0.5)
             print(prompt)
             print(response)
 
-            if "1" in response:
-                return True
-            else:
-                return False
+            return "1" in response
         except Exception as e:
             logger.error(f"判断是否需要记忆出现错误：{str(e)} {traceback.format_exc()}")
             return False
@@ -71,9 +70,9 @@ class InstantMemory:
         }}
         """
         try:
-            response, _ = await self.summary_model.generate_response_async(prompt)
-            print(prompt)
-            print(response)
+            response, _ = await self.summary_model.generate_response_async(prompt, temperature=0.5)
+            # print(prompt)
+            # print(response)
             if not response:
                 return None
             try:
@@ -142,7 +141,7 @@ class InstantMemory:
         请只输出json格式，不要输出其他多余内容
         """
         try:
-            response, _ = await self.summary_model.generate_response_async(prompt)
+            response, _ = await self.summary_model.generate_response_async(prompt, temperature=0.5)
             print(prompt)
             print(response)
             if not response:
@@ -177,7 +176,7 @@ class InstantMemory:
 
                 for mem in query:
                     # 对每条记忆
-                    mem_keywords = mem.keywords or []
+                    mem_keywords = mem.keywords or ""
                     parsed = ast.literal_eval(mem_keywords)
                     if isinstance(parsed, list):
                         mem_keywords = [str(k).strip() for k in parsed if str(k).strip()]
@@ -201,6 +200,7 @@ class InstantMemory:
             return None
 
     def _parse_time_range(self, time_str):
+        # sourcery skip: extract-duplicate-method, use-contextlib-suppress
         """
         支持解析如下格式：
         - 具体日期时间：YYYY-MM-DD HH:MM:SS
@@ -208,8 +208,6 @@ class InstantMemory:
         - 相对时间：今天，昨天，前天，N天前，N个月前
         - 空字符串：返回(None, None)
         """
-        from datetime import datetime, timedelta
-
         now = datetime.now()
         if not time_str:
             return 0, now
@@ -239,14 +237,12 @@ class InstantMemory:
             start = (now - timedelta(days=2)).replace(hour=0, minute=0, second=0, microsecond=0)
             end = start + timedelta(days=1)
             return start, end
-        m = re.match(r"(\d+)天前", time_str)
-        if m:
+        if m := re.match(r"(\d+)天前", time_str):
             days = int(m.group(1))
             start = (now - timedelta(days=days)).replace(hour=0, minute=0, second=0, microsecond=0)
             end = start + timedelta(days=1)
             return start, end
-        m = re.match(r"(\d+)个月前", time_str)
-        if m:
+        if m := re.match(r"(\d+)个月前", time_str):
             months = int(m.group(1))
             # 近似每月30天
             start = (now - timedelta(days=months * 30)).replace(hour=0, minute=0, second=0, microsecond=0)

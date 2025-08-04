@@ -6,7 +6,7 @@ from src.chat.message_receive.message import MessageRecv
 from src.llm_models.utils_model import LLMRequest
 from src.common.logger import get_logger
 from src.chat.utils.chat_message_builder import build_readable_messages, get_raw_msg_by_timestamp_with_chat_inclusive
-from src.config.config import global_config
+from src.config.config import global_config, model_config
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 from src.manager.async_task_manager import AsyncTask, async_task_manager
 from src.plugin_system.apis import send_api
@@ -114,18 +114,12 @@ class ChatMood:
 
         self.regression_count: int = 0
 
-        self.mood_model = LLMRequest(
-            model=global_config.model.emotion,
-            temperature=0.7,
-            request_type="mood_text",
-        )
+        self.mood_model = LLMRequest(model_set=model_config.model_task_config.emotion, request_type="mood_text")
         self.mood_model_numerical = LLMRequest(
-            model=global_config.model.emotion,
-            temperature=0.4,
-            request_type="mood_numerical",
+            model_set=model_config.model_task_config.emotion, request_type="mood_numerical"
         )
 
-        self.last_change_time = 0
+        self.last_change_time: float = 0
 
         # 发送初始情绪状态到ws端
         asyncio.create_task(self.send_emotion_update(self.mood_values))
@@ -164,7 +158,7 @@ class ChatMood:
     async def update_mood_by_message(self, message: MessageRecv):
         self.regression_count = 0
 
-        message_time = message.message_info.time
+        message_time: float = message.message_info.time  # type: ignore
         message_list_before_now = get_raw_msg_by_timestamp_with_chat_inclusive(
             chat_id=self.chat_id,
             timestamp_start=self.last_change_time,
@@ -199,7 +193,9 @@ class ChatMood:
                 mood_state=self.mood_state,
             )
             logger.debug(f"text mood prompt: {prompt}")
-            response, (reasoning_content, model_name) = await self.mood_model.generate_response_async(prompt=prompt)
+            response, (reasoning_content, _, _) = await self.mood_model.generate_response_async(
+                prompt=prompt, temperature=0.7
+            )
             logger.info(f"text mood response: {response}")
             logger.debug(f"text mood reasoning_content: {reasoning_content}")
             return response
@@ -216,8 +212,8 @@ class ChatMood:
                 fear=self.mood_values["fear"],
             )
             logger.debug(f"numerical mood prompt: {prompt}")
-            response, (reasoning_content, model_name) = await self.mood_model_numerical.generate_response_async(
-                prompt=prompt
+            response, (reasoning_content, _, _) = await self.mood_model_numerical.generate_response_async(
+                prompt=prompt, temperature=0.4
             )
             logger.info(f"numerical mood response: {response}")
             logger.debug(f"numerical mood reasoning_content: {reasoning_content}")
@@ -276,7 +272,9 @@ class ChatMood:
                 mood_state=self.mood_state,
             )
             logger.debug(f"text regress prompt: {prompt}")
-            response, (reasoning_content, model_name) = await self.mood_model.generate_response_async(prompt=prompt)
+            response, (reasoning_content, _, _) = await self.mood_model.generate_response_async(
+                prompt=prompt, temperature=0.7
+            )
             logger.info(f"text regress response: {response}")
             logger.debug(f"text regress reasoning_content: {reasoning_content}")
             return response
@@ -293,8 +291,9 @@ class ChatMood:
                 fear=self.mood_values["fear"],
             )
             logger.debug(f"numerical regress prompt: {prompt}")
-            response, (reasoning_content, model_name) = await self.mood_model_numerical.generate_response_async(
-                prompt=prompt
+            response, (reasoning_content, _, _) = await self.mood_model_numerical.generate_response_async(
+                prompt=prompt,
+                temperature=0.4,
             )
             logger.info(f"numerical regress response: {response}")
             logger.debug(f"numerical regress reasoning_content: {reasoning_content}")
@@ -446,6 +445,7 @@ class MoodManager:
         self.mood_list.append(new_mood)
         # 发送初始情绪状态到ws端
         asyncio.create_task(new_mood.send_emotion_update(new_mood.mood_values))
+
 
 if ENABLE_S4U:
     init_prompt()

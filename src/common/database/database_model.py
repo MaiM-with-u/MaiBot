@@ -281,20 +281,6 @@ class Memory(BaseModel):
         table_name = "memory"
 
 
-class Knowledges(BaseModel):
-    """
-    用于存储知识库条目的模型。
-    """
-
-    content = TextField()  # 知识内容的文本
-    embedding = TextField()  # 知识内容的嵌入向量，存储为 JSON 字符串的浮点数列表
-    # 可以添加其他元数据字段，如 source, create_time 等
-
-    class Meta:
-        # database = db # 继承自 BaseModel
-        table_name = "knowledges"
-
-
 class Expression(BaseModel):
     """
     用于存储表达风格的模型。
@@ -382,7 +368,6 @@ def create_tables():
                 ImageDescriptions,
                 OnlineTime,
                 PersonInfo,
-                Knowledges,
                 Expression,
                 ThinkingLog,
                 GraphNodes,  # 添加图节点表
@@ -408,7 +393,6 @@ def initialize_database():
         ImageDescriptions,
         OnlineTime,
         PersonInfo,
-        Knowledges,
         Expression,
         Memory,
         ThinkingLog,

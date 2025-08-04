@@ -152,10 +152,7 @@ async def db_query(
 
     except DoesNotExist:
         # 记录不存在
-        if query_type == "get" and single_result:
-            return None
-        return []
-
+        return None if query_type == "get" and single_result else []
     except Exception as e:
         logger.error(f"[DatabaseAPI] 数据库操作出错: {e}")
         traceback.print_exc()
@@ -170,7 +167,8 @@ async def db_query(
 
 async def db_save(
     model_class: Type[Model], data: Dict[str, Any], key_field: Optional[str] = None, key_value: Optional[Any] = None
-) -> Union[Dict[str, Any], None]:
+) -> Optional[Dict[str, Any]]:
+    # sourcery skip: inline-immediately-returned-variable
     """保存数据到数据库（创建或更新）
 
     如果提供了key_field和key_value，会先尝试查找匹配的记录进行更新；
@@ -203,10 +201,9 @@ async def db_save(
     try:
         # 如果提供了key_field和key_value，尝试更新现有记录
         if key_field and key_value is not None:
-            # 查找现有记录
-            existing_records = list(model_class.select().where(getattr(model_class, key_field) == key_value).limit(1))
-
-            if existing_records:
+            if existing_records := list(
+                model_class.select().where(getattr(model_class, key_field) == key_value).limit(1)
+            ):
                 # 更新现有记录
                 existing_record = existing_records[0]
                 for field, value in data.items():
@@ -244,8 +241,8 @@ async def db_get(
     Args:
         model_class: Peewee模型类
         filters: 过滤条件，字段名和值的字典
-        order_by: 排序字段，前缀'-'表示降序，例如'-time'表示按时间字段（即time字段）降序
         limit: 结果数量限制
+        order_by: 排序字段，前缀'-'表示降序，例如'-time'表示按时间字段（即time字段）降序
         single_result: 是否只返回单个结果，如果为True，则返回单个记录字典或None；否则返回记录字典列表或空列表
 
     Returns:
@@ -310,7 +307,7 @@ async def store_action_info(
     thinking_id: str = "",
     action_data: Optional[dict] = None,
     action_name: str = "",
-) -> Union[Dict[str, Any], None]:
+) -> Optional[Dict[str, Any]]:
     """存储动作信息到数据库
 
     将Action执行的相关信息保存到ActionRecords表中，用于后续的记忆和上下文构建。

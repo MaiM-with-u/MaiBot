@@ -207,7 +207,7 @@ def get_random_chat_messages(
 
 
 def get_messages_by_time_for_users(
-    start_time: float, end_time: float, person_ids: list, limit: int = 0, limit_mode: str = "latest"
+    start_time: float, end_time: float, person_ids: List[str], limit: int = 0, limit_mode: str = "latest"
 ) -> List[Dict[str, Any]]:
     """
     获取指定用户在所有聊天中指定时间范围内的消息
@@ -287,7 +287,7 @@ def get_messages_before_time_in_chat(
     return get_raw_msg_before_timestamp_with_chat(chat_id, timestamp, limit)
 
 
-def get_messages_before_time_for_users(timestamp: float, person_ids: list, limit: int = 0) -> List[Dict[str, Any]]:
+def get_messages_before_time_for_users(timestamp: float, person_ids: List[str], limit: int = 0) -> List[Dict[str, Any]]:
     """
     获取指定用户在指定时间戳之前的消息
 
@@ -372,7 +372,7 @@ def count_new_messages(chat_id: str, start_time: float = 0.0, end_time: Optional
     return num_new_messages_since(chat_id, start_time, end_time)
 
 
-def count_new_messages_for_users(chat_id: str, start_time: float, end_time: float, person_ids: list) -> int:
+def count_new_messages_for_users(chat_id: str, start_time: float, end_time: float, person_ids: List[str]) -> int:
     """
     计算指定聊天中指定用户从开始时间到结束时间的新消息数量
 

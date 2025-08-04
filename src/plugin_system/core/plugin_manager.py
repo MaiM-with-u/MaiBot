@@ -224,6 +224,18 @@ class PluginManager:
             list: 已注册的插件类名称列表。
         """
         return list(self.plugin_classes.keys())
+    
+    def get_plugin_path(self, plugin_name: str) -> Optional[str]:
+        """
+        获取指定插件的路径。
+
+        Args:
+            plugin_name: 插件名称
+
+        Returns:
+            Optional[str]: 插件目录的绝对路径，如果插件不存在则返回None。
+        """
+        return self.plugin_paths.get(plugin_name)
 
     # === 私有方法 ===
     # == 目录管理 ==
@@ -346,6 +358,7 @@ class PluginManager:
         stats = component_registry.get_registry_stats()
         action_count = stats.get("action_components", 0)
         command_count = stats.get("command_components", 0)
+        tool_count = stats.get("tool_components", 0)
         event_handler_count = stats.get("event_handlers", 0)
         total_components = stats.get("total_components", 0)
 
@@ -353,7 +366,7 @@ class PluginManager:
         if total_registered > 0:
             logger.info("🎉 插件系统加载完成!")
             logger.info(
-                f"📊 总览: {total_registered}个插件, {total_components}个组件 (Action: {action_count}, Command: {command_count}, EventHandler: {event_handler_count})"
+                f"📊 总览: {total_registered}个插件, {total_components}个组件 (Action: {action_count}, Command: {command_count}, Tool: {tool_count}, EventHandler: {event_handler_count})"
             )
 
             # 显示详细的插件列表
@@ -388,6 +401,9 @@ class PluginManager:
                         command_components = [
                             c for c in plugin_info.components if c.component_type == ComponentType.COMMAND
                         ]
+                        tool_components = [
+                            c for c in plugin_info.components if c.component_type == ComponentType.TOOL
+                        ]
                         event_handler_components = [
                             c for c in plugin_info.components if c.component_type == ComponentType.EVENT_HANDLER
                         ]
@@ -399,7 +415,9 @@ class PluginManager:
                         if command_components:
                             command_names = [c.name for c in command_components]
                             logger.info(f"    ⚡ Command组件: {', '.join(command_names)}")
-
+                        if tool_components:
+                            tool_names = [c.name for c in tool_components]
+                            logger.info(f"    🛠️ Tool组件: {', '.join(tool_names)}")
                         if event_handler_components:
                             event_handler_names = [c.name for c in event_handler_components]
                             logger.info(f"    📢 EventHandler组件: {', '.join(event_handler_names)}")

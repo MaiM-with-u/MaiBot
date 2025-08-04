@@ -1,7 +1,7 @@
 import os
 from typing import AsyncGenerator
 from src.mais4u.openai_client import AsyncOpenAIClient
-from src.config.config import global_config
+from src.config.config import global_config, model_config
 from src.chat.message_receive.message import MessageRecvS4U
 from src.mais4u.mais4u_chat.s4u_prompt import prompt_builder
 from src.common.logger import get_logger
@@ -14,24 +14,27 @@ logger = get_logger("s4u_stream_generator")
 
 class S4UStreamGenerator:
     def __init__(self):
-        replyer_1_config = global_config.model.replyer_1
-        provider = replyer_1_config.get("provider")
-        if not provider:
-            logger.error("`replyer_1` 在配置文件中缺少 `provider` 字段")
-            raise ValueError("`replyer_1` 在配置文件中缺少 `provider` 字段")
+        replyer_1_config = model_config.model_task_config.replyer_1
+        model_to_use = replyer_1_config.model_list[0]
+        model_info = model_config.get_model_info(model_to_use)
+        if not model_info:
+            logger.error(f"模型 {model_to_use} 在配置中未找到")
+            raise ValueError(f"模型 {model_to_use} 在配置中未找到")
+        provider_name = model_info.api_provider
+        provider_info = model_config.get_provider(provider_name)
+        if not provider_info:
+            logger.error("`replyer_1` 找不到对应的Provider")
+            raise ValueError("`replyer_1` 找不到对应的Provider")
 
-        api_key = os.environ.get(f"{provider.upper()}_KEY")
-        base_url = os.environ.get(f"{provider.upper()}_BASE_URL")
+        api_key = provider_info.api_key
+        base_url = provider_info.base_url
 
         if not api_key:
-            logger.error(f"环境变量 {provider.upper()}_KEY 未设置")
-            raise ValueError(f"环境变量 {provider.upper()}_KEY 未设置")
+            logger.error(f"{provider_name}没有配置API KEY")
+            raise ValueError(f"{provider_name}没有配置API KEY")
 
         self.client_1 = AsyncOpenAIClient(api_key=api_key, base_url=base_url)
-        self.model_1_name = replyer_1_config.get("name")
-        if not self.model_1_name:
-            logger.error("`replyer_1` 在配置文件中缺少 `model_name` 字段")
-            raise ValueError("`replyer_1` 在配置文件中缺少 `model_name` 字段")
+        self.model_1_name = model_to_use
         self.replyer_1_config = replyer_1_config
 
         self.current_model_name = "unknown model"
@@ -44,10 +47,10 @@ class S4UStreamGenerator:
             r'[^.。!?？！\n\r]+(?:[.。!?？！\n\r](?![\'"])|$))',  # 匹配直到句子结束符
             re.UNICODE | re.DOTALL,
         )
-        
-        self.chat_stream =None
-        
-    async def build_last_internal_message(self,message:MessageRecvS4U,previous_reply_context:str = ""):
+
+        self.chat_stream = None
+
+    async def build_last_internal_message(self, message: MessageRecvS4U, previous_reply_context: str = ""):
         # person_id = PersonInfoManager.get_person_id(
         #     message.chat_stream.user_info.platform, message.chat_stream.user_info.user_id
         # )
@@ -71,14 +74,10 @@ class S4UStreamGenerator:
             [这是用户发来的新消息, 你需要结合上下文，对此进行回复]:
             {message.processed_plain_text}
             """
-            return True,message_txt
+            return True, message_txt
         else:
             message_txt = message.processed_plain_text
-            return False,message_txt
-        
-
-            
-    
+            return False, message_txt
 
     async def generate_response(
         self, message: MessageRecvS4U, previous_reply_context: str = ""
@@ -88,7 +87,7 @@ class S4UStreamGenerator:
         self.partial_response = ""
         message_txt = message.processed_plain_text
         if not message.is_internal:
-            interupted,message_txt_added = await self.build_last_internal_message(message,previous_reply_context)
+            interupted, message_txt_added = await self.build_last_internal_message(message, previous_reply_context)
             if interupted:
                 message_txt = message_txt_added
 
@@ -104,7 +103,6 @@ class S4UStreamGenerator:
 
         current_client = self.client_1
         self.current_model_name = self.model_1_name
-
 
         extra_kwargs = {}
         if self.replyer_1_config.get("enable_thinking") is not None:

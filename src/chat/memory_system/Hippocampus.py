@@ -5,25 +5,27 @@ import random
 import time
 import re
 import json
-from itertools import combinations
-
 import jieba
 import networkx as nx
 import numpy as np
+
+from itertools import combinations
+from typing import List, Tuple, Coroutine, Any, Set
 from collections import Counter
-from ...llm_models.utils_model import LLMRequest
+from rich.traceback import install
+
+from src.llm_models.utils_model import LLMRequest
+from src.config.config import global_config, model_config
+from src.common.database.database_model import Messages, GraphNodes, GraphEdges  # Peewee Models导入
 from src.common.logger import get_logger
 from src.chat.memory_system.sample_distribution import MemoryBuildScheduler  # 分布生成器
-from ..utils.chat_message_builder import (
+from src.chat.utils.chat_message_builder import (
     get_raw_msg_by_timestamp,
     build_readable_messages,
     get_raw_msg_by_timestamp_with_chat,
 )  # 导入 build_readable_messages
-from ..utils.utils import translate_timestamp_to_human_readable
-from rich.traceback import install
+from src.chat.utils.utils import translate_timestamp_to_human_readable
 
-from ...config.config import global_config
-from src.common.database.database_model import Messages, GraphNodes, GraphEdges  # Peewee Models导入
 
 install(extra_lines=3)
 
@@ -198,8 +200,7 @@ class Hippocampus:
         self.parahippocampal_gyrus = ParahippocampalGyrus(self)
         # 从数据库加载记忆图
         self.entorhinal_cortex.sync_memory_from_db()
-        # TODO: API-Adapter修改标记
-        self.model_summary = LLMRequest(global_config.model.memory, request_type="memory.builder")
+        self.model_summary = LLMRequest(model_set=model_config.model_task_config.memory, request_type="memory.builder")
 
     def get_all_node_names(self) -> list:
         """获取记忆图中所有节点的名字列表"""
@@ -339,9 +340,7 @@ class Hippocampus:
         else:
             topic_num = 5  # 51+字符: 5个关键词 (其余长文本)
 
-        topics_response, (reasoning_content, model_name) = await self.model_summary.generate_response_async(
-            self.find_topic_llm(text, topic_num)
-        )
+        topics_response, _ = await self.model_summary.generate_response_async(self.find_topic_llm(text, topic_num))
 
         # 提取关键词
         keywords = re.findall(r"<([^>]+)>", topics_response)
@@ -353,12 +352,11 @@ class Hippocampus:
                 for keyword in ",".join(keywords).replace("，", ",").replace("、", ",").replace(" ", ",").split(",")
                 if keyword.strip()
             ]
-        
+
         if keywords:
             logger.info(f"提取关键词: {keywords}")
-        
-        return keywords 
-        
+
+        return keywords
 
     async def get_memory_from_text(
         self,
@@ -1245,7 +1243,7 @@ class ParahippocampalGyrus:
 
         # 2. 使用LLM提取关键主题
         topic_num = self.hippocampus.calculate_topic_num(input_text, compress_rate)
-        topics_response, (reasoning_content, model_name) = await self.hippocampus.model_summary.generate_response_async(
+        topics_response, _ = await self.hippocampus.model_summary.generate_response_async(
             self.hippocampus.find_topic_llm(input_text, topic_num)
         )
 
@@ -1269,7 +1267,7 @@ class ParahippocampalGyrus:
         logger.debug(f"过滤后话题: {filtered_topics}")
 
         # 4. 创建所有话题的摘要生成任务
-        tasks = []
+        tasks: List[Tuple[str, Coroutine[Any, Any, Tuple[str, Tuple[str, str, List | None]]]]] = []
         for topic in filtered_topics:
             # 调用修改后的 topic_what，不再需要 time_info
             topic_what_prompt = self.hippocampus.topic_what(input_text, topic)
@@ -1281,7 +1279,7 @@ class ParahippocampalGyrus:
                 continue
 
         # 等待所有任务完成
-        compressed_memory = set()
+        compressed_memory: Set[Tuple[str, str]] = set()
         similar_topics_dict = {}
 
         for topic, task in tasks:

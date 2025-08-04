@@ -3,7 +3,7 @@ from .person_info import PersonInfoManager, get_person_info_manager
 import time
 import random
 from src.llm_models.utils_model import LLMRequest
-from src.config.config import global_config
+from src.config.config import global_config, model_config
 from src.chat.utils.chat_message_builder import build_readable_messages
 import json
 from json_repair import repair_json
@@ -20,9 +20,8 @@ logger = get_logger("relation")
 class RelationshipManager:
     def __init__(self):
         self.relationship_llm = LLMRequest(
-            model=global_config.model.utils,
-            request_type="relationship",  # 用于动作规划
-        )
+            model_set=model_config.model_task_config.utils, request_type="relationship"
+        )  # 用于动作规划
 
     @staticmethod
     async def is_known_some_one(platform, user_id):
@@ -181,18 +180,14 @@ class RelationshipManager:
         try:
             points = repair_json(points)
             points_data = json.loads(points)
-            
+
             # 只处理正确的格式，错误格式直接跳过
             if points_data == "none" or not points_data:
                 points_list = []
             elif isinstance(points_data, str) and points_data.lower() == "none":
                 points_list = []
             elif isinstance(points_data, list):
-                # 正确格式：数组格式 [{"point": "...", "weight": 10}, ...]
-                if not points_data:  # 空数组
-                    points_list = []
-                else:
-                    points_list = [(item["point"], float(item["weight"]), current_time) for item in points_data]
+                points_list = [(item["point"], float(item["weight"]), current_time) for item in points_data]
             else:
                 # 错误格式，直接跳过不解析
                 logger.warning(f"LLM返回了错误的JSON格式，跳过解析: {type(points_data)}, 内容: {points_data}")

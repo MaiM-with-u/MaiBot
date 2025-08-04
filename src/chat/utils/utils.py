@@ -11,7 +11,7 @@ from typing import Optional, Tuple, Dict, List, Any
 
 from src.common.logger import get_logger
 from src.common.message_repository import find_messages, count_messages
-from src.config.config import global_config
+from src.config.config import global_config, model_config
 from src.chat.message_receive.message import MessageRecv
 from src.chat.message_receive.chat_stream import get_chat_manager
 from src.llm_models.utils_model import LLMRequest
@@ -109,13 +109,11 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> tuple[bool, float]:
     return is_mentioned, reply_probability
 
 
-async def get_embedding(text, request_type="embedding"):
+async def get_embedding(text, request_type="embedding") -> Optional[List[float]]:
     """获取文本的embedding向量"""
-    # TODO: API-Adapter修改标记
-    llm = LLMRequest(model=global_config.model.embedding, request_type=request_type)
-    # return llm.get_embedding_sync(text)
+    llm = LLMRequest(model_set=model_config.model_task_config.embedding, request_type=request_type)
     try:
-        embedding = await llm.get_embedding(text)
+        embedding, _ = await llm.get_embedding(text)
     except Exception as e:
         logger.error(f"获取embedding失败: {str(e)}")
         embedding = None

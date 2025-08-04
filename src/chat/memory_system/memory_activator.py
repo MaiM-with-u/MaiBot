@@ -1,13 +1,15 @@
-from src.llm_models.utils_model import LLMRequest
-from src.config.config import global_config
-from src.common.logger import get_logger
-from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
-from datetime import datetime
-from src.chat.memory_system.Hippocampus import hippocampus_manager
-from typing import List, Dict
 import difflib
 import json
+
 from json_repair import repair_json
+from typing import List, Dict
+from datetime import datetime
+
+from src.llm_models.utils_model import LLMRequest
+from src.config.config import global_config, model_config
+from src.common.logger import get_logger
+from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
+from src.chat.memory_system.Hippocampus import hippocampus_manager
 
 
 logger = get_logger("memory_activator")
@@ -61,11 +63,8 @@ def init_prompt():
 
 class MemoryActivator:
     def __init__(self):
-        # TODO: API-Adapter修改标记
-
         self.key_words_model = LLMRequest(
-            model=global_config.model.utils_small,
-            temperature=0.5,
+            model_set=model_config.model_task_config.utils_small,
             request_type="memory.activator",
         )
 
@@ -92,7 +91,9 @@ class MemoryActivator:
 
         # logger.debug(f"prompt: {prompt}")
 
-        response, (reasoning_content, model_name) = await self.key_words_model.generate_response_async(prompt)
+        response, (reasoning_content, model_name, _) = await self.key_words_model.generate_response_async(
+            prompt, temperature=0.5
+        )
 
         keywords = list(get_keywords_from_json(response))
 

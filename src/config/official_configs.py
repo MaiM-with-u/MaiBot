@@ -1,7 +1,7 @@
 import re
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, Optional
+from typing import Literal, Optional
 
 from src.config.config_base import ConfigBase
 
@@ -598,51 +598,3 @@ class LPMMKnowledgeConfig(ConfigBase):
     embedding_dimension: int = 1024
     """嵌入向量维度，应该与模型的输出维度一致"""
 
-
-@dataclass
-class ModelConfig(ConfigBase):
-    """模型配置类"""
-
-    model_max_output_length: int = 800  # 最大回复长度
-
-    utils: dict[str, Any] = field(default_factory=lambda: {})
-    """组件模型配置"""
-
-    utils_small: dict[str, Any] = field(default_factory=lambda: {})
-    """组件小模型配置"""
-
-    replyer_1: dict[str, Any] = field(default_factory=lambda: {})
-    """normal_chat首要回复模型模型配置"""
-
-    replyer_2: dict[str, Any] = field(default_factory=lambda: {})
-    """normal_chat次要回复模型配置"""
-
-    memory: dict[str, Any] = field(default_factory=lambda: {})
-    """记忆模型配置"""
-
-    emotion: dict[str, Any] = field(default_factory=lambda: {})
-    """情绪模型配置"""
-
-    vlm: dict[str, Any] = field(default_factory=lambda: {})
-    """视觉语言模型配置"""
-
-    voice: dict[str, Any] = field(default_factory=lambda: {})
-    """语音识别模型配置"""
-
-    tool_use: dict[str, Any] = field(default_factory=lambda: {})
-    """专注工具使用模型配置"""
-
-    planner: dict[str, Any] = field(default_factory=lambda: {})
-    """规划模型配置"""
-
-    embedding: dict[str, Any] = field(default_factory=lambda: {})
-    """嵌入模型配置"""
-
-    lpmm_entity_extract: dict[str, Any] = field(default_factory=lambda: {})
-    """LPMM实体提取模型配置"""
-
-    lpmm_rdf_build: dict[str, Any] = field(default_factory=lambda: {})
-    """LPMM RDF构建模型配置"""
-
-    lpmm_qa: dict[str, Any] = field(default_factory=lambda: {})
-    """LPMM问答模型配置"""

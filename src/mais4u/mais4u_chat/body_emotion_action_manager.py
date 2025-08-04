@@ -1,14 +1,16 @@
 import json
 import time
+
+from json_repair import repair_json
 from src.chat.message_receive.message import MessageRecv
 from src.llm_models.utils_model import LLMRequest
 from src.common.logger import get_logger
 from src.chat.utils.chat_message_builder import build_readable_messages, get_raw_msg_by_timestamp_with_chat_inclusive
-from src.config.config import global_config
+from src.config.config import global_config, model_config
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 from src.manager.async_task_manager import AsyncTask, async_task_manager
 from src.plugin_system.apis import send_api
-from json_repair import repair_json
+
 from src.mais4u.s4u_config import s4u_config
 
 logger = get_logger("action")
@@ -32,7 +34,7 @@ BODY_CODE = {
     "帅气的姿势": "010_0190",
     "另一个帅气的姿势": "010_0191",
     "手掌朝前可爱": "010_0210",
-    "平静，双手后放":"平静，双手后放",
+    "平静，双手后放": "平静，双手后放",
     "思考": "思考",
     "优雅，左手放在腰上": "优雅，左手放在腰上",
     "一般": "一般",
@@ -94,19 +96,15 @@ class ChatAction:
         self.body_action_cooldown: dict[str, int] = {}
 
         print(s4u_config.models.motion)
-        print(global_config.model.emotion)
-        
-        self.action_model = LLMRequest(
-            model=global_config.model.emotion,
-            temperature=0.7,
-            request_type="motion",
-        )
+        print(model_config.model_task_config.emotion)
 
-        self.last_change_time = 0
+        self.action_model = LLMRequest(model_set=model_config.model_task_config.emotion, request_type="motion")
+
+        self.last_change_time: float = 0
 
     async def send_action_update(self):
         """发送动作更新到前端"""
-        
+
         body_code = BODY_CODE.get(self.body_action, "")
         await send_api.custom_to_stream(
             message_type="body_action",
@@ -115,13 +113,11 @@ class ChatAction:
             storage_message=False,
             show_log=True,
         )
-        
-        
 
     async def update_action_by_message(self, message: MessageRecv):
         self.regression_count = 0
 
-        message_time = message.message_info.time
+        message_time: float = message.message_info.time  # type: ignore
         message_list_before_now = get_raw_msg_by_timestamp_with_chat_inclusive(
             chat_id=self.chat_id,
             timestamp_start=self.last_change_time,
@@ -147,13 +143,13 @@ class ChatAction:
 
         prompt_personality = global_config.personality.personality_core
         indentify_block = f"你的名字是{bot_name}{bot_nickname}，你{prompt_personality}："
-        
+
         try:
             # 冷却池处理：过滤掉冷却中的动作
             self._update_body_action_cooldown()
             available_actions = [k for k in BODY_CODE.keys() if k not in self.body_action_cooldown]
             all_actions = "\n".join(available_actions)
-            
+
             prompt = await global_prompt_manager.format_prompt(
                 "change_action_prompt",
                 chat_talking_prompt=chat_talking_prompt,
@@ -163,19 +159,18 @@ class ChatAction:
             )
 
             logger.info(f"prompt: {prompt}")
-            response, (reasoning_content, model_name) = await self.action_model.generate_response_async(prompt=prompt)
+            response, (reasoning_content, _, _) = await self.action_model.generate_response_async(
+                prompt=prompt, temperature=0.7
+            )
             logger.info(f"response: {response}")
             logger.info(f"reasoning_content: {reasoning_content}")
 
-            action_data = json.loads(repair_json(response))
-
-            if action_data:
+            if action_data := json.loads(repair_json(response)):
                 # 记录原动作，切换后进入冷却
                 prev_body_action = self.body_action
                 new_body_action = action_data.get("body_action", self.body_action)
-                if new_body_action != prev_body_action:
-                    if prev_body_action:
-                        self.body_action_cooldown[prev_body_action] = 3
+                if new_body_action != prev_body_action and prev_body_action:
+                    self.body_action_cooldown[prev_body_action] = 3
                 self.body_action = new_body_action
                 self.head_action = action_data.get("head_action", self.head_action)
                 # 发送动作更新
@@ -213,7 +208,6 @@ class ChatAction:
         prompt_personality = global_config.personality.personality_core
         indentify_block = f"你的名字是{bot_name}{bot_nickname}，你{prompt_personality}："
         try:
-
             # 冷却池处理：过滤掉冷却中的动作
             self._update_body_action_cooldown()
             available_actions = [k for k in BODY_CODE.keys() if k not in self.body_action_cooldown]
@@ -228,17 +222,17 @@ class ChatAction:
             )
 
             logger.info(f"prompt: {prompt}")
-            response, (reasoning_content, model_name) = await self.action_model.generate_response_async(prompt=prompt)
+            response, (reasoning_content, _, _) = await self.action_model.generate_response_async(
+                prompt=prompt, temperature=0.7
+            )
             logger.info(f"response: {response}")
             logger.info(f"reasoning_content: {reasoning_content}")
 
-            action_data = json.loads(repair_json(response))
-            if action_data:
+            if action_data := json.loads(repair_json(response)):
                 prev_body_action = self.body_action
                 new_body_action = action_data.get("body_action", self.body_action)
-                if new_body_action != prev_body_action:
-                    if prev_body_action:
-                        self.body_action_cooldown[prev_body_action] = 6
+                if new_body_action != prev_body_action and prev_body_action:
+                    self.body_action_cooldown[prev_body_action] = 6
                 self.body_action = new_body_action
                 # 发送动作更新
                 await self.send_action_update()
@@ -304,9 +298,6 @@ class ActionManager:
         new_action_state = ChatAction(chat_id)
         self.action_state_list.append(new_action_state)
         return new_action_state
-
-
-
 
 
 init_prompt()

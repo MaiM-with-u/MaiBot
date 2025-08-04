@@ -208,7 +208,7 @@ class BaseAction(ABC):
             return False, f"等待新消息失败: {str(e)}"
 
     async def send_text(
-        self, content: str, reply_to: str = "", reply_to_platform_id: str = "", typing: bool = False
+        self, content: str, reply_to: str = "", typing: bool = False
     ) -> bool:
         """发送文本消息
 
@@ -227,7 +227,6 @@ class BaseAction(ABC):
             text=content,
             stream_id=self.chat_id,
             reply_to=reply_to,
-            reply_to_platform_id=reply_to_platform_id,
             typing=typing,
         )
 

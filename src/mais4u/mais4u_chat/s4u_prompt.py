@@ -150,19 +150,18 @@ class PromptBuilder:
         relation_prompt = ""
         if global_config.relationship.enable_relationship and who_chat_in_group:
             relationship_fetcher = relationship_fetcher_manager.get_fetcher(chat_stream.stream_id)
-            
+
             # 将 (platform, user_id, nickname) 转换为 person_id
             person_ids = []
             for person in who_chat_in_group:
                 person_id = PersonInfoManager.get_person_id(person[0], person[1])
                 person_ids.append(person_id)
-            
+
             # 使用 RelationshipFetcher 的 build_relation_info 方法，设置 points_num=3 保持与原来相同的行为
             relation_info_list = await asyncio.gather(
                 *[relationship_fetcher.build_relation_info(person_id, points_num=3) for person_id in person_ids]
             )
-            relation_info = "".join(relation_info_list)
-            if relation_info:
+            if relation_info := "".join(relation_info_list):
                 relation_prompt = await global_prompt_manager.format_prompt(
                     "relation_prompt", relation_info=relation_info
                 )
@@ -186,9 +185,9 @@ class PromptBuilder:
             timestamp=time.time(),
             limit=300,
         )
-        
 
-        talk_type = message.message_info.platform + ":" + str(message.chat_stream.user_info.user_id)
+
+        talk_type = f"{message.message_info.platform}:{str(message.chat_stream.user_info.user_id)}"
 
         core_dialogue_list = []
         background_dialogue_list = []
@@ -258,19 +257,19 @@ class PromptBuilder:
             all_msg_seg_list.append(msg_seg_str)
             for msg in all_msg_seg_list:
                 core_msg_str += msg
-                
-                
+
+
         all_dialogue_prompt = get_raw_msg_before_timestamp_with_chat(
             chat_id=chat_stream.stream_id,
             timestamp=time.time(),
             limit=20,
-        )        
+        )
         all_dialogue_prompt_str = build_readable_messages(
             all_dialogue_prompt,
             timestamp_mode="normal_no_YMD",
             show_pic=False,
         )
-        
+
 
         return core_msg_str, background_dialogue_prompt,all_dialogue_prompt_str
 

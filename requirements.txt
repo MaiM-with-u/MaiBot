@@ -15,6 +15,7 @@ matplotlib
 networkx
 numpy
 openai
+google-genai
 pandas
 peewee
 pyarrow

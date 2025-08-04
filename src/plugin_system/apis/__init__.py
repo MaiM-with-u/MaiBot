@@ -17,7 +17,7 @@ from src.plugin_system.apis import (
     person_api,
     plugin_manage_api,
     send_api,
-    utils_api,
+    tool_api,
 )
 from .logging_api import get_logger
 from .plugin_register_api import register_plugin
@@ -35,7 +35,7 @@ __all__ = [
     "person_api",
     "plugin_manage_api",
     "send_api",
-    "utils_api",
     "get_logger",
     "register_plugin",
+    "tool_api",
 ]

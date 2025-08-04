@@ -13,6 +13,8 @@ class GlobalAnnouncementManager:
         self._user_disabled_commands: Dict[str, List[str]] = {}
         # 用户禁用的事件处理器，chat_id -> [handler_name]
         self._user_disabled_event_handlers: Dict[str, List[str]] = {}
+        # 用户禁用的工具，chat_id -> [tool_name]
+        self._user_disabled_tools: Dict[str, List[str]] = {}
 
     def disable_specific_chat_action(self, chat_id: str, action_name: str) -> bool:
         """禁用特定聊天的某个动作"""
@@ -77,6 +79,27 @@ class GlobalAnnouncementManager:
                 return False
         return False
 
+    def disable_specific_chat_tool(self, chat_id: str, tool_name: str) -> bool:
+        """禁用特定聊天的某个工具"""
+        if chat_id not in self._user_disabled_tools:
+            self._user_disabled_tools[chat_id] = []
+        if tool_name in self._user_disabled_tools[chat_id]:
+            logger.warning(f"工具 {tool_name} 已经被禁用")
+            return False
+        self._user_disabled_tools[chat_id].append(tool_name)
+        return True
+    
+    def enable_specific_chat_tool(self, chat_id: str, tool_name: str) -> bool:
+        """启用特定聊天的某个工具"""
+        if chat_id in self._user_disabled_tools:
+            try:
+                self._user_disabled_tools[chat_id].remove(tool_name)
+                return True
+            except ValueError:
+                logger.warning(f"工具 {tool_name} 不在禁用列表中")
+                return False
+        return False
+
     def get_disabled_chat_actions(self, chat_id: str) -> List[str]:
         """获取特定聊天禁用的所有动作"""
         return self._user_disabled_actions.get(chat_id, []).copy()
@@ -88,6 +111,10 @@ class GlobalAnnouncementManager:
     def get_disabled_chat_event_handlers(self, chat_id: str) -> List[str]:
         """获取特定聊天禁用的所有事件处理器"""
         return self._user_disabled_event_handlers.get(chat_id, []).copy()
+    
+    def get_disabled_chat_tools(self, chat_id: str) -> List[str]:
+        """获取特定聊天禁用的所有工具"""
+        return self._user_disabled_tools.get(chat_id, []).copy()
 
 
 global_announcement_manager = GlobalAnnouncementManager()

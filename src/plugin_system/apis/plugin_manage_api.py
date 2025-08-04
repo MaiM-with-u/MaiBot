@@ -1,10 +1,12 @@
 from typing import Tuple, List
+
+
 def list_loaded_plugins() -> List[str]:
     """
     列出所有当前加载的插件。
 
     Returns:
-        list: 当前加载的插件名称列表。
+        List[str]: 当前加载的插件名称列表。
     """
     from src.plugin_system.core.plugin_manager import plugin_manager
 
@@ -16,17 +18,38 @@ def list_registered_plugins() -> List[str]:
     列出所有已注册的插件。
 
     Returns:
-        list: 已注册的插件名称列表。
+        List[str]: 已注册的插件名称列表。
     """
     from src.plugin_system.core.plugin_manager import plugin_manager
 
     return plugin_manager.list_registered_plugins()
 
 
+def get_plugin_path(plugin_name: str) -> str:
+    """
+    获取指定插件的路径。
+
+    Args:
+        plugin_name (str): 插件名称。
+
+    Returns:
+        str: 插件目录的绝对路径。
+        
+    Raises:
+        ValueError: 如果插件不存在。
+    """
+    from src.plugin_system.core.plugin_manager import plugin_manager
+
+    if plugin_path := plugin_manager.get_plugin_path(plugin_name):
+        return plugin_path
+    else:
+        raise ValueError(f"插件 '{plugin_name}' 不存在。")
+
+
 async def remove_plugin(plugin_name: str) -> bool:
     """
     卸载指定的插件。
-    
+
     **此函数是异步的，确保在异步环境中调用。**
 
     Args:
@@ -43,7 +66,7 @@ async def remove_plugin(plugin_name: str) -> bool:
 async def reload_plugin(plugin_name: str) -> bool:
     """
     重新加载指定的插件。
-    
+
     **此函数是异步的，确保在异步环境中调用。**
 
     Args:
@@ -71,6 +94,7 @@ def load_plugin(plugin_name: str) -> Tuple[bool, int]:
 
     return plugin_manager.load_registered_plugin_classes(plugin_name)
 
+
 def add_plugin_directory(plugin_directory: str) -> bool:
     """
     添加插件目录。
@@ -83,6 +107,7 @@ def add_plugin_directory(plugin_directory: str) -> bool:
     from src.plugin_system.core.plugin_manager import plugin_manager
 
     return plugin_manager.add_plugin_directory(plugin_directory)
+
 
 def rescan_plugin_directory() -> Tuple[int, int]:
     """

@@ -1,8 +1,9 @@
 from enum import Enum
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass, field
 from maim_message import Seg
 
+from src.llm_models.payload_content.tool_option import ToolParamType as ToolParamType
 
 # 组件类型枚举
 class ComponentType(Enum):
@@ -10,6 +11,7 @@ class ComponentType(Enum):
 
     ACTION = "action"  # 动作组件
     COMMAND = "command"  # 命令组件
+    TOOL = "tool"  # 服务组件（预留）
     SCHEDULER = "scheduler"  # 定时任务组件（预留）
     EVENT_HANDLER = "event_handler"  # 事件处理组件（预留）
 
@@ -144,6 +146,18 @@ class CommandInfo(ComponentInfo):
     def __post_init__(self):
         super().__post_init__()
         self.component_type = ComponentType.COMMAND
+
+
+@dataclass
+class ToolInfo(ComponentInfo):
+    """工具组件信息"""
+
+    tool_parameters: List[Tuple[str, ToolParamType, str, bool, List[str] | None]] = field(default_factory=list)  # 工具参数定义
+    tool_description: str = ""  # 工具描述
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.component_type = ComponentType.TOOL
 
 
 @dataclass

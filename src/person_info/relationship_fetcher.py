@@ -7,7 +7,7 @@ from typing import List, Dict, Any
 from json_repair import repair_json
 
 from src.common.logger import get_logger
-from src.config.config import global_config
+from src.config.config import global_config, model_config
 from src.llm_models.utils_model import LLMRequest
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 from src.chat.message_receive.chat_stream import get_chat_manager
@@ -73,14 +73,12 @@ class RelationshipFetcher:
 
         # LLM模型配置
         self.llm_model = LLMRequest(
-            model=global_config.model.utils_small,
-            request_type="relation.fetcher",
+            model_set=model_config.model_task_config.utils_small, request_type="relation.fetcher"
         )
 
         # 小模型用于即时信息提取
         self.instant_llm_model = LLMRequest(
-            model=global_config.model.utils_small,
-            request_type="relation.fetch",
+            model_set=model_config.model_task_config.utils_small, request_type="relation.fetch"
         )
 
         name = get_chat_manager().get_stream_name(self.chat_id)
@@ -96,7 +94,7 @@ class RelationshipFetcher:
             if not self.info_fetched_cache[person_id]:
                 del self.info_fetched_cache[person_id]
 
-    async def build_relation_info(self, person_id, points_num = 3):
+    async def build_relation_info(self, person_id, points_num=3):
         # 清理过期的信息缓存
         self._cleanup_expired_cache()
 
@@ -360,7 +358,6 @@ class RelationshipFetcher:
         except Exception as e:
             logger.error(f"{self.log_prefix} 执行信息提取时出错: {e}")
             logger.error(traceback.format_exc())
-
 
     async def _save_info_to_cache(self, person_id: str, info_type: str, info_content: str):
         # sourcery skip: use-next

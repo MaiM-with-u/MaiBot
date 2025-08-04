@@ -74,36 +74,6 @@ def easter_egg():
     print(rainbow_text)
 
 
-def scan_provider(env_config: dict):
-    provider = {}
-
-    # 利用未初始化 env 时获取的 env_mask 来对新的环境变量集去重
-    # 避免 GPG_KEY 这样的变量干扰检查
-    env_config = dict(filter(lambda item: item[0] not in env_mask, env_config.items()))
-
-    # 遍历 env_config 的所有键
-    for key in env_config:
-        # 检查键是否符合 {provider}_BASE_URL 或 {provider}_KEY 的格式
-        if key.endswith("_BASE_URL") or key.endswith("_KEY"):
-            # 提取 provider 名称
-            provider_name = key.split("_", 1)[0]  # 从左分割一次，取第一部分
-
-            # 初始化 provider 的字典（如果尚未初始化）
-            if provider_name not in provider:
-                provider[provider_name] = {"url": None, "key": None}
-
-            # 根据键的类型填充 url 或 key
-            if key.endswith("_BASE_URL"):
-                provider[provider_name]["url"] = env_config[key]
-            elif key.endswith("_KEY"):
-                provider[provider_name]["key"] = env_config[key]
-
-    # 检查每个 provider 是否同时存在 url 和 key
-    for provider_name, config in provider.items():
-        if config["url"] is None or config["key"] is None:
-            logger.error(f"provider 内容：{config}\nenv_config 内容：{env_config}")
-            raise ValueError(f"请检查 '{provider_name}' 提供商配置是否丢失 BASE_URL 或 KEY 环境变量")
-
 
 async def graceful_shutdown():
     try:
@@ -228,9 +198,6 @@ def raw_main():
     logger.info("检查EULA和隐私条款完成")
 
     easter_egg()
-
-    env_config = {key: os.getenv(key) for key in os.environ}
-    scan_provider(env_config)
 
     # 返回MainSystem实例
     return MainSystem()

@@ -11,6 +11,7 @@ from src.plugin_system import (
     component_manage_api,
     ComponentInfo,
     ComponentType,
+    send_api,
 )
 
 
@@ -27,8 +28,15 @@ class ManagementCommand(BaseCommand):
             or not self.message.message_info.user_info
             or str(self.message.message_info.user_info.user_id) not in self.get_config("plugin.permission", [])  # type: ignore
         ):
-            await self.send_text("你没有权限使用插件管理命令")
+            await self._send_message("你没有权限使用插件管理命令")
             return False, "没有权限", True
+        if not self.message.chat_stream:
+            await self._send_message("无法获取聊天流信息")
+            return False, "无法获取聊天流信息", True
+        self.stream_id = self.message.chat_stream.stream_id
+        if not self.stream_id:
+            await self._send_message("无法获取聊天流信息")
+            return False, "无法获取聊天流信息", True
         command_list = self.matched_groups["manage_command"].strip().split(" ")
         if len(command_list) == 1:
             await self.show_help("all")
@@ -42,7 +50,7 @@ class ManagementCommand(BaseCommand):
                 case "help":
                     await self.show_help("all")
                 case _:
-                    await self.send_text("插件管理命令不合法")
+                    await self._send_message("插件管理命令不合法")
                     return False, "命令不合法", True
         if len(command_list) == 3:
             if command_list[1] == "plugin":
@@ -56,7 +64,7 @@ class ManagementCommand(BaseCommand):
                     case "rescan":
                         await self._rescan_plugin_dirs()
                     case _:
-                        await self.send_text("插件管理命令不合法")
+                        await self._send_message("插件管理命令不合法")
                         return False, "命令不合法", True
             elif command_list[1] == "component":
                 if command_list[2] == "list":
@@ -64,10 +72,10 @@ class ManagementCommand(BaseCommand):
                 elif command_list[2] == "help":
                     await self.show_help("component")
                 else:
-                    await self.send_text("插件管理命令不合法")
+                    await self._send_message("插件管理命令不合法")
                     return False, "命令不合法", True
             else:
-                await self.send_text("插件管理命令不合法")
+                await self._send_message("插件管理命令不合法")
                 return False, "命令不合法", True
         if len(command_list) == 4:
             if command_list[1] == "plugin":
@@ -81,28 +89,28 @@ class ManagementCommand(BaseCommand):
                     case "add_dir":
                         await self._add_dir(command_list[3])
                     case _:
-                        await self.send_text("插件管理命令不合法")
+                        await self._send_message("插件管理命令不合法")
                         return False, "命令不合法", True
             elif command_list[1] == "component":
                 if command_list[2] != "list":
-                    await self.send_text("插件管理命令不合法")
+                    await self._send_message("插件管理命令不合法")
                     return False, "命令不合法", True
                 if command_list[3] == "enabled":
                     await self._list_enabled_components()
                 elif command_list[3] == "disabled":
                     await self._list_disabled_components()
                 else:
-                    await self.send_text("插件管理命令不合法")
+                    await self._send_message("插件管理命令不合法")
                     return False, "命令不合法", True
             else:
-                await self.send_text("插件管理命令不合法")
+                await self._send_message("插件管理命令不合法")
                 return False, "命令不合法", True
         if len(command_list) == 5:
             if command_list[1] != "component":
-                await self.send_text("插件管理命令不合法")
+                await self._send_message("插件管理命令不合法")
                 return False, "命令不合法", True
             if command_list[2] != "list":
-                await self.send_text("插件管理命令不合法")
+                await self._send_message("插件管理命令不合法")
                 return False, "命令不合法", True
             if command_list[3] == "enabled":
                 await self._list_enabled_components(target_type=command_list[4])
@@ -111,11 +119,11 @@ class ManagementCommand(BaseCommand):
             elif command_list[3] == "type":
                 await self._list_registered_components_by_type(command_list[4])
             else:
-                await self.send_text("插件管理命令不合法")
+                await self._send_message("插件管理命令不合法")
                 return False, "命令不合法", True
         if len(command_list) == 6:
             if command_list[1] != "component":
-                await self.send_text("插件管理命令不合法")
+                await self._send_message("插件管理命令不合法")
                 return False, "命令不合法", True
             if command_list[2] == "enable":
                 if command_list[3] == "global":
@@ -123,7 +131,7 @@ class ManagementCommand(BaseCommand):
                 elif command_list[3] == "local":
                     await self._locally_enable_component(command_list[4], command_list[5])
                 else:
-                    await self.send_text("插件管理命令不合法")
+                    await self._send_message("插件管理命令不合法")
                     return False, "命令不合法", True
             elif command_list[2] == "disable":
                 if command_list[3] == "global":
@@ -131,10 +139,10 @@ class ManagementCommand(BaseCommand):
                 elif command_list[3] == "local":
                     await self._locally_disable_component(command_list[4], command_list[5])
                 else:
-                    await self.send_text("插件管理命令不合法")
+                    await self._send_message("插件管理命令不合法")
                     return False, "命令不合法", True
             else:
-                await self.send_text("插件管理命令不合法")
+                await self._send_message("插件管理命令不合法")
                 return False, "命令不合法", True
 
         return True, "命令执行完成", True
@@ -180,51 +188,51 @@ class ManagementCommand(BaseCommand):
                 )
             case _:
                 return
-        await self.send_text(help_msg)
+        await self._send_message(help_msg)
 
     async def _list_loaded_plugins(self):
         plugins = plugin_manage_api.list_loaded_plugins()
-        await self.send_text(f"已加载的插件: {', '.join(plugins)}")
+        await self._send_message(f"已加载的插件: {', '.join(plugins)}")
 
     async def _list_registered_plugins(self):
         plugins = plugin_manage_api.list_registered_plugins()
-        await self.send_text(f"已注册的插件: {', '.join(plugins)}")
+        await self._send_message(f"已注册的插件: {', '.join(plugins)}")
 
     async def _rescan_plugin_dirs(self):
         plugin_manage_api.rescan_plugin_directory()
-        await self.send_text("插件目录重新扫描执行中")
+        await self._send_message("插件目录重新扫描执行中")
 
     async def _load_plugin(self, plugin_name: str):
         success, count = plugin_manage_api.load_plugin(plugin_name)
         if success:
-            await self.send_text(f"插件加载成功: {plugin_name}")
+            await self._send_message(f"插件加载成功: {plugin_name}")
         else:
             if count == 0:
-                await self.send_text(f"插件{plugin_name}为禁用状态")
-            await self.send_text(f"插件加载失败: {plugin_name}")
+                await self._send_message(f"插件{plugin_name}为禁用状态")
+            await self._send_message(f"插件加载失败: {plugin_name}")
 
     async def _unload_plugin(self, plugin_name: str):
         success = await plugin_manage_api.remove_plugin(plugin_name)
         if success:
-            await self.send_text(f"插件卸载成功: {plugin_name}")
+            await self._send_message(f"插件卸载成功: {plugin_name}")
         else:
-            await self.send_text(f"插件卸载失败: {plugin_name}")
+            await self._send_message(f"插件卸载失败: {plugin_name}")
 
     async def _reload_plugin(self, plugin_name: str):
         success = await plugin_manage_api.reload_plugin(plugin_name)
         if success:
-            await self.send_text(f"插件重新加载成功: {plugin_name}")
+            await self._send_message(f"插件重新加载成功: {plugin_name}")
         else:
-            await self.send_text(f"插件重新加载失败: {plugin_name}")
+            await self._send_message(f"插件重新加载失败: {plugin_name}")
 
     async def _add_dir(self, dir_path: str):
-        await self.send_text(f"正在添加插件目录: {dir_path}")
+        await self._send_message(f"正在添加插件目录: {dir_path}")
         success = plugin_manage_api.add_plugin_directory(dir_path)
         await asyncio.sleep(0.5)  # 防止乱序发送
         if success:
-            await self.send_text(f"插件目录添加成功: {dir_path}")
+            await self._send_message(f"插件目录添加成功: {dir_path}")
         else:
-            await self.send_text(f"插件目录添加失败: {dir_path}")
+            await self._send_message(f"插件目录添加失败: {dir_path}")
 
     def _fetch_all_registered_components(self) -> List[ComponentInfo]:
         all_plugin_info = component_manage_api.get_all_plugin_info()
@@ -255,29 +263,29 @@ class ManagementCommand(BaseCommand):
     async def _list_all_registered_components(self):
         components_info = self._fetch_all_registered_components()
         if not components_info:
-            await self.send_text("没有注册的组件")
+            await self._send_message("没有注册的组件")
             return
 
         all_components_str = ", ".join(
             f"{component.name} ({component.component_type})" for component in components_info
         )
-        await self.send_text(f"已注册的组件: {all_components_str}")
+        await self._send_message(f"已注册的组件: {all_components_str}")
 
     async def _list_enabled_components(self, target_type: str = "global"):
         components_info = self._fetch_all_registered_components()
         if not components_info:
-            await self.send_text("没有注册的组件")
+            await self._send_message("没有注册的组件")
             return
 
         if target_type == "global":
             enabled_components = [component for component in components_info if component.enabled]
             if not enabled_components:
-                await self.send_text("没有满足条件的已启用全局组件")
+                await self._send_message("没有满足条件的已启用全局组件")
                 return
             enabled_components_str = ", ".join(
                 f"{component.name} ({component.component_type})" for component in enabled_components
             )
-            await self.send_text(f"满足条件的已启用全局组件: {enabled_components_str}")
+            await self._send_message(f"满足条件的已启用全局组件: {enabled_components_str}")
         elif target_type == "local":
             locally_disabled_components = self._fetch_locally_disabled_components()
             enabled_components = [
@@ -286,28 +294,28 @@ class ManagementCommand(BaseCommand):
                 if (component.name not in locally_disabled_components and component.enabled)
             ]
             if not enabled_components:
-                await self.send_text("本聊天没有满足条件的已启用组件")
+                await self._send_message("本聊天没有满足条件的已启用组件")
                 return
             enabled_components_str = ", ".join(
                 f"{component.name} ({component.component_type})" for component in enabled_components
             )
-            await self.send_text(f"本聊天满足条件的已启用组件: {enabled_components_str}")
+            await self._send_message(f"本聊天满足条件的已启用组件: {enabled_components_str}")
 
     async def _list_disabled_components(self, target_type: str = "global"):
         components_info = self._fetch_all_registered_components()
         if not components_info:
-            await self.send_text("没有注册的组件")
+            await self._send_message("没有注册的组件")
             return
 
         if target_type == "global":
             disabled_components = [component for component in components_info if not component.enabled]
             if not disabled_components:
-                await self.send_text("没有满足条件的已禁用全局组件")
+                await self._send_message("没有满足条件的已禁用全局组件")
                 return
             disabled_components_str = ", ".join(
                 f"{component.name} ({component.component_type})" for component in disabled_components
             )
-            await self.send_text(f"满足条件的已禁用全局组件: {disabled_components_str}")
+            await self._send_message(f"满足条件的已禁用全局组件: {disabled_components_str}")
         elif target_type == "local":
             locally_disabled_components = self._fetch_locally_disabled_components()
             disabled_components = [
@@ -316,12 +324,12 @@ class ManagementCommand(BaseCommand):
                 if (component.name in locally_disabled_components or not component.enabled)
             ]
             if not disabled_components:
-                await self.send_text("本聊天没有满足条件的已禁用组件")
+                await self._send_message("本聊天没有满足条件的已禁用组件")
                 return
             disabled_components_str = ", ".join(
                 f"{component.name} ({component.component_type})" for component in disabled_components
             )
-            await self.send_text(f"本聊天满足条件的已禁用组件: {disabled_components_str}")
+            await self._send_message(f"本聊天满足条件的已禁用组件: {disabled_components_str}")
 
     async def _list_registered_components_by_type(self, target_type: str):
         match target_type:
@@ -332,18 +340,18 @@ class ManagementCommand(BaseCommand):
             case "event_handler":
                 component_type = ComponentType.EVENT_HANDLER
             case _:
-                await self.send_text(f"未知组件类型: {target_type}")
+                await self._send_message(f"未知组件类型: {target_type}")
                 return
 
         components_info = component_manage_api.get_components_info_by_type(component_type)
         if not components_info:
-            await self.send_text(f"没有注册的 {target_type} 组件")
+            await self._send_message(f"没有注册的 {target_type} 组件")
             return
 
         components_str = ", ".join(
             f"{name} ({component.component_type})" for name, component in components_info.items()
         )
-        await self.send_text(f"注册的 {target_type} 组件: {components_str}")
+        await self._send_message(f"注册的 {target_type} 组件: {components_str}")
 
     async def _globally_enable_component(self, component_name: str, component_type: str):
         match component_type:
@@ -354,12 +362,12 @@ class ManagementCommand(BaseCommand):
             case "event_handler":
                 target_component_type = ComponentType.EVENT_HANDLER
             case _:
-                await self.send_text(f"未知组件类型: {component_type}")
+                await self._send_message(f"未知组件类型: {component_type}")
                 return
         if component_manage_api.globally_enable_component(component_name, target_component_type):
-            await self.send_text(f"全局启用组件成功: {component_name}")
+            await self._send_message(f"全局启用组件成功: {component_name}")
         else:
-            await self.send_text(f"全局启用组件失败: {component_name}")
+            await self._send_message(f"全局启用组件失败: {component_name}")
 
     async def _globally_disable_component(self, component_name: str, component_type: str):
         match component_type:
@@ -370,13 +378,13 @@ class ManagementCommand(BaseCommand):
             case "event_handler":
                 target_component_type = ComponentType.EVENT_HANDLER
             case _:
-                await self.send_text(f"未知组件类型: {component_type}")
+                await self._send_message(f"未知组件类型: {component_type}")
                 return
         success = await component_manage_api.globally_disable_component(component_name, target_component_type)
         if success:
-            await self.send_text(f"全局禁用组件成功: {component_name}")
+            await self._send_message(f"全局禁用组件成功: {component_name}")
         else:
-            await self.send_text(f"全局禁用组件失败: {component_name}")
+            await self._send_message(f"全局禁用组件失败: {component_name}")
 
     async def _locally_enable_component(self, component_name: str, component_type: str):
         match component_type:
@@ -387,16 +395,16 @@ class ManagementCommand(BaseCommand):
             case "event_handler":
                 target_component_type = ComponentType.EVENT_HANDLER
             case _:
-                await self.send_text(f"未知组件类型: {component_type}")
+                await self._send_message(f"未知组件类型: {component_type}")
                 return
         if component_manage_api.locally_enable_component(
             component_name,
             target_component_type,
             self.message.chat_stream.stream_id,
         ):
-            await self.send_text(f"本地启用组件成功: {component_name}")
+            await self._send_message(f"本地启用组件成功: {component_name}")
         else:
-            await self.send_text(f"本地启用组件失败: {component_name}")
+            await self._send_message(f"本地启用组件失败: {component_name}")
 
     async def _locally_disable_component(self, component_name: str, component_type: str):
         match component_type:
@@ -407,16 +415,19 @@ class ManagementCommand(BaseCommand):
             case "event_handler":
                 target_component_type = ComponentType.EVENT_HANDLER
             case _:
-                await self.send_text(f"未知组件类型: {component_type}")
+                await self._send_message(f"未知组件类型: {component_type}")
                 return
         if component_manage_api.locally_disable_component(
             component_name,
             target_component_type,
             self.message.chat_stream.stream_id,
         ):
-            await self.send_text(f"本地禁用组件成功: {component_name}")
+            await self._send_message(f"本地禁用组件成功: {component_name}")
         else:
-            await self.send_text(f"本地禁用组件失败: {component_name}")
+            await self._send_message(f"本地禁用组件失败: {component_name}")
+    
+    async def _send_message(self, message: str):
+        await send_api.text_to_stream(message, self.stream_id, typing=False, storage_message=False)
 
 
 @register_plugin
@@ -430,7 +441,9 @@ class PluginManagementPlugin(BasePlugin):
         "plugin": {
             "enabled": ConfigField(bool, default=False, description="是否启用插件"),
             "config_version": ConfigField(type=str, default="1.1.0", description="配置文件版本"),
-            "permission": ConfigField(list, default=[], description="有权限使用插件管理命令的用户列表，请填写字符串形式的用户ID"),
+            "permission": ConfigField(
+                list, default=[], description="有权限使用插件管理命令的用户列表，请填写字符串形式的用户ID"
+            ),
         },
     }
 

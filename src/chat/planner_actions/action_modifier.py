@@ -5,7 +5,7 @@ import time
 from typing import List, Any, Dict, TYPE_CHECKING, Tuple
 
 from src.common.logger import get_logger
-from src.config.config import global_config
+from src.config.config import global_config, model_config
 from src.llm_models.utils_model import LLMRequest
 from src.chat.message_receive.chat_stream import get_chat_manager, ChatMessageContext
 from src.chat.planner_actions.action_manager import ActionManager
@@ -36,10 +36,7 @@ class ActionModifier:
         self.action_manager = action_manager
 
         # 用于LLM判定的小模型
-        self.llm_judge = LLMRequest(
-            model=global_config.model.utils_small,
-            request_type="action.judge",
-        )
+        self.llm_judge = LLMRequest(model_set=model_config.model_task_config.utils_small, request_type="action.judge")
 
         # 缓存相关属性
         self._llm_judge_cache = {}  # 缓存LLM判定结果

@@ -8,7 +8,8 @@ from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 from src.mais4u.mai_think import mai_thinking_manager
 from src.common.logger import get_logger
-from src.config.config import global_config
+from src.config.config import global_config, model_config
+from src.config.api_ada_configs import TaskConfig
 from src.individuality.individuality import get_individuality
 from src.llm_models.utils_model import LLMRequest
 from src.chat.message_receive.message import UserInfo, Seg, MessageRecv, MessageSending
@@ -23,14 +24,13 @@ from src.chat.utils.chat_message_builder import (
     replace_user_references_sync,
 )
 from src.chat.express.expression_selector import expression_selector
-from src.chat.knowledge.knowledge_lib import qa_manager
 from src.chat.memory_system.memory_activator import MemoryActivator
 from src.chat.memory_system.instant_memory import InstantMemory
 from src.mood.mood_manager import mood_manager
 from src.person_info.relationship_fetcher import relationship_fetcher_manager
 from src.person_info.person_info import get_person_info_manager
-from src.tools.tool_executor import ToolExecutor
 from src.plugin_system.base.component_types import ActionInfo
+from src.plugin_system.apis import llm_api
 
 logger = get_logger("replyer")
 
@@ -40,7 +40,7 @@ def init_prompt():
     Prompt("你正在和{sender_name}聊天，这是你们之前聊的内容：", "chat_target_private1")
     Prompt("在群里聊天", "chat_target_group2")
     Prompt("和{sender_name}聊天", "chat_target_private2")
-    
+
     Prompt(
         """
 {expression_habits_block}
@@ -102,36 +102,57 @@ def init_prompt():
         "s4u_style_prompt",
     )
 
+    Prompt(
+        """
+你是一个专门获取知识的助手。你的名字是{bot_name}。现在是{time_now}。
+群里正在进行的聊天内容：
+{chat_history}
+
+现在，{sender}发送了内容:{target_message},你想要回复ta。
+请仔细分析聊天内容，考虑以下几点：
+1. 内容中是否包含需要查询信息的问题
+2. 是否有明确的知识获取指令
+
+If you need to use the search tool, please directly call the function "lpmm_search_knowledge". If you do not need to use any tool, simply output "No tool needed".
+""",
+        name="lpmm_get_knowledge_prompt",
+    )
+
 
 class DefaultReplyer:
     def __init__(
         self,
         chat_stream: ChatStream,
-        model_configs: Optional[List[Dict[str, Any]]] = None,
+        model_set_with_weight: Optional[List[Tuple[TaskConfig, float]]] = None,
         request_type: str = "focus.replyer",
     ):
         self.request_type = request_type
 
-        if model_configs:
-            self.express_model_configs = model_configs
+        if model_set_with_weight:
+            # self.express_model_configs = model_configs
+            self.model_set: List[Tuple[TaskConfig, float]] = model_set_with_weight
         else:
             # 当未提供配置时，使用默认配置并赋予默认权重
 
-            model_config_1 = global_config.model.replyer_1.copy()
-            model_config_2 = global_config.model.replyer_2.copy()
+            # model_config_1 = global_config.model.replyer_1.copy()
+            # model_config_2 = global_config.model.replyer_2.copy()
             prob_first = global_config.chat.replyer_random_probability
 
-            model_config_1["weight"] = prob_first
-            model_config_2["weight"] = 1.0 - prob_first
+            # model_config_1["weight"] = prob_first
+            # model_config_2["weight"] = 1.0 - prob_first
 
-            self.express_model_configs = [model_config_1, model_config_2]
+            # self.express_model_configs = [model_config_1, model_config_2]
+            self.model_set = [
+                (model_config.model_task_config.replyer_1, prob_first),
+                (model_config.model_task_config.replyer_2, 1.0 - prob_first),
+            ]
 
-        if not self.express_model_configs:
-            logger.warning("未找到有效的模型配置，回复生成可能会失败。")
-            # 提供一个最终的回退，以防止在空列表上调用 random.choice
-            fallback_config = global_config.model.replyer_1.copy()
-            fallback_config.setdefault("weight", 1.0)
-            self.express_model_configs = [fallback_config]
+        # if not self.express_model_configs:
+        #     logger.warning("未找到有效的模型配置，回复生成可能会失败。")
+        #     # 提供一个最终的回退，以防止在空列表上调用 random.choice
+        #     fallback_config = global_config.model.replyer_1.copy()
+        #     fallback_config.setdefault("weight", 1.0)
+        #     self.express_model_configs = [fallback_config]
 
         self.chat_stream = chat_stream
         self.is_group_chat, self.chat_target_info = get_chat_type_and_target_info(self.chat_stream.stream_id)
@@ -139,13 +160,16 @@ class DefaultReplyer:
         self.heart_fc_sender = HeartFCSender()
         self.memory_activator = MemoryActivator()
         self.instant_memory = InstantMemory(chat_id=self.chat_stream.stream_id)
+
+        from src.plugin_system.core.tool_use import ToolExecutor  # 延迟导入ToolExecutor，不然会循环依赖
+
         self.tool_executor = ToolExecutor(chat_id=self.chat_stream.stream_id, enable_cache=True, cache_ttl=3)
 
-    def _select_weighted_model_config(self) -> Dict[str, Any]:
+    def _select_weighted_models_config(self) -> Tuple[TaskConfig, float]:
         """使用加权随机选择来挑选一个模型配置"""
-        configs = self.express_model_configs
+        configs = self.model_set
         # 提取权重，如果模型配置中没有'weight'键，则默认为1.0
-        weights = [config.get("weight", 1.0) for config in configs]
+        weights = [weight for _, weight in configs]
 
         return random.choices(population=configs, weights=weights, k=1)[0]
 
@@ -155,18 +179,16 @@ class DefaultReplyer:
         extra_info: str = "",
         available_actions: Optional[Dict[str, ActionInfo]] = None,
         enable_tool: bool = True,
-        enable_timeout: bool = False,
     ) -> Tuple[bool, Optional[str], Optional[str]]:
         """
         回复器 (Replier): 负责生成回复文本的核心逻辑。
-        
+
         Args:
             reply_to: 回复对象，格式为 "发送者:消息内容"
             extra_info: 额外信息，用于补充上下文
             available_actions: 可用的动作信息字典
             enable_tool: 是否启用工具调用
-            enable_timeout: 是否启用超时处理
-            
+
         Returns:
             Tuple[bool, Optional[str], Optional[str]]: (是否成功, 生成的回复内容, 使用的prompt)
         """
@@ -177,13 +199,12 @@ class DefaultReplyer:
             # 3. 构建 Prompt
             with Timer("构建Prompt", {}):  # 内部计时器，可选保留
                 prompt = await self.build_prompt_reply_context(
-                    reply_to = reply_to,
+                    reply_to=reply_to,
                     extra_info=extra_info,
                     available_actions=available_actions,
-                    enable_timeout=enable_timeout,
                     enable_tool=enable_tool,
                 )
-                
+
             if not prompt:
                 logger.warning("构建prompt失败，跳过回复生成")
                 return False, None, None
@@ -194,26 +215,8 @@ class DefaultReplyer:
             model_name = "unknown_model"
 
             try:
-                with Timer("LLM生成", {}):  # 内部计时器，可选保留
-                    # 加权随机选择一个模型配置
-                    selected_model_config = self._select_weighted_model_config()
-                    logger.info(
-                        f"使用模型生成回复: {selected_model_config.get('name', 'N/A')} (选中概率: {selected_model_config.get('weight', 1.0)})"
-                    )
-
-                    express_model = LLMRequest(
-                        model=selected_model_config,
-                        request_type=self.request_type,
-                    )
-
-                    if global_config.debug.show_prompt:
-                        logger.info(f"\n{prompt}\n")
-                    else:
-                        logger.debug(f"\n{prompt}\n")
-
-                    content, (reasoning_content, model_name) = await express_model.generate_response_async(prompt)
-
-                    logger.debug(f"replyer生成内容: {content}")
+                content, reasoning_content, model_name, _ = await self.llm_generate_content(prompt)
+                logger.debug(f"replyer生成内容: {content}")
 
             except Exception as llm_e:
                 # 精简报错信息
@@ -232,22 +235,21 @@ class DefaultReplyer:
         raw_reply: str = "",
         reason: str = "",
         reply_to: str = "",
-    ) -> Tuple[bool, Optional[str]]:
+        return_prompt: bool = False,
+    ) -> Tuple[bool, Optional[str], Optional[str]]:
         """
         表达器 (Expressor): 负责重写和优化回复文本。
-        
+
         Args:
             raw_reply: 原始回复内容
             reason: 回复原因
             reply_to: 回复对象，格式为 "发送者:消息内容"
             relation_info: 关系信息
-            
+
         Returns:
             Tuple[bool, Optional[str]]: (是否成功, 重写后的回复内容)
         """
         try:
-
-            
             with Timer("构建Prompt", {}):  # 内部计时器，可选保留
                 prompt = await self.build_prompt_rewrite_context(
                     raw_reply=raw_reply,
@@ -260,36 +262,23 @@ class DefaultReplyer:
             model_name = "unknown_model"
             if not prompt:
                 logger.error("Prompt 构建失败，无法生成回复。")
-                return False, None
+                return False, None, None
 
             try:
-                with Timer("LLM生成", {}):  # 内部计时器，可选保留
-                    # 加权随机选择一个模型配置
-                    selected_model_config = self._select_weighted_model_config()
-                    logger.info(
-                        f"使用模型重写回复: {selected_model_config.get('name', 'N/A')} (选中概率: {selected_model_config.get('weight', 1.0)})"
-                    )
-
-                    express_model = LLMRequest(
-                        model=selected_model_config,
-                        request_type=self.request_type,
-                    )
-
-                    content, (reasoning_content, model_name) = await express_model.generate_response_async(prompt)
-
-                    logger.info(f"想要表达：{raw_reply}||理由：{reason}||生成回复: {content}\n")
+                content, reasoning_content, model_name, _ = await self.llm_generate_content(prompt)
+                logger.info(f"想要表达：{raw_reply}||理由：{reason}||生成回复: {content}\n")
 
             except Exception as llm_e:
                 # 精简报错信息
                 logger.error(f"LLM 生成失败: {llm_e}")
-                return False, None  # LLM 调用失败则无法生成回复
+                return False, None, prompt if return_prompt else None  # LLM 调用失败则无法生成回复
 
-            return True, content
+            return True, content, prompt if return_prompt else None
 
         except Exception as e:
             logger.error(f"回复生成意外失败: {e}")
             traceback.print_exc()
-            return False, None
+            return False, None, prompt if return_prompt else None
 
     async def build_relation_info(self, reply_to: str = ""):
         if not global_config.relationship.enable_relationship:
@@ -313,11 +302,11 @@ class DefaultReplyer:
 
     async def build_expression_habits(self, chat_history: str, target: str) -> str:
         """构建表达习惯块
-        
+
         Args:
             chat_history: 聊天历史记录
             target: 目标消息内容
-            
+
         Returns:
             str: 表达习惯信息字符串
         """
@@ -366,17 +355,15 @@ class DefaultReplyer:
         if style_habits_str.strip() and grammar_habits_str.strip():
             expression_habits_title = "你可以参考以下的语言习惯和句法，如果情景合适就使用，不要盲目使用,不要生硬使用，以合理的方式结合到你的回复中："
 
-        expression_habits_block = f"{expression_habits_title}\n{expression_habits_block}"
-
-        return expression_habits_block
+        return f"{expression_habits_title}\n{expression_habits_block}"
 
     async def build_memory_block(self, chat_history: str, target: str) -> str:
         """构建记忆块
-        
+
         Args:
             chat_history: 聊天历史记录
             target: 目标消息内容
-            
+
         Returns:
             str: 记忆信息字符串
         """
@@ -441,7 +428,7 @@ class DefaultReplyer:
                 for tool_result in tool_results:
                     tool_name = tool_result.get("tool_name", "unknown")
                     content = tool_result.get("content", "")
-                    result_type = tool_result.get("type", "info")
+                    result_type = tool_result.get("type", "tool_result")
 
                     tool_info_str += f"- 【{tool_name}】{result_type}: {content}\n"
 
@@ -459,10 +446,10 @@ class DefaultReplyer:
 
     def _parse_reply_target(self, target_message: str) -> Tuple[str, str]:
         """解析回复目标消息
-        
+
         Args:
             target_message: 目标消息，格式为 "发送者:消息内容" 或 "发送者：消息内容"
-            
+
         Returns:
             Tuple[str, str]: (发送者名称, 消息内容)
         """
@@ -481,10 +468,10 @@ class DefaultReplyer:
 
     async def build_keywords_reaction_prompt(self, target: Optional[str]) -> str:
         """构建关键词反应提示
-        
+
         Args:
             target: 目标消息内容
-            
+
         Returns:
             str: 关键词反应提示字符串
         """
@@ -523,11 +510,11 @@ class DefaultReplyer:
 
     async def _time_and_run_task(self, coroutine, name: str) -> Tuple[str, Any, float]:
         """计时并运行异步任务的辅助函数
-        
+
         Args:
             coroutine: 要执行的协程
             name: 任务名称
-            
+
         Returns:
             Tuple[str, Any, float]: (任务名称, 任务结果, 执行耗时)
         """
@@ -537,7 +524,9 @@ class DefaultReplyer:
         duration = end_time - start_time
         return name, result, duration
 
-    def build_s4u_chat_history_prompts(self, message_list_before_now: List[Dict[str, Any]], target_user_id: str) -> Tuple[str, str]:
+    def build_s4u_chat_history_prompts(
+        self, message_list_before_now: List[Dict[str, Any]], target_user_id: str
+    ) -> Tuple[str, str]:
         """
         构建 s4u 风格的分离对话 prompt
 
@@ -612,7 +601,7 @@ class DefaultReplyer:
         chat_info: str,
     ) -> Any:
         """构建 mai_think 上下文信息
-        
+
         Args:
             chat_id: 聊天ID
             memory_block: 记忆块内容
@@ -625,7 +614,7 @@ class DefaultReplyer:
             sender: 发送者名称
             target: 目标消息内容
             chat_info: 聊天信息
-            
+
         Returns:
             Any: mai_think 实例
         """
@@ -647,19 +636,17 @@ class DefaultReplyer:
         reply_to: str,
         extra_info: str = "",
         available_actions: Optional[Dict[str, ActionInfo]] = None,
-        enable_timeout: bool = False,
         enable_tool: bool = True,
     ) -> str:  # sourcery skip: merge-else-if-into-elif, remove-redundant-if
         """
         构建回复器上下文
 
         Args:
-            reply_data: 回复数据
-                replay_data 包含以下字段：
-                    structured_info: 结构化信息，一般是工具调用获得的信息
-                    reply_to: 回复对象
-                    extra_info/extra_info_block: 额外信息
+            reply_to: 回复对象，格式为 "发送者:消息内容"
+            extra_info: 额外信息，用于补充上下文
             available_actions: 可用动作
+            enable_timeout: 是否启用超时处理
+            enable_tool: 是否启用工具调用
 
         Returns:
             str: 构建好的上下文
@@ -727,7 +714,7 @@ class DefaultReplyer:
             self._time_and_run_task(
                 self.build_tool_info(chat_talking_prompt_short, reply_to, enable_tool=enable_tool), "tool_info"
             ),
-            self._time_and_run_task(get_prompt_info(target, threshold=0.38), "prompt_info"),
+            self._time_and_run_task(self.get_prompt_info(chat_talking_prompt_short, reply_to), "prompt_info"),
         )
 
         # 任务名称中英文映射
@@ -877,7 +864,7 @@ class DefaultReplyer:
         raw_reply: str,
         reason: str,
         reply_to: str,
-    ) -> str:
+    ) -> str:  # sourcery skip: merge-else-if-into-elif, remove-redundant-if
         chat_stream = self.chat_stream
         chat_id = chat_stream.stream_id
         is_group_chat = bool(chat_stream.group_info)
@@ -1011,6 +998,81 @@ class DefaultReplyer:
             display_message=display_message,
         )
 
+    async def llm_generate_content(self, prompt: str):
+        with Timer("LLM生成", {}):  # 内部计时器，可选保留
+            # 加权随机选择一个模型配置
+            selected_model_config, weight = self._select_weighted_models_config()
+            logger.info(f"使用模型集生成回复: {selected_model_config} (选中概率: {weight})")
+
+            express_model = LLMRequest(model_set=selected_model_config, request_type=self.request_type)
+
+            if global_config.debug.show_prompt:
+                logger.info(f"\n{prompt}\n")
+            else:
+                logger.debug(f"\n{prompt}\n")
+
+            content, (reasoning_content, model_name, tool_calls) = await express_model.generate_response_async(prompt)
+
+            logger.debug(f"replyer生成内容: {content}")
+        return content, reasoning_content, model_name, tool_calls
+
+    async def get_prompt_info(self, message: str, reply_to: str):
+        related_info = ""
+        start_time = time.time()
+        from src.plugins.built_in.knowledge.lpmm_get_knowledge import SearchKnowledgeFromLPMMTool
+        if not reply_to:
+            logger.debug("没有回复对象，跳过获取知识库内容")
+            return ""
+        sender, content = self._parse_reply_target(reply_to)
+        if not content:
+            logger.debug("回复对象内容为空，跳过获取知识库内容")
+            return ""
+        logger.debug(f"获取知识库内容，元消息：{message[:30]}...，消息长度: {len(message)}")
+        # 从LPMM知识库获取知识
+        try:
+            # 检查LPMM知识库是否启用
+            if not global_config.lpmm_knowledge.enable:
+                logger.debug("LPMM知识库未启用，跳过获取知识库内容")
+                return ""
+            time_now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
+            bot_name = global_config.bot.nickname
+
+            prompt = await global_prompt_manager.format_prompt(
+                "lpmm_get_knowledge_prompt",
+                bot_name=bot_name,
+                time_now=time_now,
+                chat_history=message,
+                sender=sender,
+                target_message=content,
+            )
+            _, _, _, _, tool_calls = await llm_api.generate_with_model_with_tools(
+                prompt,
+                model_config=model_config.model_task_config.tool_use,
+                tool_options=[SearchKnowledgeFromLPMMTool.get_tool_definition()],
+            )
+            if tool_calls:
+                result = await self.tool_executor.execute_tool_call(tool_calls[0], SearchKnowledgeFromLPMMTool())
+                end_time = time.time()
+                if not result or not result.get("content"):
+                    logger.debug("从LPMM知识库获取知识失败，返回空知识...")
+                    return ""
+                found_knowledge_from_lpmm = result.get("content", "")
+                logger.debug(
+                    f"从LPMM知识库获取知识，相关信息：{found_knowledge_from_lpmm[:100]}...，信息长度: {len(found_knowledge_from_lpmm)}"
+                )
+                related_info += found_knowledge_from_lpmm
+                logger.debug(f"获取知识库内容耗时: {(end_time - start_time):.3f}秒")
+                logger.debug(f"获取知识库内容，相关信息：{related_info[:100]}...，信息长度: {len(related_info)}")
+
+                return f"你有以下这些**知识**：\n{related_info}\n请你**记住上面的知识**，之后可能会用到。\n"
+            else:
+                logger.debug("从LPMM知识库获取知识失败，可能是从未导入过知识，返回空知识...")
+                return ""
+        except Exception as e:
+            logger.error(f"获取知识库内容时发生异常: {str(e)}")
+            return ""
+
 
 def weighted_sample_no_replacement(items, weights, k) -> list:
     """
@@ -1044,40 +1106,6 @@ def weighted_sample_no_replacement(items, weights, k) -> list:
                 pool.pop(idx)
                 break
     return selected
-
-
-async def get_prompt_info(message: str, threshold: float):
-    related_info = ""
-    start_time = time.time()
-
-    logger.debug(f"获取知识库内容，元消息：{message[:30]}...，消息长度: {len(message)}")
-    # 从LPMM知识库获取知识
-    try:
-        # 检查LPMM知识库是否启用
-        if qa_manager is None:
-            logger.debug("LPMM知识库已禁用，跳过知识获取")
-            return ""
-
-        found_knowledge_from_lpmm = await qa_manager.get_knowledge(message)
-
-        end_time = time.time()
-        if found_knowledge_from_lpmm is not None:
-            logger.debug(
-                f"从LPMM知识库获取知识，相关信息：{found_knowledge_from_lpmm[:100]}...，信息长度: {len(found_knowledge_from_lpmm)}"
-            )
-            related_info += found_knowledge_from_lpmm
-            logger.debug(f"获取知识库内容耗时: {(end_time - start_time):.3f}秒")
-            logger.debug(f"获取知识库内容，相关信息：{related_info[:100]}...，信息长度: {len(related_info)}")
-
-            # 格式化知识信息
-            formatted_prompt_info = f"你有以下这些**知识**：\n{related_info}\n请你**记住上面的知识**，之后可能会用到。\n"
-            return formatted_prompt_info
-        else:
-            logger.debug("从LPMM知识库获取知识失败，可能是从未导入过知识，返回空知识...")
-            return ""
-    except Exception as e:
-        logger.error(f"获取知识库内容时发生异常: {str(e)}")
-        return ""
 
 
 init_prompt()

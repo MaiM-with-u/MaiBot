@@ -137,7 +137,7 @@ class MessageSenderContainer:
                 await self.storage.store_message(bot_message, self.chat_stream)
 
             except Exception as e:
-                logger.error(f"[{self.chat_stream.get_stream_name()}] 消息发送或存储时出现错误: {e}", exc_info=True)
+                logger.error(f"[消息流: {self.chat_stream.stream_id}] 消息发送或存储时出现错误: {e}", exc_info=True)
 
             finally:
                 # CRUCIAL: Always call task_done() for any item that was successfully retrieved.
