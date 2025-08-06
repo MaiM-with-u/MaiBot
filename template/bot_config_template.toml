@@ -1,5 +1,5 @@
 [inner]
-version = "6.0.0"
+version = "6.1.0"
 
 #----以下是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 #如果你想要修改配置文件，请在修改后将version的值进行变更
@@ -232,3 +232,12 @@ enable = true
 
 [experimental] #实验性功能
 enable_friend_chat = false # 是否启用好友聊天
+
+[data_base] #数据库配置
+# 数据库类型，可选：sqlite, mysql
+db_type = "sqlite" # 数据库类型
+host = "" # 数据库主机地址,如果是sqlite则不需要填写
+port = 3306 # 数据库端口,如果是sqlite则不需要填写
+user = "" # 数据库用户名,如果是sqlite则不需要填写
+password = "" # 数据库密码,如果是sqlite则不需要填写
+database = "MaiBot" # 数据库名称,如果是sqlite则不需要填写

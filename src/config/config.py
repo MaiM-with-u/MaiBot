@@ -14,6 +14,7 @@ from src.common.logger import get_logger
 from src.config.config_base import ConfigBase
 from src.config.official_configs import (
     BotConfig,
+    DataBaseConfig,
     PersonalityConfig,
     ExpressionConfig,
     ChatConfig,
@@ -348,6 +349,7 @@ class Config(ConfigBase):
     debug: DebugConfig
     custom_prompt: CustomPromptConfig
     voice: VoiceConfig
+    data_base: DataBaseConfig
 
 
 @dataclass

@@ -598,3 +598,24 @@ class LPMMKnowledgeConfig(ConfigBase):
     embedding_dimension: int = 1024
     """嵌入向量维度，应该与模型的输出维度一致"""
 
+
+class DataBaseConfig(ConfigBase):
+    """数据库配置类"""
+
+    db_type: Literal["sqlite", "mysql"] = "sqlite"
+    """数据库类型，支持sqlite、mysql"""
+
+    host: str = "127.0.0.1"
+    """数据库主机地址"""
+
+    port: int = 3306
+    """数据库端口号"""
+
+    username: str = ""
+    """数据库用户名"""
+
+    password: str = ""
+    """数据库密码"""
+
+    database_name: str = "MaiBot"
+    """数据库名称"""
