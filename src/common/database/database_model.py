@@ -1,9 +1,16 @@
-from peewee import Model, DoubleField, IntegerField, BooleanField, TextField, FloatField, DateTimeField
-from .database import db
 import datetime
-from src.common.logger import get_logger
 
+from peewee import BooleanField, CharField, DateTimeField, DoubleField, FloatField, IntegerField, Model, TextField
+
+from src.common.database.database import db
+from src.common.logger import get_logger
+from src.config.config import global_config
+
+table_prefix = global_config.data_base.table_prefix
 logger = get_logger("database_model")
+logger.info(f"正在加载数据库模型...数据库表前缀为: {table_prefix}")
+
+
 # 请在此处定义您的数据库实例。
 # 您需要取消注释并配置适合您的数据库的部分。
 # 例如，对于 SQLite:
@@ -34,7 +41,7 @@ class ChatStreams(BaseModel):
 
     # stream_id: "a544edeb1a9b73e3e1d77dff36e41264"
     # 假设 stream_id 是唯一的，并为其创建索引以提高查询性能。
-    stream_id = TextField(unique=True, index=True)
+    stream_id = CharField(max_length=64, unique=True)
 
     # create_time: 1746096761.4490178 (时间戳，精确到小数点后7位)
     # DoubleField 用于存储浮点数，适合此类时间戳。
@@ -70,7 +77,7 @@ class ChatStreams(BaseModel):
         # 如果不使用带有数据库实例的 BaseModel，或者想覆盖它，
         # 请取消注释并在下面设置数据库实例：
         # database = db
-        table_name = "chat_streams"  # 可选：明确指定数据库中的表名
+        table_name = table_prefix + "chat_streams"  # 可选：明确指定数据库中的表名
 
 
 class LLMUsage(BaseModel):
@@ -78,9 +85,9 @@ class LLMUsage(BaseModel):
     用于存储 API 使用日志数据的模型。
     """
 
-    model_name = TextField(index=True)  # 添加索引
-    user_id = TextField(index=True)  # 添加索引
-    request_type = TextField(index=True)  # 添加索引
+    model_name = CharField(max_length=64, index=True)  # 添加索引
+    user_id = CharField(max_length=64, index=True)  # 添加索引
+    request_type = CharField(max_length=64, index=True)  # 添加索引
     endpoint = TextField()
     prompt_tokens = IntegerField()
     completion_tokens = IntegerField()
@@ -92,15 +99,15 @@ class LLMUsage(BaseModel):
     class Meta:
         # 如果 BaseModel.Meta.database 已设置，则此模型将继承该数据库配置。
         # database = db
-        table_name = "llm_usage"
+        table_name = table_prefix + "llm_usage"
 
 
 class Emoji(BaseModel):
     """表情包"""
 
-    full_path = TextField(unique=True, index=True)  # 文件的完整路径 (包括文件名)
+    full_path = CharField(max_length=512, unique=True)  # 文件的完整路径 (包括文件名)
     format = TextField()  # 图片格式
-    emoji_hash = TextField(index=True)  # 表情包的哈希值
+    emoji_hash = CharField(max_length=64, index=True)  # 表情包的哈希值
     description = TextField()  # 表情包的描述
     query_count = IntegerField(default=0)  # 查询次数（用于统计表情包被查询描述的次数）
     is_registered = BooleanField(default=False)  # 是否已注册
@@ -114,7 +121,7 @@ class Emoji(BaseModel):
 
     class Meta:
         # database = db # 继承自 BaseModel
-        table_name = "emoji"
+        table_name = table_prefix + "emoji"
 
 
 class Messages(BaseModel):
@@ -122,10 +129,10 @@ class Messages(BaseModel):
     用于存储消息数据的模型。
     """
 
-    message_id = TextField(index=True)  # 消息 ID (更改自 IntegerField)
+    message_id = CharField(max_length=128, index=True)  # 消息 ID (更改自 IntegerField)
     time = DoubleField()  # 消息时间戳
 
-    chat_id = TextField(index=True)  # 对应的 ChatStreams stream_id
+    chat_id = CharField(max_length=128, index=True)  # 对应的 ChatStreams stream_id
 
     reply_to = TextField(null=True)
 
@@ -165,7 +172,7 @@ class Messages(BaseModel):
 
     class Meta:
         # database = db # 继承自 BaseModel
-        table_name = "messages"
+        table_name = table_prefix + "messages"
 
 
 class ActionRecords(BaseModel):
@@ -183,13 +190,13 @@ class ActionRecords(BaseModel):
     action_build_into_prompt = BooleanField(default=False)
     action_prompt_display = TextField()
 
-    chat_id = TextField(index=True)  # 对应的 ChatStreams stream_id
+    chat_id = CharField(max_length=128, index=True)  # 对应的 ChatStreams stream_id
     chat_info_stream_id = TextField()
     chat_info_platform = TextField()
 
     class Meta:
         # database = db # 继承自 BaseModel
-        table_name = "action_records"
+        table_name = table_prefix + "action_records"
 
 
 class Images(BaseModel):
@@ -198,9 +205,9 @@ class Images(BaseModel):
     """
 
     image_id = TextField(default="")  # 图片唯一ID
-    emoji_hash = TextField(index=True)  # 图像的哈希值
+    emoji_hash = CharField(max_length=64, index=True)  # 图像的哈希值
     description = TextField(null=True)  # 图像的描述
-    path = TextField(unique=True)  # 图像文件的路径
+    path = CharField(max_length=512, unique=True)  # 图像文件的路径
     # base64 = TextField()  # 图片的base64编码
     count = IntegerField(default=1)  # 图片被引用的次数
     timestamp = FloatField()  # 时间戳
@@ -208,7 +215,7 @@ class Images(BaseModel):
     vlm_processed = BooleanField(default=False)  # 是否已经过VLM处理
 
     class Meta:
-        table_name = "images"
+        table_name = table_prefix + "images"
 
 
 class ImageDescriptions(BaseModel):
@@ -217,13 +224,13 @@ class ImageDescriptions(BaseModel):
     """
 
     type = TextField()  # 类型，例如 "emoji"
-    image_description_hash = TextField(index=True)  # 图像的哈希值
+    image_description_hash = CharField(max_length=64, index=True)  # 图像的哈希值
     description = TextField()  # 图像的描述
     timestamp = FloatField()  # 时间戳
 
     class Meta:
         # database = db # 继承自 BaseModel
-        table_name = "image_descriptions"
+        table_name = table_prefix + "image_descriptions"
 
 
 class OnlineTime(BaseModel):
@@ -232,14 +239,14 @@ class OnlineTime(BaseModel):
     """
 
     # timestamp: "$date": "2025-05-01T18:52:18.191Z" (存储为字符串)
-    timestamp = TextField(default=datetime.datetime.now)  # 时间戳
+    timestamp = CharField(max_length=64, default=datetime.datetime.now)  # 时间戳
     duration = IntegerField()  # 时长，单位分钟
     start_timestamp = DateTimeField(default=datetime.datetime.now)
     end_timestamp = DateTimeField(index=True)
 
     class Meta:
         # database = db # 继承自 BaseModel
-        table_name = "online_time"
+        table_name = table_prefix + "online_time"
 
 
 class PersonInfo(BaseModel):
@@ -247,11 +254,11 @@ class PersonInfo(BaseModel):
     用于存储个人信息数据的模型。
     """
 
-    person_id = TextField(unique=True, index=True)  # 个人唯一ID
+    person_id = CharField(max_length=64, unique=True)  # 个人唯一ID
     person_name = TextField(null=True)  # 个人名称 (允许为空)
     name_reason = TextField(null=True)  # 名称设定的原因
     platform = TextField()  # 平台
-    user_id = TextField(index=True)  # 用户ID
+    user_id = CharField(max_length=64, index=True)  # 用户ID
     nickname = TextField()  # 用户昵称
     impression = TextField(null=True)  # 个人印象
     short_impression = TextField(null=True)  # 个人印象的简短描述
@@ -266,11 +273,11 @@ class PersonInfo(BaseModel):
 
     class Meta:
         # database = db # 继承自 BaseModel
-        table_name = "person_info"
+        table_name = table_prefix + "person_info"
 
 
 class Memory(BaseModel):
-    memory_id = TextField(index=True)
+    memory_id = CharField(max_length=128, index=True)
     chat_id = TextField(null=True)
     memory_text = TextField(null=True)
     keywords = TextField(null=True)
@@ -278,7 +285,7 @@ class Memory(BaseModel):
     last_view_time = FloatField(null=True)
 
     class Meta:
-        table_name = "memory"
+        table_name = table_prefix + "memory"
 
 
 class Expression(BaseModel):
@@ -290,16 +297,16 @@ class Expression(BaseModel):
     style = TextField()
     count = FloatField()
     last_active_time = FloatField()
-    chat_id = TextField(index=True)
+    chat_id = CharField(max_length=128, index=True)
     type = TextField()
     create_date = FloatField(null=True)  # 创建日期，允许为空以兼容老数据
 
     class Meta:
-        table_name = "expression"
+        table_name = table_prefix + "expression"
 
 
 class ThinkingLog(BaseModel):
-    chat_id = TextField(index=True)
+    chat_id = CharField(max_length=128, index=True)
     trigger_text = TextField(null=True)
     response_text = TextField(null=True)
 
@@ -319,7 +326,7 @@ class ThinkingLog(BaseModel):
     created_at = DateTimeField(default=datetime.datetime.now)
 
     class Meta:
-        table_name = "thinking_logs"
+        table_name = table_prefix + "thinking_logs"
 
 
 class GraphNodes(BaseModel):
@@ -327,14 +334,14 @@ class GraphNodes(BaseModel):
     用于存储记忆图节点的模型
     """
 
-    concept = TextField(unique=True, index=True)  # 节点概念
+    concept = CharField(max_length=128, unique=True)  # 节点概念
     memory_items = TextField()  # JSON格式存储的记忆列表
     hash = TextField()  # 节点哈希值
     created_time = FloatField()  # 创建时间戳
     last_modified = FloatField()  # 最后修改时间戳
 
     class Meta:
-        table_name = "graph_nodes"
+        table_name = table_prefix + "graph_nodes"
 
 
 class GraphEdges(BaseModel):
@@ -342,15 +349,15 @@ class GraphEdges(BaseModel):
     用于存储记忆图边的模型
     """
 
-    source = TextField(index=True)  # 源节点
-    target = TextField(index=True)  # 目标节点
+    source = CharField(max_length=128, index=True)  # 源节点
+    target = CharField(max_length=128, index=True)  # 目标节点
     strength = IntegerField()  # 连接强度
     hash = TextField()  # 边哈希值
     created_time = FloatField()  # 创建时间戳
     last_modified = FloatField()  # 最后修改时间戳
 
     class Meta:
-        table_name = "graph_edges"
+        table_name = table_prefix + "graph_edges"
 
 
 def create_tables():
@@ -400,7 +407,7 @@ def initialize_database():
         GraphEdges,
         ActionRecords,  # 添加 ActionRecords 到初始化列表
     ]
-
+    del_extra = False  # 是否删除多余字段
     try:
         with db:  # 管理 table_exists 检查的连接
             for model in models:
@@ -452,6 +459,8 @@ def initialize_database():
                             logger.error(f"添加字段 '{field_name}' 失败: {e}")
 
                 # 检查并删除多余字段（新增逻辑）
+                if not del_extra:
+                    continue
                 extra_fields = existing_columns - model_fields
                 if extra_fields:
                     logger.warning(f"表 '{table_name}' 存在多余字段: {extra_fields}")

@@ -1,5 +1,5 @@
 [inner]
-version = "6.0.0"
+version = "6.1.0"
 
 #----以下是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 #如果你想要修改配置文件，请在修改后将version的值进行变更
@@ -13,14 +13,14 @@ version = "6.0.0"
 #----以上是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 
 [bot]
-platform = "qq" 
+platform = "qq"
 qq_account = 1145141919810 # 麦麦的QQ账号
 nickname = "麦麦" # 麦麦的昵称
 alias_names = ["麦叠", "牢麦"] # 麦麦的别名
 
 [personality]
 # 建议50字以内，描述人格的核心特质
-personality_core = "是一个积极向上的女大学生" 
+personality_core = "是一个积极向上的女大学生"
 # 人格的细节，描述人格的一些侧面
 personality_side = "用一句话或几句话描述人格的侧面特质"
 #アイデンティティがない 生まれないらららら
@@ -39,7 +39,7 @@ enable_expression_learning = false # 是否启用表达学习，麦麦会学习�
 learning_interval = 350 # 学习间隔 单位秒
 
 expression_groups = [
-    ["qq:1919810:private","qq:114514:private","qq:1111111:group"], # 在这里设置互通组，相同组的chat_id会共享学习到的表达方式
+    ["qq:1919810:private", "qq:114514:private", "qq:1111111:group"], # 在这里设置互通组，相同组的chat_id会共享学习到的表达方式
     # 格式：["qq:123456:private","qq:654321:group"]
     # 注意：如果为群聊，则需要设置为group，如果设置为私聊，则需要设置为private
 ]
@@ -51,7 +51,7 @@ relation_frequency = 1 # 关系频率，麦麦构建关系的频率
 
 
 [chat] #麦麦的聊天通用设置
-focus_value = 1 
+focus_value = 1
 # 麦麦的专注思考能力，越高越容易专注，可能消耗更多token
 # 专注时能更好把握发言时机，能够进行持久的连续对话
 
@@ -95,7 +95,7 @@ talk_frequency_adjust = [
 # 以下是消息过滤，可以根据规则过滤特定消息，将不会读取这些消息
 ban_words = [
     # "403","张三"
-    ]
+]
 
 ban_msgs_regex = [
     # 需要过滤的消息（原始消息）匹配的正则表达式，匹配到的消息将被过滤，若不了解正则表达式请勿修改
@@ -139,7 +139,7 @@ consolidation_check_percentage = 0.05 # 检查节点比例
 enable_instant_memory = false # 是否启用即时记忆，测试功能，可能存在未知问题
 
 #不希望记忆的词，已经记忆的不会受到影响，需要手动清理
-memory_ban_words = [ "表情包", "图片", "回复", "聊天记录" ]
+memory_ban_words = ["表情包", "图片", "回复", "聊天记录"]
 
 [voice]
 enable_asr = false # 是否启用语音识别，启用后麦麦可以识别语音消息，启用该功能需要配置语音识别模型[model.voice]s
@@ -190,10 +190,10 @@ enable_response_post_process = true # 是否启用回复后处理，包括错别
 
 [chinese_typo]
 enable = true # 是否启用中文错别字生成器
-error_rate=0.01 # 单字替换概率
-min_freq=9 # 最小字频阈值
-tone_error_rate=0.1 # 声调错误概率
-word_replace_rate=0.006 # 整词替换概率
+error_rate = 0.01 # 单字替换概率
+min_freq = 9 # 最小字频阈值
+tone_error_rate = 0.1 # 声调错误概率
+word_replace_rate = 0.006 # 整词替换概率
 
 [response_splitter]
 enable = true # 是否启用回复分割器
@@ -210,8 +210,8 @@ console_log_level = "INFO" # 控制台日志级别，可选: DEBUG, INFO, WARNIN
 file_log_level = "DEBUG" # 文件日志级别，可选: DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 # 第三方库日志控制
-suppress_libraries = ["faiss","httpx", "urllib3", "asyncio", "websockets", "httpcore", "requests", "peewee", "openai","uvicorn","jieba"] # 完全屏蔽的库
-library_log_levels = { "aiohttp" = "WARNING"} # 设置特定库的日志级别
+suppress_libraries = ["faiss", "httpx", "urllib3", "asyncio", "websockets", "httpcore", "requests", "peewee", "openai", "uvicorn", "jieba"] # 完全屏蔽的库
+library_log_levels = { "aiohttp" = "WARNING" } # 设置特定库的日志级别
 
 [debug]
 show_prompt = false # 是否显示prompt
@@ -220,9 +220,9 @@ show_prompt = false # 是否显示prompt
 auth_token = [] # 认证令牌，用于API验证，为空则不启用验证
 # 以下项目若要使用需要打开use_custom，并单独配置maim_message的服务器
 use_custom = false # 是否启用自定义的maim_message服务器，注意这需要设置新的端口，不能与.env重复
-host="127.0.0.1"
-port=8090
-mode="ws" # 支持ws和tcp两种模式
+host = "127.0.0.1"
+port = 8090
+mode = "ws" # 支持ws和tcp两种模式
 use_wss = false # 是否使用WSS安全连接，只支持ws模式
 cert_file = "" # SSL证书文件路径，仅在use_wss=true时有效
 key_file = "" # SSL密钥文件路径，仅在use_wss=true时有效
@@ -232,3 +232,13 @@ enable = true
 
 [experimental] #实验性功能
 enable_friend_chat = false # 是否启用好友聊天
+
+[data_base] #数据库配置
+# 数据库类型，可选：sqlite, mysql
+db_type = "sqlite" # 数据库类型
+host = "" # 数据库主机地址,如果是sqlite则不需要填写
+port = 3306 # 数据库端口,如果是sqlite则不需要填写
+username = "" # 数据库用户名,如果是sqlite则不需要填写
+password = "" # 数据库密码,如果是sqlite则不需要填写
+database = "MaiBot" # 数据库名称,如果是sqlite则不需要填写
+table_prefix = "" # 数据库表前缀,用于支持多实例部署

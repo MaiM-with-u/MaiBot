@@ -1,8 +1,10 @@
 import os
 from pymongo import MongoClient
-from peewee import SqliteDatabase
+from peewee import MySQLDatabase, SqliteDatabase
 from pymongo.database import Database
 from rich.traceback import install
+
+from src.config.config import global_config
 
 install(extra_lines=3)
 
@@ -57,26 +59,39 @@ class DBWrapper:
         return get_db()[key]  # type: ignore
 
 
+def create_peewee_database():
+    data_base_config = global_config.data_base
+
+    if data_base_config.db_type == "mysql":
+        return MySQLDatabase(
+            data_base_config.database,
+            user=data_base_config.username,
+            password=data_base_config.password,
+            host=data_base_config.host,
+            port=int(data_base_config.port),
+            charset='utf8mb4'
+        )
+    elif data_base_config.db_type == "sqlite":
+        ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+        _DB_DIR = os.path.join(ROOT_PATH, "data")
+        _DB_FILE = os.path.join(_DB_DIR, "MaiBot.db")
+        os.makedirs(_DB_DIR, exist_ok=True)
+        return SqliteDatabase(
+            _DB_FILE,
+            pragmas={
+                "journal_mode": "wal",  # WAL模式提高并发性能
+                "cache_size": -64 * 1000,  # 64MB缓存
+                "foreign_keys": 1,
+                "ignore_check_constraints": 0,
+                "synchronous": 0,  # 异步写入提高性能
+                "busy_timeout": 1000,  # 1秒超时而不是3秒
+            }, )
+    else:
+        raise ValueError(f"Unsupported PEEWEE_DB_TYPE: {data_base_config.db_type}")
+
+
 # 全局数据库访问点
-memory_db: Database = DBWrapper()  # type: ignore
-
-# 定义数据库文件路径
-ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-_DB_DIR = os.path.join(ROOT_PATH, "data")
-_DB_FILE = os.path.join(_DB_DIR, "MaiBot.db")
-
-# 确保数据库目录存在
-os.makedirs(_DB_DIR, exist_ok=True)
+memory_db: Database | DBWrapper = DBWrapper()
 
 # 全局 Peewee SQLite 数据库访问点
-db = SqliteDatabase(
-    _DB_FILE,
-    pragmas={
-        "journal_mode": "wal",  # WAL模式提高并发性能
-        "cache_size": -64 * 1000,  # 64MB缓存
-        "foreign_keys": 1,
-        "ignore_check_constraints": 0,
-        "synchronous": 0,  # 异步写入提高性能
-        "busy_timeout": 1000,  # 1秒超时而不是3秒
-    },
-)
+db = create_peewee_database()

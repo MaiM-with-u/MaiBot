@@ -1,5 +1,4 @@
 import re
-
 from dataclasses import dataclass, field
 from typing import Literal, Optional
 
@@ -17,7 +16,7 @@ from src.config.config_base import ConfigBase
 @dataclass
 class BotConfig(ConfigBase):
     """QQ机器人配置类"""
-    
+
     platform: str
     """平台"""
 
@@ -68,7 +67,7 @@ class ChatConfig(ConfigBase):
 
     max_context_size: int = 18
     """上下文长度"""
-    
+
     willing_amplifier: float = 1.0
 
     replyer_random_probability: float = 0.5
@@ -272,6 +271,7 @@ class NormalChatConfig(ConfigBase):
     willing_mode: str = "classical"
     """意愿模式"""
 
+
 @dataclass
 class ExpressionConfig(ConfigBase):
     """表达配置类"""
@@ -301,7 +301,8 @@ class ToolConfig(ConfigBase):
 
     enable_tool: bool = False
     """是否在聊天中启用工具"""
-    
+
+
 @dataclass
 class VoiceConfig(ConfigBase):
     """语音识别配置类"""
@@ -387,7 +388,7 @@ class MemoryConfig(ConfigBase):
 
     memory_ban_words: list[str] = field(default_factory=lambda: ["表情包", "图片", "回复", "聊天记录"])
     """不允许记忆的词列表"""
-    
+
     enable_instant_memory: bool = True
     """是否启用即时记忆"""
 
@@ -398,7 +399,7 @@ class MoodConfig(ConfigBase):
 
     enable_mood: bool = False
     """是否启用情绪系统"""
-    
+
     mood_update_threshold: float = 1.0
     """情绪更新阈值,越高，更新越慢"""
 
@@ -448,6 +449,7 @@ class KeywordReactionConfig(ConfigBase):
         for rule in self.keyword_rules + self.regex_rules:
             if not isinstance(rule, KeywordRuleConfig):
                 raise ValueError(f"规则必须是KeywordRuleConfig类型，而不是{type(rule).__name__}")
+
 
 @dataclass
 class CustomPromptConfig(ConfigBase):
@@ -598,3 +600,27 @@ class LPMMKnowledgeConfig(ConfigBase):
     embedding_dimension: int = 1024
     """嵌入向量维度，应该与模型的输出维度一致"""
 
+
+class DataBaseConfig(ConfigBase):
+    """数据库配置类"""
+
+    db_type: Literal["sqlite", "mysql"] = "sqlite"
+    """数据库类型，支持sqlite、mysql"""
+
+    host: str = "127.0.0.1"
+    """数据库主机地址"""
+
+    port: int = 3306
+    """数据库端口号"""
+
+    username: str = ""
+    """数据库用户名"""
+
+    password: str = ""
+    """数据库密码"""
+
+    database: str = "MaiBot"
+    """数据库名称"""
+
+    table_prefix: str = ""
+    """数据库表前缀"""
