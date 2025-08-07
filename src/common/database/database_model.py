@@ -1,4 +1,5 @@
 import datetime
+import sys
 
 from peewee import BooleanField, CharField, DateTimeField, DoubleField, FloatField, IntegerField, Model, TextField
 
@@ -8,7 +9,7 @@ from src.config.config import global_config
 
 table_prefix = global_config.data_base.table_prefix
 logger = get_logger("database_model")
-logger.info(f"正在加载数据库模型...数据库表前缀为: {table_prefix}")
+logger.info(f"正在加载数据库模型...数据库表前缀为: `{table_prefix}`")
 
 
 # 请在此处定义您的数据库实例。
@@ -389,6 +390,7 @@ def initialize_database():
     """
     检查所有定义的表是否存在，如果不存在则创建它们。
     检查所有表的所有字段是否存在，如果缺失则自动添加。
+    支持旧表更名到新表的功能。
     """
 
     models = [
@@ -418,10 +420,11 @@ def initialize_database():
             return {
                 "TextField": "TEXT",
                 "IntegerField": "INTEGER",
-                "FloatField": "FLOAT",
-                "DoubleField": "DOUBLE",
-                "BooleanField": "INTEGER",
-                "DateTimeField": "DATETIME",
+                "FloatField": "REAL",  # SQLite 浮点数推荐 REAL
+                "DoubleField": "REAL",
+                "BooleanField": "INTEGER",  # SQLite 布尔值存储为 0 或 1
+                "DateTimeField": "TEXT",  # SQLite 日期时间通常存储为 TEXT (ISO 格式)
+                "CharField": "TEXT",
             }.get(field_type_name, "TEXT")
         elif db_type == "mysql":
             # CharField 的 max_length 将在主循环中单独处理
@@ -432,12 +435,13 @@ def initialize_database():
                 "DoubleField": "DOUBLE",
                 "BooleanField": "TINYINT(1)",  # MySQL 布尔值存储为 TINYINT(1)
                 "DateTimeField": "DATETIME",
+                "CharField": "VARCHAR",  # 占位符，实际长度会在外部追加
             }.get(field_type_name, "TEXT")
         logger.error(f"不支持的数据库类型: {db_type}")
         return "TEXT"  # 默认回退类型
 
     # 辅助函数：将 Peewee 字段的默认值转换为 SQL 语句中的 DEFAULT 子句
-    def get_sql_default_value(field_obj):
+    def get_sql_default_value(field_obj, db_type):
         if field_obj.default is None:
             return ""  # 没有定义默认值
 
@@ -460,18 +464,86 @@ def initialize_database():
         return ""  # 其他无法直接转换为 SQL 字面值的类型
 
     try:
+        db_type = global_config.data_base.db_type
+        old_table_prefix = global_config.data_base.old_table_prefix
+
         with db:
+            # --- 新增的旧表迁移/更名逻辑 ---
+            if old_table_prefix is not None and old_table_prefix != table_prefix:
+                logger.info(f"检测到旧数据库表前缀: `{old_table_prefix}`，正在检查旧表进行迁移...")
+                for model in models:
+                    new_table_name = model._meta.table_name
+
+                    # 确保 new_table_name 确实以 table_prefix 开头，
+                    # 否则 base_model_name 的替换可能会有问题。
+                    # 通常情况下，model._meta.table_name 应该已经包含了 table_prefix。
+                    if new_table_name.startswith(table_prefix):
+                        base_model_name = new_table_name[len(table_prefix):]  # 移除当前前缀
+                    else:
+                        # 这是一个不应该发生的情况，但为了健壮性进行处理
+                        logger.warning(
+                            f"模型 '{model.__name__}' 的表名 '{new_table_name}' 不以当前表前缀 '{table_prefix}' 开头。"
+                            f"旧表名推断可能不准确，将尝试直接拼接旧前缀。"
+                        )
+                        # 尝试通过去除可能存在但非严格匹配的前缀或直接使用模型名来推断
+                        base_model_name = new_table_name.replace(
+                            table_prefix, '', 1) if table_prefix else new_table_name
+                        if not base_model_name:  # 如果替换后为空，使用模型的默认表名（类名小写）
+                            base_model_name = model.__name__.lower()
+
+                    old_table_name = old_table_prefix + base_model_name
+
+                    old_exists = db.table_exists(old_table_name)
+                    new_exists = db.table_exists(new_table_name)
+
+                    if old_exists and new_exists:
+                        # 情况1: 旧表和新表都存在，这是冲突，必须手动解决
+                        logger.error(
+                            f"错误：发现新旧两张表 '{new_table_name}' 和 '{old_table_name}' 同时存在。"
+                            f"这可能导致数据冲突。请手动处理以避免数据丢失，程序将退出。"
+                        )
+                        sys.exit(1)  # 立即退出，避免进一步的问题
+
+                    elif old_exists and not new_exists:
+                        # 情况2: 旧表存在但新表不存在，进行更名操作
+                        logger.warning(
+                            f"检测到旧表 '{old_table_name}' 存在但新表 '{new_table_name}' 不存在，"
+                            f"正在尝试将旧表更名为新表..."
+                        )
+                        try:
+                            if db_type == "sqlite":
+                                db.execute_sql(f"ALTER TABLE {old_table_name} RENAME TO {new_table_name}")
+                            elif db_type == "mysql":
+                                db.execute_sql(f"RENAME TABLE {old_table_name} TO {new_table_name}")
+                            else:
+                                logger.error(f"不支持的数据库类型 '{db_type}' 无法执行表更名操作。")
+                                continue  # 跳过当前模型的处理
+
+                            logger.info(f"表 '{old_table_name}' 已成功更名为 '{new_table_name}'。")
+                            # 更名成功后，新表现在存在了，后续的创建逻辑会跳过它
+                        except Exception as e:
+                            logger.error(f"更名表 '{old_table_name}' 到 '{new_table_name}' 失败: {e}")
+                            # 更名失败但程序继续，后续的 create_tables 会尝试创建新表
+                            # 如果旧表数据很重要，此处可能需要更严格的错误处理，例如sys.exit(1)
+                            continue  # 跳过当前模型的处理
+
+                    elif not old_exists and new_exists:
+                        # 情况3: 旧表不存在但新表已存在，无需迁移
+                        logger.info(f"新表 '{new_table_name}' 已存在，无需迁移旧表。")
+                    # 情况4: 旧表和新表都不存在，由下面的通用创建逻辑处理
+
+            # --- 结束旧表迁移/更名逻辑 ---
+
             for model in models:
                 table_name = model._meta.table_name
                 if not db.table_exists(model):
                     logger.warning(f"表 '{table_name}' 未找到，正在创建...")
                     db.create_tables([model])
                     logger.info(f"表 '{table_name}' 创建成功")
-                    # 表刚创建，无需检查字段
                     continue
 
                 # 获取现有列
-                db_type = global_config.data_base.db_type
+                existing_columns = set()
                 if db_type == "sqlite":
                     cursor = db.execute_sql(f"PRAGMA table_info('{table_name}')")
                     existing_columns = {row[1] for row in cursor.fetchall()}
@@ -500,7 +572,7 @@ def initialize_database():
                             sql_type = f"VARCHAR({field_obj.max_length})"
 
                         null_clause = " NULL" if field_obj.null else " NOT NULL"
-                        default_clause = get_sql_default_value(field_obj)
+                        default_clause = get_sql_default_value(field_obj, db_type)
 
                         # 如果字段定义为 NOT NULL 且无法在 SQL DDL 中提供字面默认值 (如可调用默认值)，
                         # 为了避免在有数据的表中添加列时失败，暂时将其添加为 NULLABLE。

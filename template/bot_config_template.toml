@@ -242,3 +242,4 @@ username = "" # 数据库用户名,如果是sqlite则不需要填写
 password = "" # 数据库密码,如果是sqlite则不需要填写
 database = "MaiBot" # 数据库名称,如果是sqlite则不需要填写
 table_prefix = "" # 数据库表前缀,用于支持多实例部署
+old_table_prefix = "" # 旧数据库表前缀，用于兼容旧版本数据

@@ -601,6 +601,7 @@ class LPMMKnowledgeConfig(ConfigBase):
     """嵌入向量维度，应该与模型的输出维度一致"""
 
 
+@dataclass
 class DataBaseConfig(ConfigBase):
     """数据库配置类"""
 
@@ -624,3 +625,6 @@ class DataBaseConfig(ConfigBase):
 
     table_prefix: str = ""
     """数据库表前缀"""
+
+    old_table_prefix: str = ""
+    """旧数据库表前缀，用于兼容旧版本数据"""
