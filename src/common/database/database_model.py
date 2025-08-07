@@ -441,7 +441,7 @@ def initialize_database():
         return "TEXT"  # 默认回退类型
 
     # 辅助函数：将 Peewee 字段的默认值转换为 SQL 语句中的 DEFAULT 子句
-    def get_sql_default_value(field_obj, db_type):
+    def get_sql_default_value(field_obj):
         if field_obj.default is None:
             return ""  # 没有定义默认值
 
@@ -543,7 +543,6 @@ def initialize_database():
                     continue
 
                 # 获取现有列
-                existing_columns = set()
                 if db_type == "sqlite":
                     cursor = db.execute_sql(f"PRAGMA table_info('{table_name}')")
                     existing_columns = {row[1] for row in cursor.fetchall()}
@@ -572,7 +571,7 @@ def initialize_database():
                             sql_type = f"VARCHAR({field_obj.max_length})"
 
                         null_clause = " NULL" if field_obj.null else " NOT NULL"
-                        default_clause = get_sql_default_value(field_obj, db_type)
+                        default_clause = get_sql_default_value(field_obj)
 
                         # 如果字段定义为 NOT NULL 且无法在 SQL DDL 中提供字面默认值 (如可调用默认值)，
                         # 为了避免在有数据的表中添加列时失败，暂时将其添加为 NULLABLE。
