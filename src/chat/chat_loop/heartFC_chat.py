@@ -109,6 +109,10 @@ class HeartFChatting:
         self.reply_timeout_count = 0
         self.plan_timeout_count = 0
 
+        # 重启控制
+        self._restart_attempts = 0
+        self._max_restart_attempts = 5
+
         self.last_read_time = time.time() - 1
         
         self.focus_energy = 1
@@ -313,7 +317,7 @@ class HeartFChatting:
             platform = getattr(self.chat_stream, "platform", "unknown")
         
         person = Person(platform = platform ,user_id = action_message.get("user_id", ""))
-        person_name = person.person_name
+        person_name = person.person_name or action_message.get("user_nickname") or action_message.get("user_id", "未知用户")
         action_prompt_display = f"你对{person_name}进行了回复：{reply_text}"
 
         await database_api.store_action_info(
@@ -612,6 +616,7 @@ class HeartFChatting:
 
     async def _main_chat_loop(self):
         """主循环，持续进行计划并可能回复消息，直到被外部取消。"""
+        self._restart_attempts = 0  # 成功启动时重置计数器
         try:
             while self.running:
                 # 主循环
@@ -623,11 +628,21 @@ class HeartFChatting:
             # 设置了关闭标志位后被取消是正常流程
             logger.info(f"{self.log_prefix} 麦麦已关闭聊天")
         except Exception:
-            logger.error(f"{self.log_prefix} 麦麦聊天意外错误，将于3s后尝试重新启动")
-            print(traceback.format_exc())
-            await asyncio.sleep(3)
-            self._loop_task = asyncio.create_task(self._main_chat_loop())
-        logger.error(f"{self.log_prefix} 结束了当前聊天循环")
+            self._restart_attempts += 1
+            if self._restart_attempts > self._max_restart_attempts:
+                logger.error(f"{self.log_prefix} 麦麦聊天意外错误，达到最大重启次数 {self._max_restart_attempts}，停止重启")
+                print(traceback.format_exc())
+            else:
+                wait_time = 2**self._restart_attempts  # 指数退避
+                logger.error(
+                    f"{self.log_prefix} 麦麦聊天意外错误，将于{wait_time}s后尝试重新启动 "
+                    f"(第 {self._restart_attempts}/{self._max_restart_attempts} 次)"
+                )
+                print(traceback.format_exc())
+                await asyncio.sleep(wait_time)
+                self._loop_task = asyncio.create_task(self._main_chat_loop())
+        finally:
+            logger.info(f"{self.log_prefix} 结束了当前聊天循环")
 
     async def _handle_action(
         self,
