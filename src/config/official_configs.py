@@ -61,8 +61,8 @@ class RelationshipConfig(ConfigBase):
     enable_relationship: bool = True
     """是否启用关系系统"""
 
-    relation_frequency: int = 1
-    """关系频率，麦麦构建关系的速度"""
+    relation_frequency: float = 1
+    """关系频率，麦麦构建关系的速度，值越大，构建的频率越高"""
 
 
 @dataclass
