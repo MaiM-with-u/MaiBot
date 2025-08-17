@@ -25,6 +25,11 @@ def get_tool_history_prompt(message_id: Optional[str] = None) -> str:
     Returns:
         格式化的工具历史提示词
     """
+    from src.config.config import global_config
+
+    if not global_config.tool.history.enable_prompt_history:
+        return ""
+        
     return tool_history_manager.get_recent_history_prompt(
         chat_id=message_id
     )

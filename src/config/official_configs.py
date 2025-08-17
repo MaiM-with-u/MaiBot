@@ -289,6 +289,9 @@ class ToolHistoryConfig(ConfigBase):
 
     enable_history: bool = True
     """是否启用工具历史记录"""
+
+    enable_prompt_history: bool = True
+    """是否在提示词中加入工具历史记录"""
     
     max_history: int = 100
     """历史记录最大保存数量"""
