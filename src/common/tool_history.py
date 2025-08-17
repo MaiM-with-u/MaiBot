@@ -54,7 +54,16 @@ class ToolHistoryManager:
                         execution_time: float,
                         status: str,
                         chat_id: Optional[str] = None):
-        """记录工具调用"""
+        """记录工具调用
+        
+        Args:
+            tool_name: 工具名称
+            args: 工具调用参数
+            result: 工具返回结果
+            execution_time: 执行时间（秒）
+            status: 执行状态("completed"或"error")
+            chat_id: 聊天ID，与ChatManager中的chat_id对应，用于标识群聊或私聊会话
+        """
         # 检查是否启用历史记录
         if not global_config.tool.history.enable_history:
             return
@@ -136,14 +145,13 @@ class ToolHistoryManager:
                      chat_id: Optional[str] = None,
                      limit: Optional[int] = None,
                      status: Optional[str] = None) -> List[Dict[str, Any]]:
-        """
-        查询工具调用历史
+        """查询工具调用历史
         
         Args:
             tool_names: 工具名称列表，为空则查询所有工具
             start_time: 开始时间，可以是datetime对象或ISO格式字符串
             end_time: 结束时间，可以是datetime对象或ISO格式字符串
-            chat_id: 会话ID，用于筛选特定会话的调用
+            chat_id: 聊天ID，与ChatManager中的chat_id对应，用于查询特定群聊或私聊的历史记录
             limit: 返回记录数量限制
             status: 执行状态筛选("completed"或"error")
             
