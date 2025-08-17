@@ -133,7 +133,7 @@ class ActionPlanner:
         规划器 (Planner): 使用LLM根据上下文决定做出什么动作。
         """
 
-        action = "no_reply"  # 默认动作
+        action = "no_action"  # 默认动作
         reasoning = "规划器初始化默认"
         action_data = {}
         current_available_actions: Dict[str, ActionInfo] = {}
@@ -172,7 +172,7 @@ class ActionPlanner:
             except Exception as req_e:
                 logger.error(f"{self.log_prefix}LLM 请求执行失败: {req_e}")
                 reasoning = f"LLM 请求失败，模型出现问题: {req_e}"
-                action = "no_reply"
+                action = "no_action"
 
             if llm_content:
                 try:
@@ -189,7 +189,7 @@ class ActionPlanner:
                         logger.error(f"{self.log_prefix}解析后的JSON不是字典类型: {type(parsed_json)}")
                         parsed_json = {}
 
-                    action = parsed_json.get("action", "no_reply")
+                    action = parsed_json.get("action", "no_action")
                     reasoning = parsed_json.get("reason", "未提供原因")
 
                     # 将所有其他属性添加到action_data
@@ -197,8 +197,8 @@ class ActionPlanner:
                         if key not in ["action", "reasoning"]:
                             action_data[key] = value
 
-                    # 非no_reply动作需要target_message_id
-                    if action != "no_reply":
+                    # 非no_action动作需要target_message_id
+                    if action != "no_action":
                         if target_message_id := parsed_json.get("target_message_id"):
                             # 根据target_message_id查找原始消息
                             target_message = self.find_message_by_id(target_message_id, message_id_list)
@@ -218,23 +218,23 @@ class ActionPlanner:
 
 
 
-                    if action != "no_reply" and action != "reply" and action not in current_available_actions:
+                    if action != "no_action" and action != "reply" and action not in current_available_actions:
                         logger.warning(
-                            f"{self.log_prefix}LLM 返回了当前不可用或无效的动作: '{action}' (可用: {list(current_available_actions.keys())})，将强制使用 'no_reply'"
+                            f"{self.log_prefix}LLM 返回了当前不可用或无效的动作: '{action}' (可用: {list(current_available_actions.keys())})，将强制使用 'no_action'"
                         )
                         reasoning = f"LLM 返回了当前不可用的动作 '{action}' (可用: {list(current_available_actions.keys())})。原始理由: {reasoning}"
-                        action = "no_reply"
+                        action = "no_action"
 
                 except Exception as json_e:
                     logger.warning(f"{self.log_prefix}解析LLM响应JSON失败 {json_e}. LLM原始输出: '{llm_content}'")
                     traceback.print_exc()
-                    reasoning = f"解析LLM响应JSON失败: {json_e}. 将使用默认动作 'no_reply'."
-                    action = "no_reply"
+                    reasoning = f"解析LLM响应JSON失败: {json_e}. 将使用默认动作 'no_action'."
+                    action = "no_action"
 
         except Exception as outer_e:
-            logger.error(f"{self.log_prefix}Planner 处理过程中发生意外错误，规划失败，将执行 no_reply: {outer_e}")
+            logger.error(f"{self.log_prefix}Planner 处理过程中发生意外错误，规划失败，将执行 no_action: {outer_e}")
             traceback.print_exc()
-            action = "no_reply"
+            action = "no_action"
             reasoning = f"Planner 内部处理错误: {outer_e}"
 
         is_parallel = False
@@ -314,14 +314,15 @@ class ActionPlanner:
 
             if mode == ChatMode.FOCUS:
                 no_action_block = """
-动作：no_reply
-动作描述：不进行回复，等待合适的回复时机
-- 当你刚刚发送了消息，没有人回复时，选择no_reply
-- 当你一次发送了太多消息，为了避免打扰聊天节奏，选择no_reply
-{{
-    "action": "no_reply",
-    "reason":"不回复的原因"
-}}
+动作：no_action
+动作描述：不进行动作，等待合适的时机
+- 当你刚刚发送了消息，没有人回复时，选择no_action
+- 如果有别的动作（非回复）满足条件，可以不用no_action
+- 当你一次发送了太多消息，为了避免打扰聊天节奏，选择no_action
+{
+    "action": "no_action",
+    "reason":"不动作的原因"
+}
 """
             else:
                 no_action_block = """重要说明：

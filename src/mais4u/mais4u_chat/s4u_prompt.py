@@ -149,7 +149,7 @@ class PromptBuilder:
 
             # 使用 Person 的 build_relationship 方法，设置 points_num=3 保持与原来相同的行为
             relation_info_list = [
-                Person(person_id=person_id).build_relationship(points_num=3) for person_id in person_ids
+                Person(person_id=person_id).build_relationship() for person_id in person_ids
             ]
             if relation_info := "".join(relation_info_list):
                 relation_prompt = await global_prompt_manager.format_prompt(

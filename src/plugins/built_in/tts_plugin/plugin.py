@@ -15,7 +15,6 @@ class TTSAction(BaseAction):
     # 激活设置
     focus_activation_type = ActionActivationType.LLM_JUDGE
     normal_activation_type = ActionActivationType.KEYWORD
-    mode_enable = ChatMode.ALL
     parallel_action = False
 
     # 动作基本信息

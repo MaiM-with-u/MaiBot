@@ -1,10 +1,3 @@
-"""
-核心动作插件
-
-将系统核心动作（reply、no_action、emoji）转换为新插件系统格式
-这是系统的内置插件，提供基础的聊天交互功能
-"""
-
 from typing import List, Tuple, Type
 
 # 导入新插件系统
@@ -14,14 +7,14 @@ from src.plugin_system.base.config_types import ConfigField
 # 导入依赖的系统组件
 from src.common.logger import get_logger
 
-from src.plugins.built_in.emoji_plugin.emoji import EmojiAction
+from src.plugins.built_in.relation.relation import BuildRelationAction
 
-logger = get_logger("core_actions")
+logger = get_logger("relation_actions")
 
 
 @register_plugin
-class CoreActionsPlugin(BasePlugin):
-    """核心动作插件
+class RelationActionsPlugin(BasePlugin):
+    """关系动作插件
 
     系统内置插件，提供基础的聊天交互功能：
     - Reply: 回复动作
@@ -32,7 +25,7 @@ class CoreActionsPlugin(BasePlugin):
     """
 
     # 插件基本信息
-    plugin_name: str = "core_actions"  # 内部标识符
+    plugin_name: str = "relation_actions"  # 内部标识符
     enable_plugin: bool = True
     dependencies: list[str] = []  # 插件依赖列表
     python_dependencies: list[str] = []  # Python包依赖列表
@@ -48,10 +41,10 @@ class CoreActionsPlugin(BasePlugin):
     config_schema: dict = {
         "plugin": {
             "enabled": ConfigField(type=bool, default=True, description="是否启用插件"),
-            "config_version": ConfigField(type=str, default="0.6.0", description="配置文件版本"),
+            "config_version": ConfigField(type=str, default="1.0.0", description="配置文件版本"),
         },
         "components": {
-            "enable_emoji": ConfigField(type=bool, default=True, description="是否启用发送表情/图片动作"),
+            "relation_max_memory_num": ConfigField(type=int, default=10, description="关系记忆最大数量"),
         },
     }
 
@@ -60,8 +53,6 @@ class CoreActionsPlugin(BasePlugin):
 
         # --- 根据配置注册组件 ---
         components = []
-        if self.get_config("components.enable_emoji", True):
-            components.append((EmojiAction.get_action_info(), EmojiAction))
-
+        components.append((BuildRelationAction.get_action_info(), BuildRelationAction))
 
         return components

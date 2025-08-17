@@ -7,10 +7,27 @@ from contextlib import asynccontextmanager
 from typing import Dict, Any, Optional, List, Union
 
 from src.common.logger import get_logger
+from src.common.tool_history import ToolHistoryManager
 
 install(extra_lines=3)
 
 logger = get_logger("prompt_build")
+
+# 创建工具历史管理器实例
+tool_history_manager = ToolHistoryManager()
+
+def get_tool_history_prompt(message_id: Optional[str] = None) -> str:
+    """获取工具历史提示词
+    
+    Args:
+        message_id: 会话ID, 用于只获取当前会话的历史
+        
+    Returns:
+        格式化的工具历史提示词
+    """
+    return tool_history_manager.get_recent_history_prompt(
+        chat_id=message_id
+    )
 
 
 class PromptContext:
@@ -136,8 +153,23 @@ class PromptManager:
         return prompt
 
     async def format_prompt(self, name: str, **kwargs) -> str:
+        # 获取当前提示词
         prompt = await self.get_prompt_async(name)
-        return prompt.format(**kwargs)
+
+        # 获取当前会话ID
+        message_id = self._context._current_context
+
+        # 获取工具历史提示词
+        tool_history = ""
+        if name in ['action_prompt', 'replyer_prompt', 'planner_prompt', 'tool_executor_prompt']:
+            tool_history = get_tool_history_prompt(message_id)
+
+        # 如果有工具历史,添加到提示词末尾
+        result = prompt.format(**kwargs)
+        if tool_history:
+            result = f"{result}\n\n{tool_history}"
+
+        return result
 
 
 # 全局单例

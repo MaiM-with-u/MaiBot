@@ -402,7 +402,7 @@ MODULE_COLORS = {
     "tts_action": "\033[38;5;58m",  # 深黄色
     "doubao_pic_plugin": "\033[38;5;64m",  # 深绿色
     # Action组件
-    "no_reply_action": "\033[38;5;214m",  # 亮橙色，显眼但不像警告
+    "no_action_action": "\033[38;5;214m",  # 亮橙色，显眼但不像警告
     "reply_action": "\033[38;5;46m",  # 亮绿色
     "base_action": "\033[38;5;250m",  # 浅灰色
     # 数据库和消息
@@ -425,7 +425,7 @@ MODULE_ALIASES = {
     # 示例映射
     "individuality": "人格特质",
     "emoji": "表情包",
-    "no_reply_action": "摸鱼",
+    "no_action_action": "摸鱼",
     "reply_action": "回复",
     "action_manager": "动作",
     "memory_activator": "记忆",

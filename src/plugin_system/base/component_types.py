@@ -122,7 +122,6 @@ class ActionInfo(ComponentInfo):
     activation_keywords: List[str] = field(default_factory=list)  # 激活关键词列表
     keyword_case_sensitive: bool = False
     # 模式和并行设置
-    mode_enable: ChatMode = ChatMode.ALL
     parallel_action: bool = False
 
     def __post_init__(self):

@@ -23,7 +23,6 @@ class BaseAction(ABC):
     - normal_activation_type: 普通模式激活类型
     - activation_keywords: 激活关键词列表
     - keyword_case_sensitive: 关键词是否区分大小写
-    - mode_enable: 启用的聊天模式
     - parallel_action: 是否允许并行执行
     - random_activation_probability: 随机激活概率
     - llm_judge_prompt: LLM判断提示词
@@ -88,7 +87,6 @@ class BaseAction(ABC):
         self.activation_keywords: list[str] = getattr(self.__class__, "activation_keywords", []).copy()
         """激活类型为KEYWORD时的KEYWORDS列表"""
         self.keyword_case_sensitive: bool = getattr(self.__class__, "keyword_case_sensitive", False)
-        self.mode_enable: ChatMode = getattr(self.__class__, "mode_enable", ChatMode.ALL)
         self.parallel_action: bool = getattr(self.__class__, "parallel_action", True)
         self.associated_types: list[str] = getattr(self.__class__, "associated_types", []).copy()
 
@@ -118,7 +116,7 @@ class BaseAction(ABC):
             self.action_message = {}
 
         if self.has_action_message:
-            if self.action_name != "no_reply":
+            if self.action_name != "no_action":
                 self.group_id = str(self.action_message.get("chat_info_group_id", None))
                 self.group_name = self.action_message.get("chat_info_group_name", None)
 
@@ -385,7 +383,6 @@ class BaseAction(ABC):
             activation_type=activation_type,
             activation_keywords=getattr(cls, "activation_keywords", []).copy(),
             keyword_case_sensitive=getattr(cls, "keyword_case_sensitive", False),
-            mode_enable=getattr(cls, "mode_enable", ChatMode.ALL),
             parallel_action=getattr(cls, "parallel_action", True),
             random_activation_probability=getattr(cls, "random_activation_probability", 0.0),
             llm_judge_prompt=getattr(cls, "llm_judge_prompt", ""),

@@ -57,7 +57,7 @@ def init_prompt():
 {reply_style}，你可以完全重组回复，保留最基本的表达含义就好，但重组后保持语意通顺。
 {keywords_reaction_prompt}
 {moderation_prompt}
-不要输出多余内容(包括前后缀，冒号和引号，括号，表情包，at或 @等 )，只输出一条回复就好。
+不要输出多余内容(包括前后缀，冒号和引号，括号，表情包，emoji,at或 @等 )，只输出一条回复就好。
 现在，你说：
 """,
         "default_expressor_prompt",
@@ -86,12 +86,12 @@ def init_prompt():
 {keywords_reaction_prompt}
 请注意不要输出多余内容(包括前后缀，冒号和引号，at或 @等 )。只输出回复内容。
 {moderation_prompt}
-不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )。只输出一条回复就好
+不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，emoji,at或 @等 )。只输出一条回复就好
 现在，你说：
 """,
         "replyer_prompt",
     )
-
+    
     Prompt(
         """
 {expression_habits_block}{tool_info_block}
@@ -111,11 +111,12 @@ def init_prompt():
 {keywords_reaction_prompt}
 请注意不要输出多余内容(包括前后缀，冒号和引号，at或 @等 )。只输出回复内容。
 {moderation_prompt}
-不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )。只输出一条回复就好
+不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，emoji,at或 @等 )。只输出一条回复就好
 现在，你说：
 """,
         "replyer_self_prompt",
     )
+    
 
     Prompt(
         """
@@ -178,7 +179,7 @@ class DefaultReplyer:
         Returns:
             Tuple[bool, Optional[Dict[str, Any]], Optional[str]]: (是否成功, 生成的回复, 使用的prompt)
         """
-
+        
         prompt = None
         selected_expressions = None
         if available_actions is None:
@@ -186,7 +187,7 @@ class DefaultReplyer:
         try:
             # 3. 构建 Prompt
             with Timer("构建Prompt", {}):  # 内部计时器，可选保留
-                prompt, selected_expressions = await self.build_prompt_reply_context(
+                prompt,selected_expressions = await self.build_prompt_reply_context(
                     extra_info=extra_info,
                     available_actions=available_actions,
                     choosen_actions=choosen_actions,
@@ -293,20 +294,22 @@ class DefaultReplyer:
     async def build_relation_info(self, sender: str, target: str):
         if not global_config.relationship.enable_relationship:
             return ""
-
+        
+        if not sender:
+            return ""
+        
         if sender == global_config.bot.nickname:
             return ""
 
         # 获取用户ID
-        person = Person(person_name=sender)
+        person = Person(person_name = sender)
         if not is_person_known(person_name=sender):
             logger.warning(f"未找到用户 {sender} 的ID，跳过信息提取")
             return f"你完全不认识{sender}，不理解ta的相关信息。"
 
-        return person.build_relationship(points_num=5)
+        return person.build_relationship()
 
     async def build_expression_habits(self, chat_history: str, target: str) -> Tuple[str, List[int]]:
-        # sourcery skip: for-append-to-extend
         """构建表达习惯块
 
         Args:
@@ -359,7 +362,7 @@ class DefaultReplyer:
         Returns:
             str: 记忆信息字符串
         """
-
+        
         if not global_config.memory.enable_memory:
             return ""
 
@@ -368,6 +371,7 @@ class DefaultReplyer:
         running_memories = await self.memory_activator.activate_memory_with_chat_history(
             target_message=target, chat_history_prompt=chat_history
         )
+        
 
         if global_config.memory.enable_instant_memory:
             asyncio.create_task(self.instant_memory.create_and_store_memory(chat_history))
@@ -378,9 +382,10 @@ class DefaultReplyer:
         if not running_memories:
             return ""
 
+
         memory_str = "以下是当前在聊天中，你回忆起的记忆：\n"
         for running_memory in running_memories:
-            keywords, content = running_memory
+            keywords,content = running_memory
             memory_str += f"- {keywords}：{content}\n"
 
         if instant_memory:
@@ -402,6 +407,7 @@ class DefaultReplyer:
 
         if not enable_tool:
             return ""
+
 
         try:
             # 使用工具执行器获取信息
@@ -556,18 +562,16 @@ class DefaultReplyer:
             # 检查最新五条消息中是否包含bot自己说的消息
             latest_5_messages = core_dialogue_list[-5:] if len(core_dialogue_list) >= 5 else core_dialogue_list
             has_bot_message = any(str(msg.get("user_id")) == bot_id for msg in latest_5_messages)
-
+            
             # logger.info(f"最新五条消息：{latest_5_messages}")
             # logger.info(f"最新五条消息中是否包含bot自己说的消息：{has_bot_message}")
-
+            
             # 如果最新五条消息中不包含bot的消息，则返回空字符串
             if not has_bot_message:
                 core_dialogue_prompt = ""
             else:
-                core_dialogue_list = core_dialogue_list[
-                    -int(global_config.chat.max_context_size * 0.6) :
-                ]  # 限制消息数量
-
+                core_dialogue_list = core_dialogue_list[-int(global_config.chat.max_context_size * 0.6) :]  # 限制消息数量
+                
                 core_dialogue_prompt_str = build_readable_messages(
                     core_dialogue_list,
                     replace_bot_name=True,
@@ -629,12 +633,12 @@ class DefaultReplyer:
         mai_think.sender = sender
         mai_think.target = target
         return mai_think
-
-    async def build_actions_prompt(
-        self, available_actions, choosen_actions: Optional[List[Dict[str, Any]]] = None
-    ) -> str:
-        """构建动作提示"""
-
+    
+    
+    async def build_actions_prompt(self, available_actions, choosen_actions: Optional[List[Dict[str, Any]]] = None) -> str:
+        """构建动作提示
+        """
+        
         action_descriptions = ""
         if available_actions:
             action_descriptions = "你可以做以下这些动作：\n"
@@ -642,24 +646,25 @@ class DefaultReplyer:
                 action_description = action_info.description
                 action_descriptions += f"- {action_name}: {action_description}\n"
             action_descriptions += "\n"
-
+        
         choosen_action_descriptions = ""
         if choosen_actions:
             for action in choosen_actions:
-                action_name = action.get("action_type", "unknown_action")
-                if action_name == "reply":
+                action_name = action.get('action_type', 'unknown_action')
+                if action_name =="reply":
                     continue
-                action_description = action.get("reason", "无描述")
-                reasoning = action.get("reasoning", "无原因")
+                action_description = action.get('reason', '无描述')
+                reasoning = action.get('reasoning', '无原因')
 
                 choosen_action_descriptions += f"- {action_name}: {action_description}，原因：{reasoning}\n"
-
+        
         if choosen_action_descriptions:
             action_descriptions += "根据聊天情况，你决定在回复的同时做以下这些动作：\n"
             action_descriptions += choosen_action_descriptions
 
         return action_descriptions
-
+        
+        
     async def build_prompt_reply_context(
         self,
         extra_info: str = "",
@@ -689,44 +694,41 @@ class DefaultReplyer:
         chat_id = chat_stream.stream_id
         is_group_chat = bool(chat_stream.group_info)
         platform = chat_stream.platform
-
+        
         if reply_message:
-            user_id = reply_message.get("user_id", "")
+            user_id = reply_message.get("user_id","")
             person = Person(platform=platform, user_id=user_id)
             person_name = person.person_name or user_id
             sender = person_name
-            target = reply_message.get("processed_plain_text")
+            target = reply_message.get('processed_plain_text')
         else:
             person_name = "用户"
             sender = "用户"
             target = "消息"
+        
 
         if global_config.mood.enable_mood:
             chat_mood = mood_manager.get_mood_by_chat_id(chat_id)
             mood_prompt = chat_mood.mood_state
         else:
             mood_prompt = ""
-
+            
         target = replace_user_references_sync(target, chat_stream.platform, replace_bot_name=True)
 
-        # TODO: 修复！
+
         message_list_before_now_long = get_raw_msg_before_timestamp_with_chat(
             chat_id=chat_id,
             timestamp=time.time(),
             limit=global_config.chat.max_context_size * 1,
         )
-        temp_msg_list_before_long = [msg.__dict__ for msg in message_list_before_now_long]
 
-        # TODO: 修复！
         message_list_before_short = get_raw_msg_before_timestamp_with_chat(
             chat_id=chat_id,
             timestamp=time.time(),
             limit=int(global_config.chat.max_context_size * 0.33),
         )
-        temp_msg_list_before_short = [msg.__dict__ for msg in message_list_before_short]
-
         chat_talking_prompt_short = build_readable_messages(
-            temp_msg_list_before_short,
+            message_list_before_short,
             replace_bot_name=True,
             merge_messages=False,
             timestamp_mode="relative",
@@ -740,12 +742,12 @@ class DefaultReplyer:
                 self.build_expression_habits(chat_talking_prompt_short, target), "expression_habits"
             ),
             self._time_and_run_task(self.build_relation_info(sender, target), "relation_info"),
-            self._time_and_run_task(self.build_memory_block(temp_msg_list_before_short, target), "memory_block"),
+            self._time_and_run_task(self.build_memory_block(message_list_before_short, target), "memory_block"),
             self._time_and_run_task(
                 self.build_tool_info(chat_talking_prompt_short, sender, target, enable_tool=enable_tool), "tool_info"
             ),
             self._time_and_run_task(self.get_prompt_info(chat_talking_prompt_short, sender, target), "prompt_info"),
-            self._time_and_run_task(self.build_actions_prompt(available_actions, choosen_actions), "actions_info"),
+            self._time_and_run_task(self.build_actions_prompt(available_actions,choosen_actions), "actions_info"),
         )
 
         # 任务名称中英文映射
@@ -761,7 +763,7 @@ class DefaultReplyer:
         # 处理结果
         timing_logs = []
         results_dict = {}
-
+        
         almost_zero_str = ""
         for name, result, duration in task_results:
             results_dict[name] = result
@@ -769,7 +771,7 @@ class DefaultReplyer:
             if duration < 0.01:
                 almost_zero_str += f"{chinese_name},"
                 continue
-
+            
             timing_logs.append(f"{chinese_name}: {duration:.1f}s")
             if duration > 8:
                 logger.warning(f"回复生成前信息获取耗时过长: {chinese_name} 耗时: {duration:.1f}s，请使用更快的模型")
@@ -792,7 +794,9 @@ class DefaultReplyer:
 
         identity_block = await get_individuality().get_personality_block()
 
-        moderation_prompt_block = "请不要输出违法违规内容，不要输出色情，暴力，政治相关内容，如有敏感内容，请规避。"
+        moderation_prompt_block = (
+            "请不要输出违法违规内容，不要输出色情，暴力，政治相关内容，如有敏感内容，请规避。"
+        )
 
         if sender:
             if is_group_chat:
@@ -800,9 +804,7 @@ class DefaultReplyer:
                     f"现在{sender}说的:{target}。引起了你的注意，你想要在群里发言或者回复这条消息。原因是{reply_reason}"
                 )
             else:  # private chat
-                reply_target_block = (
-                    f"现在{sender}说的:{target}。引起了你的注意，针对这条消息回复。原因是{reply_reason}"
-                )
+                reply_target_block = f"现在{sender}说的:{target}。引起了你的注意，针对这条消息回复。原因是{reply_reason}"
         else:
             reply_target_block = ""
 
@@ -822,9 +824,10 @@ class DefaultReplyer:
         #         "chat_target_private2", sender_name=chat_target_name
         #     )
 
+
         # 构建分离的对话 prompt
         core_dialogue_prompt, background_dialogue_prompt = self.build_s4u_chat_history_prompts(
-            temp_msg_list_before_long, user_id, sender
+            message_list_before_now_long, user_id, sender
         )
 
         if global_config.bot.qq_account == user_id and platform == global_config.bot.platform:
@@ -846,7 +849,7 @@ class DefaultReplyer:
                 reply_style=global_config.personality.reply_style,
                 keywords_reaction_prompt=keywords_reaction_prompt,
                 moderation_prompt=moderation_prompt_block,
-            ), selected_expressions
+            ),selected_expressions
         else:
             return await global_prompt_manager.format_prompt(
                 "replyer_prompt",
@@ -867,7 +870,7 @@ class DefaultReplyer:
                 reply_style=global_config.personality.reply_style,
                 keywords_reaction_prompt=keywords_reaction_prompt,
                 moderation_prompt=moderation_prompt_block,
-            ), selected_expressions
+            ),selected_expressions
 
     async def build_prompt_rewrite_context(
         self,
@@ -898,10 +901,8 @@ class DefaultReplyer:
             timestamp=time.time(),
             limit=min(int(global_config.chat.max_context_size * 0.33), 15),
         )
-        # TODO: 修复！
-        temp_msg_list_before_now_half = [msg.__dict__ for msg in message_list_before_now_half]
         chat_talking_prompt_half = build_readable_messages(
-            temp_msg_list_before_now_half,
+            message_list_before_now_half,
             replace_bot_name=True,
             merge_messages=False,
             timestamp_mode="relative",
@@ -914,6 +915,7 @@ class DefaultReplyer:
             self.build_expression_habits(chat_talking_prompt_half, target),
             self.build_relation_info(sender, target),
         )
+        
 
         keywords_reaction_prompt = await self.build_keywords_reaction_prompt(target)
 
@@ -1025,9 +1027,7 @@ class DefaultReplyer:
             else:
                 logger.debug(f"\n{prompt}\n")
 
-            content, (reasoning_content, model_name, tool_calls) = await self.express_model.generate_response_async(
-                prompt
-            )
+            content, (reasoning_content, model_name, tool_calls) = await self.express_model.generate_response_async(prompt)
 
             logger.debug(f"replyer生成内容: {content}")
         return content, reasoning_content, model_name, tool_calls
@@ -1036,6 +1036,7 @@ class DefaultReplyer:
         related_info = ""
         start_time = time.time()
         from src.plugins.built_in.knowledge.lpmm_get_knowledge import SearchKnowledgeFromLPMMTool
+
 
         logger.debug(f"获取知识库内容，元消息：{message[:30]}...，消息长度: {len(message)}")
         # 从LPMM知识库获取知识

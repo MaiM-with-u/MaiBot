@@ -22,7 +22,6 @@ class ExampleAction(BaseAction):
     action_name = "example_action" # 动作的唯一标识符
     action_description = "这是一个示例动作" # 动作描述
     activation_type = ActionActivationType.ALWAYS # 这里以 ALWAYS 为例
-    mode_enable = ChatMode.ALL # 一般取ALL，表示在所有聊天模式下都可用
     associated_types = ["text", "emoji", ...] # 关联类型
     parallel_action = False # 是否允许与其他Action并行执行
     action_parameters = {"param1": "参数1的说明", "param2": "参数2的说明", ...}

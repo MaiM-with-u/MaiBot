@@ -47,6 +47,100 @@ def is_person_known(person_id: str = None,user_id: str = None,platform: str = No
         return person.is_known if person else False
     else:
         return False
+    
+    
+def get_catagory_from_memory(memory_point:str) -> str:
+    """从记忆点中获取分类"""
+    # 按照最左边的:符号进行分割，返回分割后的第一个部分作为分类
+    if not isinstance(memory_point, str):
+        return None
+    parts = memory_point.split(":", 1)
+    if len(parts) > 1:
+        return parts[0].strip()
+    else:
+        return None
+    
+def get_weight_from_memory(memory_point:str) -> float:
+    """从记忆点中获取权重"""
+    # 按照最右边的:符号进行分割，返回分割后的最后一个部分作为权重
+    if not isinstance(memory_point, str):
+        return None
+    parts = memory_point.rsplit(":", 1)
+    if len(parts) > 1:
+        try:
+            return float(parts[-1].strip())
+        except Exception:
+            return None
+    else:
+        return None
+    
+def get_memory_content_from_memory(memory_point:str) -> str:
+    """从记忆点中获取记忆内容"""
+    # 按:进行分割，去掉第一段和最后一段，返回中间部分作为记忆内容
+    if not isinstance(memory_point, str):
+        return None
+    parts = memory_point.split(":")
+    if len(parts) > 2:
+        return ":".join(parts[1:-1]).strip()
+    else:
+        return None
+    
+    
+def calculate_string_similarity(s1: str, s2: str) -> float:
+    """
+    计算两个字符串的相似度
+    
+    Args:
+        s1: 第一个字符串
+        s2: 第二个字符串
+        
+    Returns:
+        float: 相似度，范围0-1，1表示完全相同
+    """
+    if s1 == s2:
+        return 1.0
+        
+    if not s1 or not s2:
+        return 0.0
+        
+    # 计算Levenshtein距离
+    
+    
+    distance = levenshtein_distance(s1, s2)
+    max_len = max(len(s1), len(s2))
+    
+    # 计算相似度：1 - (编辑距离 / 最大长度)
+    similarity = 1 - (distance / max_len if max_len > 0 else 0)
+    return similarity
+
+def levenshtein_distance(s1: str, s2: str) -> int:
+    """
+    计算两个字符串的编辑距离
+    
+    Args:
+        s1: 第一个字符串
+        s2: 第二个字符串
+        
+    Returns:
+        int: 编辑距离
+    """
+    if len(s1) < len(s2):
+        return levenshtein_distance(s2, s1)
+        
+    if len(s2) == 0:
+        return len(s1)
+        
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+        
+    return previous_row[-1]
 
 class Person:
     @classmethod
@@ -90,7 +184,7 @@ class Person:
         person.know_times = 1
         person.know_since = time.time()
         person.last_know = time.time()
-        person.points = []
+        person.memory_points = []
         
         # 初始化性格特征相关字段
         person.attitude_to_me = 0
@@ -136,7 +230,8 @@ class Person:
         elif person_name:
             self.person_id = get_person_id_by_person_name(person_name)
             if not self.person_id:
-                logger.error(f"根据用户名 {person_name} 获取用户ID时出错，不存在用户{person_name}")
+                self.is_known = False
+                logger.warning(f"根据用户名 {person_name} 获取用户ID时，不存在用户{person_name}")
                 return 
         elif platform and user_id:
             self.person_id = get_person_id(platform, user_id)
@@ -153,8 +248,6 @@ class Person:
             return
             # raise ValueError(f"用户 {platform}:{user_id}:{person_name}:{person_id} 尚未认识")
             
-            
-            
         
         self.is_known = False
         
@@ -165,7 +258,7 @@ class Person:
         self.know_times = 0
         self.know_since = None
         self.last_know = None
-        self.points = []
+        self.memory_points = []
         
         # 初始化性格特征相关字段
         self.attitude_to_me:float = 0
@@ -188,6 +281,93 @@ class Person:
         
         # 从数据库加载数据
         self.load_from_database()
+        
+    def del_memory(self, category: str, memory_content: str, similarity_threshold: float = 0.95):
+        """
+        删除指定分类和记忆内容的记忆点
+        
+        Args:
+            category: 记忆分类
+            memory_content: 要删除的记忆内容
+            similarity_threshold: 相似度阈值，默认0.95（95%）
+            
+        Returns:
+            int: 删除的记忆点数量
+        """
+        if not self.memory_points:
+            return 0
+            
+        deleted_count = 0
+        memory_points_to_keep = []
+        
+        for memory_point in self.memory_points:
+            # 跳过None值
+            if memory_point is None:
+                continue
+            # 解析记忆点
+            parts = memory_point.split(":", 2)  # 最多分割2次，保留记忆内容中的冒号
+            if len(parts) < 3:
+                # 格式不正确，保留原样
+                memory_points_to_keep.append(memory_point)
+                continue
+                
+            memory_category = parts[0].strip()
+            memory_text = parts[1].strip()
+            memory_weight = parts[2].strip()
+            
+            # 检查分类是否匹配
+            if memory_category != category:
+                memory_points_to_keep.append(memory_point)
+                continue
+                
+            # 计算记忆内容的相似度
+            similarity = calculate_string_similarity(memory_content, memory_text)
+            
+            # 如果相似度达到阈值，则删除（不添加到保留列表）
+            if similarity >= similarity_threshold:
+                deleted_count += 1
+                logger.debug(f"删除记忆点: {memory_point} (相似度: {similarity:.4f})")
+            else:
+                memory_points_to_keep.append(memory_point)
+        
+        # 更新memory_points
+        self.memory_points = memory_points_to_keep
+        
+        # 同步到数据库
+        if deleted_count > 0:
+            self.sync_to_database()
+            logger.info(f"成功删除 {deleted_count} 个记忆点，分类: {category}")
+        
+        return deleted_count
+    
+
+
+
+    def get_all_category(self):
+        category_list = []
+        for memory in self.memory_points:
+            if memory is None:
+                continue
+            category = get_catagory_from_memory(memory)
+            if category and category not in category_list:
+                category_list.append(category)
+        return category_list
+        
+    
+    def get_memory_list_by_category(self,category:str):
+        memory_list = []
+        for memory in self.memory_points:
+            if memory is None:
+                continue
+            if get_catagory_from_memory(memory) == category:
+                memory_list.append(memory)
+        return memory_list
+    
+    def get_random_memory_by_category(self,category:str,num:int=1):
+        memory_list = self.get_memory_list_by_category(category)
+        if len(memory_list) < num:
+            return memory_list
+        return random.sample(memory_list, num)
     
     def load_from_database(self):
         """从数据库加载个人信息数据"""
@@ -205,14 +385,19 @@ class Person:
                 self.know_times = record.know_times if record.know_times else 0
                 
                 # 处理points字段（JSON格式的列表）
-                if record.points:
+                if record.memory_points:
                     try:
-                        self.points = json.loads(record.points)
+                        loaded_points = json.loads(record.memory_points)
+                        # 过滤掉None值，确保数据质量
+                        if isinstance(loaded_points, list):
+                            self.memory_points = [point for point in loaded_points if point is not None]
+                        else:
+                            self.memory_points = []
                     except (json.JSONDecodeError, TypeError):
                         logger.warning(f"解析用户 {self.person_id} 的points字段失败，使用默认值")
-                        self.points = []
+                        self.memory_points = []
                 else:
-                    self.points = []
+                    self.memory_points = []
                 
                 # 加载性格特征相关字段
                 if record.attitude_to_me and not isinstance(record.attitude_to_me, str):
@@ -277,7 +462,7 @@ class Person:
                 'know_times': self.know_times,
                 'know_since': self.know_since,
                 'last_know': self.last_know,
-                'points': json.dumps(self.points, ensure_ascii=False) if self.points else json.dumps([], ensure_ascii=False),
+                'memory_points': json.dumps([point for point in self.memory_points if point is not None], ensure_ascii=False) if self.memory_points else json.dumps([], ensure_ascii=False),
                 'attitude_to_me': self.attitude_to_me,
                 'attitude_to_me_confidence': self.attitude_to_me_confidence,
                 'friendly_value': self.friendly_value,
@@ -310,35 +495,10 @@ class Person:
         except Exception as e:
             logger.error(f"同步用户 {self.person_id} 信息到数据库时出错: {e}")
             
-    def build_relationship(self,points_num=3):
-        # print(self.person_name,self.nickname,self.platform,self.is_known)
-        
-        
+    def build_relationship(self):
         if not self.is_known:
             return ""
-        
-        # 按时间排序forgotten_points
-        current_points = self.points
-        current_points.sort(key=lambda x: x[2])
-        # 按权重加权随机抽取最多3个不重复的points，point[1]的值在1-10之间，权重越高被抽到概率越大
-        if len(current_points) > points_num:
-            # point[1] 取值范围1-10，直接作为权重
-            weights = [max(1, min(10, int(point[1]))) for point in current_points]
-            # 使用加权采样不放回，保证不重复
-            indices = list(range(len(current_points)))
-            points = []
-            for _ in range(points_num):
-                if not indices:
-                    break
-                sub_weights = [weights[i] for i in indices]
-                chosen_idx = random.choices(indices, weights=sub_weights, k=1)[0]
-                points.append(current_points[chosen_idx])
-                indices.remove(chosen_idx)
-        else:
-            points = current_points
-
         # 构建points文本
-        points_text = "\n".join([f"{point[2]}：{point[0]}" for point in points])
 
         nickname_str = ""
         if self.person_name != self.nickname:
@@ -374,9 +534,17 @@ class Person:
             else:
                 neuroticism_info = f"{self.person_name}的情绪非常稳定,毫无波动"
         
+        points_text = ""
+        category_list = self.get_all_category()
+        for category in category_list:
+            random_memory = self.get_random_memory_by_category(category,1)[0]
+            if random_memory:
+                points_text = f"有关 {category} 的记忆：{get_memory_content_from_memory(random_memory)}"
+                break
+        
         points_info = ""
         if points_text:
-            points_info = f"你还记得ta最近做的事：{points_text}"
+            points_info = f"你还记得有关{self.person_name}的最近记忆：{points_text}"
                 
         if not (nickname_str or attitude_info or neuroticism_info or points_info):
             return ""

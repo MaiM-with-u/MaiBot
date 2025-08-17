@@ -27,7 +27,7 @@ SEGMENT_CLEANUP_CONFIG = {
     "cleanup_interval_hours": 0.5,  # 清理间隔（小时）
 }
 
-MAX_MESSAGE_COUNT = int(80 / global_config.relationship.relation_frequency)
+MAX_MESSAGE_COUNT = 50
 
 
 class RelationshipBuilder:
@@ -471,11 +471,13 @@ class RelationshipBuilder:
 
                 logger.debug(f"为 {person_id} 获取到总共 {len(processed_messages)} 条消息（包含间隔标识）用于印象更新")
                 relationship_manager = get_relationship_manager()
-
-                # 调用原有的更新方法
-                await relationship_manager.update_person_impression(
-                    person_id=person_id, timestamp=time.time(), bot_engaged_messages=processed_messages
-                )
+                
+                build_frequency = 0.3 * global_config.relationship.relation_frequency
+                if random.random() < build_frequency:
+                    # 调用原有的更新方法
+                    await relationship_manager.update_person_impression(
+                        person_id=person_id, timestamp=time.time(), bot_engaged_messages=processed_messages
+                    )
             else:
                 logger.info(f"没有找到 {person_id} 的消息段对应的消息，不更新印象")
 

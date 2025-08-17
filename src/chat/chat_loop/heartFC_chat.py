@@ -24,7 +24,7 @@ from src.plugin_system.apis import generator_api, send_api, message_api, databas
 from src.mais4u.mai_think import mai_thinking_manager
 import math
 from src.mais4u.s4u_config import s4u_config
-# no_reply逻辑已集成到heartFC_chat.py中，不再需要导入
+# no_action逻辑已集成到heartFC_chat.py中，不再需要导入
 from src.chat.chat_loop.hfc_utils import send_typing, stop_typing
 # 导入记忆系统
 from src.chat.memory_system.Hippocampus import hippocampus_manager
@@ -47,16 +47,6 @@ ERROR_LOOP_INFO = {
     },
 }
 
-NO_ACTION = {
-    "action_result": {
-        "action_type": "no_action",
-        "action_data": {},
-        "reasoning": "规划器初始化默认",
-        "is_parallel": True,
-    },
-    "chat_context": "",
-    "action_prompt": "",
-}
 
 install(extra_lines=3)
 
@@ -116,8 +106,8 @@ class HeartFChatting:
         self.last_read_time = time.time() - 1
         
         self.focus_energy = 1
-        self.no_reply_consecutive = 0
-        # 最近三次no_reply的新消息兴趣度记录
+        self.no_action_consecutive = 0
+        # 最近三次no_action的新消息兴趣度记录
         self.recent_interest_records: deque = deque(maxlen=3)
 
     async def start(self):
@@ -198,9 +188,9 @@ class HeartFChatting:
         )
         
     def _determine_form_type(self) -> None:
-        """判断使用哪种形式的no_reply"""
-        # 如果连续no_reply次数少于3次，使用waiting形式
-        if self.no_reply_consecutive <= 3:
+        """判断使用哪种形式的no_action"""
+        # 如果连续no_action次数少于3次，使用waiting形式
+        if self.no_action_consecutive <= 3:
             self.focus_energy = 1
         else:
             # 计算最近三次记录的兴趣度总和
@@ -402,7 +392,7 @@ class HeartFChatting:
                 #如果激活度没有激活，并且聊天活跃度低，有可能不进行plan，相当于不在电脑前，不进行认真思考
                 actions = [
                     {
-                        "action_type": "no_reply",
+                        "action_type": "no_action",
                         "reasoning": "专注不足",
                         "action_data": {},
                     }
@@ -441,12 +431,12 @@ class HeartFChatting:
             async def execute_action(action_info,actions):
                 """执行单个动作的通用函数"""
                 try:
-                    if action_info["action_type"] == "no_reply":
-                        # 直接处理no_reply逻辑，不再通过动作系统
+                    if action_info["action_type"] == "no_action":
+                        # 直接处理no_action逻辑，不再通过动作系统
                         reason = action_info.get("reasoning", "选择不回复")
                         logger.info(f"{self.log_prefix} 选择不回复，原因: {reason}")
                         
-                        # 存储no_reply信息到数据库
+                        # 存储no_action信息到数据库
                         await database_api.store_action_info(
                             chat_stream=self.chat_stream,
                             action_build_into_prompt=False,
@@ -454,11 +444,11 @@ class HeartFChatting:
                             action_done=True,
                             thinking_id=thinking_id,
                             action_data={"reason": reason},
-                            action_name="no_reply",
+                            action_name="no_action",
                         )
                         
                         return {
-                            "action_type": "no_reply",
+                            "action_type": "no_action",
                             "success": True,
                             "reply_text": "",
                             "command": ""
@@ -612,16 +602,16 @@ class HeartFChatting:
 
         action_type = actions[0]["action_type"] if actions else "no_action"
         
-        # 管理no_reply计数器：当执行了非no_reply动作时，重置计数器
-        if action_type != "no_reply":
-            # no_reply逻辑已集成到heartFC_chat.py中，直接重置计数器
+        # 管理no_action计数器：当执行了非no_action动作时，重置计数器
+        if action_type != "no_action":
+            # no_action逻辑已集成到heartFC_chat.py中，直接重置计数器
             self.recent_interest_records.clear()
-            self.no_reply_consecutive = 0
-            logger.debug(f"{self.log_prefix} 执行了{action_type}动作，重置no_reply计数器")
+            self.no_action_consecutive = 0
+            logger.debug(f"{self.log_prefix} 执行了{action_type}动作，重置no_action计数器")
             return True
             
-        if action_type == "no_reply":
-            self.no_reply_consecutive += 1
+        if action_type == "no_action":
+            self.no_action_consecutive += 1
             self._determine_form_type()
 
         return True

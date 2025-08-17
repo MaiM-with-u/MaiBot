@@ -735,7 +735,7 @@ def build_readable_actions(actions: List[Dict[str, Any]]) -> str:
     for action in actions:
         action_time = action.get("time", current_time)
         action_name = action.get("action_name", "未知动作")
-        if action_name in ["no_action", "no_reply"]:
+        if action_name in ["no_action", "no_action"]:
             continue
 
         action_prompt_display = action.get("action_prompt_display", "无具体内容")

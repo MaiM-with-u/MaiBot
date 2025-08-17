@@ -1367,8 +1367,11 @@ class HippocampusManager:
             logger.info(f"为 {chat_id} 构建记忆")
             if memory_segment_manager.check_and_build_memory_for_chat(chat_id):
                 logger.info(f"为 {chat_id} 构建记忆，需要构建记忆")
-                messages = memory_segment_manager.get_messages_for_memory_build(chat_id, 30 / global_config.memory.memory_build_frequency)
-                if messages:
+                messages = memory_segment_manager.get_messages_for_memory_build(chat_id, 50)
+                
+                build_probability = 0.3 * global_config.memory.memory_build_frequency
+                
+                if messages and random.random() < build_probability:
                     logger.info(f"为 {chat_id} 构建记忆，消息数量: {len(messages)}")
                     
                     # 调用记忆压缩和构建
