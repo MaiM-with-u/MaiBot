@@ -8,6 +8,7 @@ from pathlib import Path
 import asyncio
 
 from .logger import get_logger
+from src.config.config import global_config
 
 logger = get_logger("tool_history")
 
@@ -52,8 +53,12 @@ class ToolHistoryManager:
                         result: Any,
                         execution_time: float,
                         status: str,
-                        session_id: Optional[str] = None):
+                        chat_id: Optional[str] = None):
         """记录工具调用"""
+        # 检查是否启用历史记录
+        if not global_config.tool.history.enable_history:
+            return
+            
         try:
             # 创建记录
             record = {
@@ -63,7 +68,7 @@ class ToolHistoryManager:
                 "result": self._sanitize_result(result),
                 "execution_time": execution_time,
                 "status": status,
-                "session_id": session_id
+                "chat_id": chat_id
             }
             
             # 添加到内存中的历史记录
@@ -128,7 +133,7 @@ class ToolHistoryManager:
                      tool_names: Optional[List[str]] = None,
                      start_time: Optional[Union[datetime, str]] = None,
                      end_time: Optional[Union[datetime, str]] = None,
-                     session_id: Optional[str] = None,
+                     chat_id: Optional[str] = None,
                      limit: Optional[int] = None,
                      status: Optional[str] = None) -> List[Dict[str, Any]]:
         """
@@ -138,7 +143,7 @@ class ToolHistoryManager:
             tool_names: 工具名称列表，为空则查询所有工具
             start_time: 开始时间，可以是datetime对象或ISO格式字符串
             end_time: 结束时间，可以是datetime对象或ISO格式字符串
-            session_id: 会话ID，用于筛选特定会话的调用
+            chat_id: 会话ID，用于筛选特定会话的调用
             limit: 返回记录数量限制
             status: 执行状态筛选("completed"或"error")
             
@@ -177,11 +182,11 @@ class ToolHistoryManager:
                 if datetime.fromisoformat(record["timestamp"]) <= end_dt
             ]
             
-        # 按会话ID筛选
-        if session_id:
+        # 按聊天ID筛选
+        if chat_id:
             filtered_history = [
                 record for record in filtered_history
-                if record.get("session_id") == session_id
+                if record.get("chat_id") == chat_id
             ]
             
         # 按状态筛选
@@ -198,35 +203,53 @@ class ToolHistoryManager:
         return filtered_history
 
     def get_recent_history_prompt(self, 
-                                limit: int = 5,
-                                session_id: Optional[str] = None) -> str:
+                                limit: Optional[int] = None,
+                                chat_id: Optional[str] = None) -> str:
         """
         获取最近工具调用历史的提示词
         
         Args:
-            limit: 返回的历史记录数量
-            session_id: 会话ID，用于只获取当前会话的历史
+            limit: 返回的历史记录数量,如果不提供则使用配置中的max_history
+            chat_id: 会话ID，用于只获取当前会话的历史
             
         Returns:
             格式化的历史记录提示词
         """
+        # 检查是否启用历史记录
+        if not global_config.tool.history.enable_history:
+            return ""
+            
+        # 使用配置中的最大历史记录数
+        if limit is None:
+            limit = global_config.tool.history.max_history
+            
         recent_history = self.query_history(
-            session_id=session_id,
+            chat_id=chat_id,
             limit=limit
         )
         
         if not recent_history:
             return ""
             
-        prompt = "\n最近的工具调用历史:\n"
+        prompt = "\n工具执行历史:\n"
         for record in recent_history:
-            status = "成功" if record["status"] == "completed" else "失败"
-            timestamp = datetime.fromisoformat(record["timestamp"]).strftime("%H:%M:%S")
-            prompt += (
-                f"- [{timestamp}] {record['tool_name']} ({status})\n"
-                f"  参数: {json.dumps(record['arguments'], ensure_ascii=False)}\n"
-                f"  结果: {str(record['result'])[:200]}...\n"
-            )
+            # 提取结果中的name和content
+            result = record['result']
+            if isinstance(result, dict):
+                name = result.get('name', record['tool_name'])
+                content = result.get('content', str(result))
+            else:
+                name = record['tool_name']
+                content = str(result)
+                
+            # 格式化内容，去除多余空白和换行
+            content = content.strip().replace('\n', ' ')
+            
+            # 如果内容太长则截断
+            if len(content) > 200:
+                content = content[:200] + "..."
+                
+            prompt += f"{name}: \n{content}\n\n"
             
         return prompt
         
@@ -254,11 +277,11 @@ def wrap_tool_executor():
             # 记录成功的调用
             history_manager.record_tool_call(
                 tool_name=tool_call.func_name,
-                args=tool_call.arguments,
+                args=tool_call.args,
                 result=result,
                 execution_time=execution_time,
                 status="completed",
-                session_id=getattr(self, 'session_id', None)
+                chat_id=getattr(self, 'chat_id', None)
             )
             
             return result
@@ -268,11 +291,11 @@ def wrap_tool_executor():
             # 记录失败的调用
             history_manager.record_tool_call(
                 tool_name=tool_call.func_name,
-                args=tool_call.arguments,
+                args=tool_call.args,
                 result=str(e),
                 execution_time=execution_time,
                 status="error",
-                session_id=getattr(self, 'session_id', None)
+                chat_id=getattr(self, 'chat_id', None)
             )
             raise
             
