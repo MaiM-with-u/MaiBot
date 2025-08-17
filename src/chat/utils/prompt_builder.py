@@ -26,7 +26,7 @@ def get_tool_history_prompt(message_id: Optional[str] = None) -> str:
         格式化的工具历史提示词
     """
     return tool_history_manager.get_recent_history_prompt(
-        session_id=message_id
+        chat_id=message_id
     )
 
 

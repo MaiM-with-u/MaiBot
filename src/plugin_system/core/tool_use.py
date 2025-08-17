@@ -151,9 +151,19 @@ class ToolExecutor:
             return [], []
         
         # 提取tool_calls中的函数名称
-        func_names = [call.func_name for call in tool_calls if call.func_name]
+        func_names = []
+        for call in tool_calls:
+            try:
+                if hasattr(call, 'func_name'):
+                    func_names.append(call.func_name)
+            except Exception as e:
+                logger.error(f"{self.log_prefix}获取工具名称失败: {e}")
+                continue
         
-        logger.info(f"{self.log_prefix}开始执行工具调用: {func_names}")
+        if func_names:
+            logger.info(f"{self.log_prefix}开始执行工具调用: {func_names}")
+        else:
+            logger.warning(f"{self.log_prefix}未找到有效的工具调用")
 
         # 执行每个工具调用
         for tool_call in tool_calls:
@@ -216,16 +226,19 @@ class ToolExecutor:
                 logger.warning(f"未知工具名称: {function_name}")
                 return None
 
-            # 执行工具
+            # 执行工具并记录日志
+            logger.debug(f"{self.log_prefix}执行工具 {function_name}，参数: {function_args}")
             result = await tool_instance.execute(function_args)
             if result:
+                logger.debug(f"{self.log_prefix}工具 {function_name} 执行成功，结果: {result}")
                 return {
                     "tool_call_id": tool_call.call_id,
                     "role": "tool",
                     "name": function_name,
                     "type": "function",
-                    "content": result["content"],
+                    "content": result.get("content", "")
                 }
+            logger.warning(f"{self.log_prefix}工具 {function_name} 返回空结果")
             return None
         except Exception as e:
             logger.error(f"执行工具调用时发生错误: {str(e)}")
