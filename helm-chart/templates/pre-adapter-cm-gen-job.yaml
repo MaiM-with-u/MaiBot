@@ -22,6 +22,8 @@ spec:
           args:
             - adapter-pip-installer.sh
           env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
             - name: NAMESPACE
               valueFrom:
                 fieldRef:
