@@ -1,0 +1,52 @@
+{{- if .Values.sqlite_web.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-maibot-sqlite-web
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-maibot-sqlite-web
+spec:
+  serviceName: {{ .Release.Name }}-maibot-sqlite-web
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-maibot-sqlite-web
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-maibot-sqlite-web
+    spec:
+      containers:
+        - name: sqlite-web
+          env:
+            - name: SQLITE_DATABASE
+              value: /data/MaiMBot/MaiBot.db
+          image: {{ .Values.sqlite_web.image.repository }}:{{ .Values.sqlite_web.image.tag }}
+          imagePullPolicy: {{ .Values.sqlite_web.image.pullPolicy }}
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            successThreshold: 1
+            timeoutSeconds: 10
+          ports:
+            - containerPort: 8080
+              name: webui
+              protocol: TCP
+          resources: {{ .Values.sqlite_web.resources }}
+          volumeMounts:
+            - mountPath: /data/MaiMBot
+              name: data
+      imagePullSecrets: {{ .Values.sqlite_web.image.pullSecrets }}
+      nodeSelector: {{ .Values.sqlite_web.nodeSelector }}
+      tolerations: {{ .Values.sqlite_web.tolerations }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-maibot-core
+{{- end }}
