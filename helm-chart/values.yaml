@@ -14,16 +14,10 @@ adapter:
     pullPolicy: IfNotPresent
     pullSecrets: [ ]
 
-  resources:
-    limits:
-      cpu:
-      memory:
-    requests:
-      cpu:
-      memory:
+  resources: { }
 
-  nodeSelector: {}
-  tolerations: []
+  nodeSelector: { }
+  tolerations: [ ]
 
   # 配置adapter的napcat websocket service
   # adapter会启动一个websocket服务端，用于与napcat通信
@@ -49,16 +43,10 @@ core:
     pullPolicy: IfNotPresent
     pullSecrets: [ ]
 
-  resources:
-    limits:
-      cpu:
-      memory:
-    requests:
-      cpu:
-      memory:
+  resources: { }
 
-  nodeSelector: {}
-  tolerations: []
+  nodeSelector: { }
+  tolerations: [ ]
 
   persistence:
     storageClass:
@@ -82,16 +70,10 @@ statistics_dashboard:
     pullPolicy: IfNotPresent
     pullSecrets: [ ]
 
-  resources:
-    limits:
-      cpu:
-      memory:
-    requests:
-      cpu:
-      memory:
+  resources: { }
 
-  nodeSelector: {}
-  tolerations: []
+  nodeSelector: { }
+  tolerations: [ ]
 
   service:
     type: ClusterIP  # ClusterIP / NodePort 指定NodePort可以将内网的服务端口映射到物理节点的端口
@@ -128,16 +110,10 @@ napcat:
     pullPolicy: IfNotPresent
     pullSecrets: [ ]
 
-  resources:
-    limits:
-      cpu:
-      memory:
-    requests:
-      cpu:
-      memory:
+  resources: { }
 
-  nodeSelector: {}
-  tolerations: []
+  nodeSelector: { }
+  tolerations: [ ]
 
   # napcat进程的权限，默认不是特权用户
   permission:
@@ -180,16 +156,10 @@ sqlite_web:
     pullPolicy: IfNotPresent
     pullSecrets: [ ]
 
-  resources:
-    limits:
-      cpu:
-      memory:
-    requests:
-      cpu:
-      memory:
+  resources: { }
 
-  nodeSelector: {}
-  tolerations: []
+  nodeSelector: { }
+  tolerations: [ ]
 
   # 配置sqlite-web面板的service
   # ！！！默认不使用NodePort。如果使用NodePort暴露到公网，请自行使用中间件鉴权！！！
