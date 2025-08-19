@@ -1,0 +1,60 @@
+{{- if .Values.napcat.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-maibot-napcat
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-maibot-napcat
+spec:
+  serviceName: {{ .Release.Name }}-maibot-napcat
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-maibot-napcat
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-maibot-napcat
+    spec:
+      containers:
+        - name: napcat
+          env:
+            - name: NAPCAT_GID
+              value: {{ .Values.napcat.permission.gid }}
+            - name: NAPCAT_UID
+              value: {{ .Values.napcat.permission.uid }}
+            - name: TZ
+              value: Asia/Shanghai
+          image: {{ .Values.napcat.image.repository }}:{{ .Values.napcat.image.tag }}
+          imagePullPolicy: {{ .Values.napcat.image.pullPolicy }}
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: 6099
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            successThreshold: 1
+            timeoutSeconds: 10
+          ports:
+            - containerPort: 6099
+              name: webui
+              protocol: TCP
+          resources: {{ .Values.napcat.resources }}
+          volumeMounts:
+            - mountPath: /app/napcat/config
+              name: napcat
+              subPath: config
+            - mountPath: /app/.config/QQ
+              name: napcat
+              subPath: data
+      imagePullSecrets: {{ .Values.napcat.image.pullSecrets }}
+      nodeSelector: {{ .Values.napcat.nodeSelector }}
+      tolerations: {{ .Values.napcat.tolerations }}
+      volumes:
+        - name: napcat
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-maibot-napcat
+{{- end }}
