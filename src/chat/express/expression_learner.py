@@ -8,6 +8,7 @@ from typing import List, Dict, Optional, Any, Tuple
 
 from src.common.logger import get_logger
 from src.common.database.database_model import Expression
+from src.common.data_models.database_data_model import DatabaseMessages
 from src.llm_models.utils_model import LLMRequest
 from src.config.config import model_config, global_config
 from src.chat.utils.chat_message_builder import get_raw_msg_by_timestamp_with_chat_inclusive, build_anonymous_messages
@@ -346,21 +347,17 @@ class ExpressionLearner:
         current_time = time.time()
         
         # 获取上次学习时间
-        random_msg_temp = get_raw_msg_by_timestamp_with_chat_inclusive(
+        random_msg = get_raw_msg_by_timestamp_with_chat_inclusive(
             chat_id=self.chat_id,
             timestamp_start=self.last_learning_time,
             timestamp_end=current_time,
             limit=num,
         )
-        # TODO: 修复！
-        from src.common.data_models import temporarily_transform_class_to_dict
-        random_msg: Optional[List[Dict[str, Any]]] = [temporarily_transform_class_to_dict(msg) for msg in random_msg_temp] if random_msg_temp else None
-
         # print(random_msg)
         if not random_msg or random_msg == []:
             return None
         # 转化成str
-        chat_id: str = random_msg[0]["chat_id"]
+        chat_id: str = random_msg[0].chat_id
         # random_msg_str: str = build_readable_messages(random_msg, timestamp_mode="normal")
         random_msg_str: str = await build_anonymous_messages(random_msg)
         # print(f"random_msg_str:{random_msg_str}")

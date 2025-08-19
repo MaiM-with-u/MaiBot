@@ -70,11 +70,9 @@ class ActionModifier:
             timestamp=time.time(),
             limit=min(int(global_config.chat.max_context_size * 0.33), 10),
         )
-        # TODO: 修复！
-        from src.common.data_models import temporarily_transform_class_to_dict
-        temp_msg_list_before_now_half = [temporarily_transform_class_to_dict(msg) for msg in message_list_before_now_half]
+
         chat_content = build_readable_messages(
-            temp_msg_list_before_now_half,
+            message_list_before_now_half,
             replace_bot_name=True,
             merge_messages=False,
             timestamp_mode="relative",

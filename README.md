@@ -25,8 +25,8 @@
 
 **🍔MaiCore 是一个基于大语言模型的可交互智能体**
 
-- 💭 **智能对话系统**：基于 LLM 的自然语言交互，支持normal和focus统一化处理。
-- 🔌 **强大插件系统**：全面重构的插件架构，支持完整的管理API和权限控制。
+- 💭 **智能对话系统**：基于 LLM 的自然语言交互，聊天时机控制。
+- 🔌 **强大插件系统**：全面重构的插件架构，更多API。
 - 🤔 **实时思维系统**：模拟人类思考过程。
 - 🧠 **表达学习功能**：学习群友的说话风格和表达方式
 - 💝 **情感表达系统**：情绪系统和表情包系统。
@@ -46,7 +46,7 @@
 
 ## 🔥 更新和安装
 
-**最新版本: v0.9.1** ([更新日志](changelogs/changelog.md))
+**最新版本: v0.10.0** ([更新日志](changelogs/changelog.md))
 
 可前往 [Release](https://github.com/MaiM-with-u/MaiBot/releases/) 页面下载最新版本
 可前往 [启动器发布页面](https://github.com/MaiM-with-u/mailauncher/releases/)下载最新启动器
@@ -56,7 +56,6 @@
 - `classical`: 旧版本(停止维护)
 
 ### 最新版本部署教程
-- [从0.6/0.7升级须知](https://docs.mai-mai.org/faq/maibot/update_to_07.html)
 - [🚀 最新版本部署教程](https://docs.mai-mai.org/manual/deployment/mmc_deploy_windows.html) - 基于 MaiCore 的新版本部署方式(与旧版本不兼容)
 
 > [!WARNING]
@@ -64,7 +63,6 @@
 > - 项目处于活跃开发阶段，功能和 API 可能随时调整。
 > - 文档未完善，有问题可以提交 Issue 或者 Discussion。
 > - QQ 机器人存在被限制风险，请自行了解，谨慎使用。
-> - 由于持续迭代，可能存在一些已知或未知的 bug。
 > - 由于程序处于开发中，可能消耗较多 token。
 
 ## 💬 讨论
