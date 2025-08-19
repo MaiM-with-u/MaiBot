@@ -5,7 +5,10 @@ metadata:
   name: {{ .Release.Name }}-maibot-napcat
   namespace: {{ .Release.Namespace }}
 spec:
-  accessModes: {{ .Values.napcat.persistence.accessModes }}
+  {{- if .Values.napcat.persistence.accessModes }}
+  accessModes:
+    {{ toYaml .Values.napcat.persistence.accessModes | nindent 4 }}
+  {{- end }}
   resources:
     requests:
       storage: {{ .Values.napcat.persistence.size }}

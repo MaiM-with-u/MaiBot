@@ -4,7 +4,10 @@ metadata:
   name: {{ .Release.Name }}-maibot-adapter
   namespace: {{ .Release.Namespace }}
 spec:
-  accessModes: {{ .Values.adapter.persistence.accessModes }}
+  {{- if .Values.adapter.persistence.accessModes }}
+  accessModes:
+    {{ toYaml .Values.adapter.persistence.accessModes | nindent 4 }}
+  {{- end }}
   resources:
     requests:
       storage: {{ .Values.adapter.persistence.size }}

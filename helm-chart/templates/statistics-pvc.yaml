@@ -5,7 +5,10 @@ metadata:
   name: {{ .Release.Name }}-maibot-statistics-dashboard
   namespace: {{ .Release.Namespace }}
 spec:
-  accessModes: {{ .Values.statistics_dashboard.persistence.accessModes }}
+  {{- if .Values.statistics_dashboard.persistence.accessModes }}
+  accessModes:
+    {{ toYaml .Values.statistics_dashboard.persistence.accessModes | nindent 4 }}
+  {{- end }}
   resources:
     requests:
       storage: {{ .Values.statistics_dashboard.persistence.size }}
