@@ -166,7 +166,7 @@ napcat:
     size: 5Gi
 
 # sqlite-web的部署配置
-sqlite-web:
+sqlite_web:
 
   # 通过sqlite-web可以在网页上操作麦麦的数据库，方便调试。不部署对麦麦的运行无影响
   # 默认不会捆绑部署sqlite-web，如果你需要部署，请修改下面的enabled为true
