@@ -19,8 +19,12 @@ data_b64 = os.getenv("DATA_B64")
 # 解析并覆盖关键配置
 # 这里被覆盖的配置应当在helm chart中针对对应的k8s资源来灵活修改
 data = toml.loads(base64.b64decode(data_b64).decode("utf-8"))
+if data.get('napcat_server', None) is None:
+    data['napcat_server'] = {}
 data['napcat_server']['host'] = '0.0.0.0'
 data['napcat_server']['port'] = 8095
+if data.get('maibot_server', None) is None:
+    data['maibot_server'] = {}
 data['maibot_server']['host'] = f'{release_name}-maibot-core'  # 根据release名称动态拼接core服务的DNS名称
 data['maibot_server']['port'] = 8000
 
