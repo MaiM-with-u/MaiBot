@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}-maibot-core
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-maibot-core
 spec:
   ports:
     - name: adapter-ws
