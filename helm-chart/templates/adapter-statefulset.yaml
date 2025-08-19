@@ -27,7 +27,7 @@ spec:
             - containerPort: 8095
               name: napcat-ws
               protocol: TCP
-          resources: {{ .Values.adapter.resources }}
+          resources: {{ .Values.adapter.resources | default nil }}
           volumeMounts:
             - mountPath: /adapters/data
               name: data

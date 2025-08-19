@@ -42,7 +42,7 @@ spec:
             - containerPort: 6099
               name: webui
               protocol: TCP
-          resources: {{ .Values.napcat.resources }}
+          resources: {{ .Values.napcat.resources | default nil }}
           volumeMounts:
             - mountPath: /app/napcat/config
               name: napcat

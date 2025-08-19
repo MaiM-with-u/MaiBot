@@ -35,7 +35,7 @@ spec:
             - containerPort: 8000
               name: adapter-ws
               protocol: TCP
-          resources: {{ .Values.core.resources }}
+          resources: {{ .Values.core.resources | default nil }}
           volumeMounts:
             - mountPath: /MaiMBot/data
               name: data
