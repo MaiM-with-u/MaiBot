@@ -1,0 +1,50 @@
+# 动态生成adapter配置文件的configmap的job，仅会在部署时运行一次
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-adapter-cm-generator
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      serviceAccountName: {{ .Release.Name }}-adapter-cm-generator
+      restartPolicy: Never
+      containers:
+        - name: python
+          image: python:slim
+          workingDir: /app
+          command:
+            - sh
+          args:
+            - adapter-pip-installer.sh
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: RELEASE_NAME
+              value: {{ .Release.Name }}
+            - name: DATA_B64
+              value: {{ .Values.config.adapter_config | b64enc }}  # 将配置文件编码为base64，从环境变量注入
+          volumeMounts:
+            - mountPath: /app/adapter-pip-installer.sh
+              name: scripts
+              readOnly: true
+              subPath: adapter-pip-installer.sh
+            - mountPath: /app/adapter-cm-generator.py
+              name: scripts
+              readOnly: true
+              subPath: adapter-cm-generator.py
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ .Release.Name }}-maibot-scripts
+            items:
+              - key: adapter-pip-installer.sh
+                path: adapter-pip-installer.sh
+              - key: adapter-cm-generator.py
+                path: adapter-cm-generator.py

@@ -70,7 +70,7 @@ spec:
             items:
               - key: volume-linker.sh
                 path: volume-linker.sh
-            name: {{ .Release.Name }}-maibot-core-scripts
+            name: {{ .Release.Name }}-maibot-scripts
           name: scripts
         - configMap:
             items:

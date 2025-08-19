@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-maibot-scripts
+  namespace: {{ .Release.Namespace }}
+data:
+  # pre-install hook
+  adapter-pip-installer.sh: |
+    {{ .Files.Get "files/adapter-pip-installer.sh" | nindent 4 }}
+  adapter-cm-generator.py: |
+    {{ .Files.Get "files/adapter-cm-generator.py" | nindent 4 }}
+
+  # core
+  volume-linker.sh: |
+    {{ .Files.Get "files/volume-linker.sh" | nindent 4 }}

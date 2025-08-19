@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ .Release.Name }}-maibot-core-scripts
-  namespace: {{ .Release.Namespace }}
-data:
-  volume-linker.sh: |
-    {{ .Files.Get "files/volume-linker.sh" | nindent 4 }}
