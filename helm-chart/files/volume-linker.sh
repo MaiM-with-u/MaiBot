@@ -24,7 +24,12 @@ if [ -f /MaiMBot/statistics/index.html ]
 then
   echo "[VolumeLinker]    '/MaiMBot/statistics/index.html' exists."
 else
-  touch /MaiMBot/statistics/index.html
+  if [ -d /MaiMBot/statistics ]
+  then
+    touch /MaiMBot/statistics/index.html
+  else
+    echo "[VolumeLinker]    Statistics volume disabled."
+  fi
 fi
 
 # 删除空的插件目录，准备创建软链接
