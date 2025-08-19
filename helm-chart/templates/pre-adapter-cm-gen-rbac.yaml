@@ -4,18 +4,12 @@ kind: ServiceAccount
 metadata:
   name: {{ .Release.Name }}-maibot-adapter-cm-generator
   namespace: {{ .Release.Namespace }}
-  annotations:
-    "helm.sh/hook": pre-install
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ .Release.Name }}-maibot-adapter-cm-gen-role
   namespace: {{ .Release.Namespace }}
-  annotations:
-    "helm.sh/hook": pre-install
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 rules:
   - apiGroups: [""]
     resources: ["configmaps"]
@@ -26,9 +20,6 @@ kind: RoleBinding
 metadata:
   name: {{ .Release.Name }}-maibot-adapter-cm-gen-role-binding
   namespace: {{ .Release.Namespace }}
-  annotations:
-    "helm.sh/hook": pre-install
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 subjects:
   - kind: ServiceAccount
     name: {{ .Release.Name }}-maibot-adapter-cm-generator
