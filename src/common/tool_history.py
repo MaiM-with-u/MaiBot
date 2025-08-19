@@ -311,8 +311,9 @@ class ToolHistoryManager:
     def clear_history(self):
         """清除历史记录"""
         self._history.clear()
-        self._rotate_file()
+        self._save_history()
         logger.info("工具调用历史记录已清除")
+
 
 def wrap_tool_executor():
     """
