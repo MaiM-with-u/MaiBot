@@ -1,3 +1,10 @@
+# 只有同意了EULA和PRIVACY协议才可以部署麦麦
+# 配置以下的选项为true表示你同意了EULA和PRIVACY条款
+# https://github.com/MaiM-with-u/MaiBot/blob/main/EULA.md
+# https://github.com/MaiM-with-u/MaiBot/blob/main/PRIVACY.md
+EULA_AGREE:  false
+PRIVACY_AGREE:  false
+
 # 麦麦Adapter的部署配置
 adapter:
 
@@ -35,13 +42,6 @@ adapter:
 
 # 麦麦本体的部署配置
 core:
-
-  # 只有同意了EULA和PRIVACY协议才可以部署麦麦
-  # 配置以下的选项为true表示你同意了EULA和PRIVACY条款
-  # https://github.com/MaiM-with-u/MaiBot/blob/main/EULA.md
-  # https://github.com/MaiM-with-u/MaiBot/blob/main/PRIVACY.md
-  EULA_AGREE:  false
-  PRIVACY_AGREE:  false
 
   image:
     repository: sengokucola/maibot
