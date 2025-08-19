@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-maibot-core
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-maibot-core
+spec:
+  serviceName: {{ .Release.Name }}-maibot-core
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-maibot-core
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-maibot-core
+    spec:
+      containers:
+        - name: core
+          command:  # 为了在k8s中初始化存储卷，这里替换启动命令为指定脚本
+            - sh
+          args:
+            - /MaiMBot/volume-linker.sh
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+            - name: EULA_AGREE
+              value: 99f08e0cab0190de853cb6af7d64d4de
+            - name: PRIVACY_AGREE
+              value: 9943b855e72199d0f5016ea39052f1b6
+          image: {{ .Values.core.image.repository }}:{{ .Values.core.image.tag }}
+          imagePullPolicy: {{ .Values.core.image.pullPolicy }}
+          ports:
+            - containerPort: 8000
+              name: adapter-ws
+              protocol: TCP
+          resources: {{ .Values.core.resources }}
+          volumeMounts:
+            - mountPath: /MaiMBot/data
+              name: data
+            - mountPath: /MaiMBot/volume-linker.sh
+              name: scripts
+              readOnly: true
+              subPath: volume-linker.sh
+            - mountPath: /MaiMBot/.env
+              name: config
+              readOnly: true
+              subPath: .env
+            - mountPath: /MaiMBot/config/model_config.toml
+              name: config
+              readOnly: true
+              subPath: model_config.toml
+            - mountPath: /MaiMBot/config/bot_config.toml
+              name: config
+              readOnly: true
+              subPath: bot_config.toml
+            {{- if .Values.statistics_dashboard.enabled }}
+            - mountPath: /MaiMBot/statistics
+              name: statistics
+            {{- end }}
+      imagePullSecrets: {{ .Values.core.image.pullSecrets }}
+      nodeSelector: {{ .Values.core.nodeSelector }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-maibot-core
+        - configMap:
+            items:
+              - key: volume-linker.sh
+                path: volume-linker.sh
+            name: {{ .Release.Name }}-maibot-core-scripts
+          name: scripts
+        - configMap:
+            items:
+              - key: .env
+                path: .env
+              - key: model_config.toml
+                path: model_config.toml
+              - key: bot_config.toml
+                path: bot_config.toml
+            name: {{ .Release.Name }}-maibot-core
+          name: config
+        {{- if .Values.statistics_dashboard.enabled }}
+        - name: statistics
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-maibot-statistics
+        {{- end }}
