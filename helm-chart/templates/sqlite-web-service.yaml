@@ -12,7 +12,7 @@ spec:
       port: {{ .Values.sqlite_web.service.port }}
       protocol: TCP
       targetPort: 8080
-      {{- if eq .Values.sqlite_web.service.type "nodePort" }}
+      {{- if eq .Values.sqlite_web.service.type "NodePort" }}
       nodePort: {{ .Values.sqlite_web.service.nodePort | default nil }}
       {{- end }}
   selector:

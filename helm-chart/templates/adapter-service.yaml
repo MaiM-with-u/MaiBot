@@ -11,7 +11,7 @@ spec:
       port: {{ .Values.adapter.service.port }}
       protocol: TCP
       targetPort: 8095
-      {{- if eq .Values.adapter.service.type "nodePort" }}
+      {{- if eq .Values.adapter.service.type "NodePort" }}
       nodePort: {{ .Values.adapter.service.nodePort | default nil }}
       {{- end }}
   selector:

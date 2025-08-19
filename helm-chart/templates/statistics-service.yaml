@@ -12,7 +12,7 @@ spec:
       port: {{ .Values.statistics_dashboard.service.port }}
       protocol: TCP
       targetPort: 80
-      {{- if eq .Values.statistics_dashboard.service.type "nodePort" }}
+      {{- if eq .Values.statistics_dashboard.service.type "NodePort" }}
       nodePort: {{ .Values.statistics_dashboard.service.nodePort | default nil }}
       {{- end }}
   selector:

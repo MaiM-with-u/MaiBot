@@ -12,7 +12,7 @@ spec:
       port: {{ .Values.napcat.service.port }}
       protocol: TCP
       targetPort: 6099
-      {{- if eq .Values.napcat.service.type "nodePort" }}
+      {{- if eq .Values.napcat.service.type "NodePort" }}
       nodePort: {{ .Values.napcat.service.nodePort | default nil }}
       {{- end }}
   selector:
