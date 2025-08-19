@@ -188,6 +188,9 @@ sqlite_web:
       cpu:
       memory:
 
+  nodeSelector: {}
+  tolerations: []
+
   # 配置sqlite-web面板的service
   # ！！！默认不使用NodePort。如果使用NodePort暴露到公网，请自行使用中间件鉴权！！！
   service:
