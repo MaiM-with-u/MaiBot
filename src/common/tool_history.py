@@ -29,23 +29,30 @@ class ToolHistoryManager:
             self._initialized = True
             self._data_dir = Path("data/tool_history")
             self._data_dir.mkdir(parents=True, exist_ok=True)
-            self._current_file = None
+            self._history_file = self._data_dir / "tool_history.jsonl"
             self._load_history()
-            self._rotate_file()
 
-    def _rotate_file(self):
-        """轮换历史记录文件"""
-        current_time = datetime.now()
-        filename = f"tool_history_{current_time.strftime('%Y%m%d_%H%M%S')}.jsonl"
-        self._current_file = self._data_dir / filename
+    def _save_history(self):
+        """保存所有历史记录到文件"""
+        try:
+            with self._history_file.open("w", encoding="utf-8") as f:
+                for record in self._history:
+                    f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except Exception as e:
+            logger.error(f"保存工具调用记录失败: {e}")
 
     def _save_record(self, record: Dict[str, Any]):
         """保存单条记录到文件"""
         try:
-            with self._current_file.open("a", encoding="utf-8") as f:
+            with self._history_file.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
         except Exception as e:
             logger.error(f"保存工具调用记录失败: {e}")
+            
+    def _clean_expired_records(self):
+        """清理已过期的记录"""
+        self._history = [record for record in self._history if record.get("ttl_count", 0) < record.get("ttl", 5)]
+        self._save_history()
 
     def record_tool_call(self, 
                         tool_name: str,
@@ -53,7 +60,8 @@ class ToolHistoryManager:
                         result: Any,
                         execution_time: float,
                         status: str,
-                        chat_id: Optional[str] = None):
+                        chat_id: Optional[str] = None,
+                        ttl: int = 5):
         """记录工具调用
         
         Args:
@@ -63,9 +71,10 @@ class ToolHistoryManager:
             execution_time: 执行时间（秒）
             status: 执行状态("completed"或"error")
             chat_id: 聊天ID，与ChatManager中的chat_id对应，用于标识群聊或私聊会话
+            ttl: 该记录的生命周期值，插入提示词多少次后删除，默认为5
         """
-        # 检查是否启用历史记录
-        if not global_config.tool.history.enable_history:
+        # 检查是否启用历史记录且ttl大于0
+        if not global_config.tool.history.enable_history or ttl <= 0:
             return
             
         try:
@@ -77,7 +86,9 @@ class ToolHistoryManager:
                 "result": self._sanitize_result(result),
                 "execution_time": execution_time,
                 "status": status,
-                "chat_id": chat_id
+                "chat_id": chat_id,
+                "ttl": ttl,
+                "ttl_count": 0
             }
             
             # 添加到内存中的历史记录
@@ -117,24 +128,17 @@ class ToolHistoryManager:
     def _load_history(self):
         """加载历史记录文件"""
         try:
-            # 按文件修改时间排序,加载最近的文件
-            history_files = sorted(
-                self._data_dir.glob("tool_history_*.jsonl"), 
-                key=lambda x: x.stat().st_mtime,
-                reverse=True
-            )
-            
-            # 最多加载最近3个文件的历史
-            for file in history_files[:3]:
-                try:
-                    with file.open("r", encoding="utf-8") as f:
-                        for line in f:
+            if self._history_file.exists():
+                self._history = []
+                with self._history_file.open("r", encoding="utf-8") as f:
+                    for line in f:
+                        try:
                             record = json.loads(line)
-                            self._history.append(record)
-                except Exception as e:
-                    logger.error(f"加载历史记录文件 {file} 失败: {e}")
-                    
-            logger.info(f"成功加载了 {len(self._history)} 条历史记录")
+                            if record.get("ttl_count", 0) < record.get("ttl", 5):  # 只加载未过期的记录
+                                self._history.append(record)
+                        except json.JSONDecodeError:
+                            continue
+                logger.info(f"成功加载了 {len(self._history)} 条历史记录")
         except Exception as e:
             logger.error(f"加载历史记录失败: {e}")
 
@@ -240,24 +244,39 @@ class ToolHistoryManager:
             return ""
             
         prompt = "\n工具执行历史:\n"
+        needs_save = False
+        updated_history = []
+        
         for record in recent_history:
-            # 提取结果中的name和content
-            result = record['result']
-            if isinstance(result, dict):
-                name = result.get('name', record['tool_name'])
-                content = result.get('content', str(result))
-            else:
-                name = record['tool_name']
-                content = str(result)
-                
-            # 格式化内容，去除多余空白和换行
-            content = content.strip().replace('\n', ' ')
+            # 增加ttl计数
+            record["ttl_count"] = record.get("ttl_count", 0) + 1
+            needs_save = True
             
-            # 如果内容太长则截断
-            if len(content) > 200:
-                content = content[:200] + "..."
+            # 如果未超过ttl，则添加到提示词中
+            if record["ttl_count"] < record.get("ttl", 5):
+                # 提取结果中的name和content
+                result = record['result']
+                if isinstance(result, dict):
+                    name = result.get('name', record['tool_name'])
+                    content = result.get('content', str(result))
+                else:
+                    name = record['tool_name']
+                    content = str(result)
+                    
+                # 格式化内容，去除多余空白和换行
+                content = content.strip().replace('\n', ' ')
                 
-            prompt += f"{name}: \n{content}\n\n"
+                # 如果内容太长则截断
+                if len(content) > 200:
+                    content = content[:200] + "..."
+                    
+                prompt += f"{name}: \n{content}\n\n"
+                updated_history.append(record)
+                
+        # 更新历史记录并保存
+        if needs_save:
+            self._history = updated_history
+            self._save_history()
             
         return prompt
         
@@ -282,6 +301,9 @@ def wrap_tool_executor():
             result = await original_execute(self, tool_call, tool_instance)
             execution_time = time.time() - start_time
             
+            # 获取工具的ttl值
+            ttl = getattr(tool_instance, 'history_ttl', 5) if tool_instance else 5
+            
             # 记录成功的调用
             history_manager.record_tool_call(
                 tool_name=tool_call.func_name,
@@ -289,13 +311,17 @@ def wrap_tool_executor():
                 result=result,
                 execution_time=execution_time,
                 status="completed",
-                chat_id=getattr(self, 'chat_id', None)
+                chat_id=getattr(self, 'chat_id', None),
+                ttl=ttl
             )
             
             return result
             
         except Exception as e:
             execution_time = time.time() - start_time
+            # 获取工具的ttl值
+            ttl = getattr(tool_instance, 'history_ttl', 5) if tool_instance else 5
+            
             # 记录失败的调用
             history_manager.record_tool_call(
                 tool_name=tool_call.func_name,
@@ -303,7 +329,8 @@ def wrap_tool_executor():
                 result=str(e),
                 execution_time=execution_time,
                 status="error",
-                chat_id=getattr(self, 'chat_id', None)
+                chat_id=getattr(self, 'chat_id', None),
+                ttl=ttl
             )
             raise
             
