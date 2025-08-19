@@ -5,4 +5,4 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   config.toml: |
-    {{ .Values.config.adapter_config | indent 4 }}
+    {{ .Values.config.adapter_config | nindent 4 }}

@@ -8,6 +8,6 @@ data:
     HOST=0.0.0.0
     PORT=8000
   model_config.toml: |
-    {{ .Values.config.core_model_config | indent 4 }}
+    {{ .Values.config.core_model_config | nindent 4 }}
   bot_config.toml: |
-    {{ .Values.config.core_bot_config | indent 4 }}
+    {{ .Values.config.core_bot_config | nindent 4 }}

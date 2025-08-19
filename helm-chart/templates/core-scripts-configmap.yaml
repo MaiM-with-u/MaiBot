@@ -5,4 +5,4 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   volume-linker.sh: |
-    {{ .Files.Get "files/volume-linker.sh" | indent 4 }}
+    {{ .Files.Get "files/volume-linker.sh" | nindent 4 }}
