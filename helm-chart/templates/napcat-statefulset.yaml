@@ -50,9 +50,9 @@ spec:
             - mountPath: /app/.config/QQ
               name: napcat
               subPath: data
-      imagePullSecrets: {{ .Values.napcat.image.pullSecrets }}
-      nodeSelector: {{ .Values.napcat.nodeSelector }}
-      tolerations: {{ .Values.napcat.tolerations }}
+      imagePullSecrets: {{ .Values.napcat.image.pullSecrets | default nil }}
+      nodeSelector: {{ .Values.napcat.nodeSelector | default nil }}
+      tolerations: {{ .Values.napcat.tolerations | default nil }}
       volumes:
         - name: napcat
           persistentVolumeClaim:

@@ -59,9 +59,9 @@ spec:
             - mountPath: /MaiMBot/statistics
               name: statistics
             {{- end }}
-      imagePullSecrets: {{ .Values.core.image.pullSecrets }}
-      nodeSelector: {{ .Values.core.nodeSelector }}
-      tolerations: {{ .Values.core.tolerations }}
+      imagePullSecrets: {{ .Values.core.image.pullSecrets | default nil }}
+      nodeSelector: {{ .Values.core.nodeSelector | default nil }}
+      tolerations: {{ .Values.core.tolerations | default nil }}
       volumes:
         - name: data
           persistentVolumeClaim:

@@ -12,7 +12,7 @@ spec:
       protocol: TCP
       targetPort: 8095
       {{- if eq .Values.adapter.service.type "nodePort" }}
-      nodePort: {{ .Values.adapter.service.nodePort }}
+      nodePort: {{ .Values.adapter.service.nodePort | default nil }}
       {{- end }}
   selector:
     app: {{ .Release.Name }}-maibot-adapter

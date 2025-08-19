@@ -13,7 +13,7 @@ spec:
       protocol: TCP
       targetPort: 8080
       {{- if eq .Values.sqlite_web.service.type "nodePort" }}
-      nodePort: {{ .Values.sqlite_web.service.nodePort }}
+      nodePort: {{ .Values.sqlite_web.service.nodePort | default nil }}
       {{- end }}
   selector:
     app: {{ .Release.Name }}-maibot-sqlite-web

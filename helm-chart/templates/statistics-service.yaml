@@ -13,7 +13,7 @@ spec:
       protocol: TCP
       targetPort: 80
       {{- if eq .Values.statistics_dashboard.service.type "nodePort" }}
-      nodePort: {{ .Values.statistics_dashboard.service.nodePort }}
+      nodePort: {{ .Values.statistics_dashboard.service.nodePort | default nil }}
       {{- end }}
   selector:
     app: {{ .Release.Name }}-maibot-statistics-dashboard

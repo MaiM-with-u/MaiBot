@@ -13,7 +13,7 @@ spec:
       protocol: TCP
       targetPort: 6099
       {{- if eq .Values.napcat.service.type "nodePort" }}
-      nodePort: {{ .Values.napcat.service.nodePort }}
+      nodePort: {{ .Values.napcat.service.nodePort | default nil }}
       {{- end }}
   selector:
     app: {{ .Release.Name }}-maibot-napcat

@@ -42,9 +42,9 @@ spec:
           volumeMounts:
             - mountPath: /data/MaiMBot
               name: data
-      imagePullSecrets: {{ .Values.sqlite_web.image.pullSecrets }}
-      nodeSelector: {{ .Values.sqlite_web.nodeSelector }}
-      tolerations: {{ .Values.sqlite_web.tolerations }}
+      imagePullSecrets: {{ .Values.sqlite_web.image.pullSecrets | default nil }}
+      nodeSelector: {{ .Values.sqlite_web.nodeSelector | default nil }}
+      tolerations: {{ .Values.sqlite_web.tolerations | default nil }}
       volumes:
         - name: data
           persistentVolumeClaim:

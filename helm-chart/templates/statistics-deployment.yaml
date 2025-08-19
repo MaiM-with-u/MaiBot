@@ -39,9 +39,9 @@ spec:
             - mountPath: /usr/share/nginx/html
               name: statistics
               readOnly: true
-      imagePullSecrets: {{ .Values.statistics_dashboard.image.pullSecrets }}
-      nodeSelector: {{ .Values.statistics_dashboard.nodeSelector }}
-      tolerations: {{ .Values.core.tolerations }}
+      imagePullSecrets: {{ .Values.statistics_dashboard.image.pullSecrets | default nil }}
+      nodeSelector: {{ .Values.statistics_dashboard.nodeSelector | default nil }}
+      tolerations: {{ .Values.core.tolerations | default nil }}
       volumes:
         - name: statistics
           persistentVolumeClaim:
