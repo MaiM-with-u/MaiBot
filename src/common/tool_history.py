@@ -51,8 +51,15 @@ class ToolHistoryManager:
             
     def _clean_expired_records(self):
         """清理已过期的记录"""
+        original_count = len(self._history)
         self._history = [record for record in self._history if record.get("ttl_count", 0) < record.get("ttl", 5)]
-        self._save_history()
+        cleaned_count = original_count - len(self._history)
+        
+        if cleaned_count > 0:
+            logger.info(f"清理了 {cleaned_count} 条过期的工具历史记录，剩余 {len(self._history)} 条")
+            self._save_history()
+        else:
+            logger.debug("没有需要清理的过期工具历史记录")
 
     def record_tool_call(self, 
                         tool_name: str,
@@ -76,6 +83,9 @@ class ToolHistoryManager:
         # 检查是否启用历史记录且ttl大于0
         if not global_config.tool.history.enable_history or ttl <= 0:
             return
+            
+        # 先清理过期记录
+        self._clean_expired_records()
             
         try:
             # 创建记录
@@ -190,6 +200,8 @@ class ToolHistoryManager:
         Returns:
             符合条件的历史记录列表
         """
+        # 先清理过期记录
+        self._clean_expired_records()
         def _parse_time(time_str: Optional[Union[datetime, str]]) -> Optional[datetime]:
             if isinstance(time_str, datetime):
                 return time_str
