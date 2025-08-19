@@ -61,6 +61,7 @@ spec:
             {{- end }}
       imagePullSecrets: {{ .Values.core.image.pullSecrets }}
       nodeSelector: {{ .Values.core.nodeSelector }}
+      tolerations: {{ .Values.core.tolerations }}
       volumes:
         - name: data
           persistentVolumeClaim:
