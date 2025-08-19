@@ -34,7 +34,7 @@ spec:
             - containerPort: 80
               name: dashboard
               protocol: TCP
-          resources: {{ .Values.statistics_dashboard.resources }}
+          resources: {{ .Values.statistics_dashboard.resources | default nil }}
           volumeMounts:
             - mountPath: /usr/share/nginx/html
               name: statistics

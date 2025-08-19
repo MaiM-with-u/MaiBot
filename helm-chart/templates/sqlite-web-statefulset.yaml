@@ -38,7 +38,7 @@ spec:
             - containerPort: 8080
               name: webui
               protocol: TCP
-          resources: {{ .Values.sqlite_web.resources }}
+          resources: {{ .Values.sqlite_web.resources | default nil }}
           volumeMounts:
             - mountPath: /data/MaiMBot
               name: data
