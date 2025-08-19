@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-adapter-cm-generator
+  name: {{ .Release.Name }}-maibot-adapter-cm-generator
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": pre-install
@@ -11,7 +11,7 @@ spec:
   backoffLimit: 0
   template:
     spec:
-      serviceAccountName: {{ .Release.Name }}-adapter-cm-generator
+      serviceAccountName: {{ .Release.Name }}-maibot-adapter-cm-generator
       restartPolicy: Never
       containers:
         - name: python
