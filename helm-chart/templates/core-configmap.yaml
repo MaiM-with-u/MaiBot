@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-maibot-core
+  namespace: {{ .Release.Namespace }}
+data:
+  .env: |
+    HOST=0.0.0.0
+    PORT=8000
+  model_config: |
+    {{ .Values.config.core_model_config | indent 4 }}
+  bot_config.toml: |
+    {{ .Values.config.core_bot_config | indent 4 }}
