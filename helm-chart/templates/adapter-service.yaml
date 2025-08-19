@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-maibot-adapter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-maibot-adapter
+spec:
+  ports:
+    - name: napcat-ws
+      port: {{ .Values.adapter.service.port }}
+      protocol: TCP
+      targetPort: {{ .Values.adapter.service.port }}
+      nodePort: {{ .Values.adapter.service.nodePort }}
+  selector:
+    app: {{ .Release.Name }}-maibot-adapter
+  type: {{ .Values.adapter.service.type }}

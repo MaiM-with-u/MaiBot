@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-maibot-adapter
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes: {{ .Values.adapter.persistence.accessModes }}
+  resources:
+    requests:
+      storage: {{ .Values.adapter.persistence.size }}
+  storageClassName: {{ .Values.adapter.persistence.storageClass | default nil }}

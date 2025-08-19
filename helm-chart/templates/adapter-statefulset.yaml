@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-maibot-adapter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-maibot-adapter
+spec:
+  serviceName: {{ .Release.Name }}-maibot-adapter
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-maibot-adapter
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-maibot-adapter
+    spec:
+      containers:
+        - name: adapter
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+          image: {{ .Values.adapter.image.repository }}:{{ .Values.adapter.image.tag }}
+          imagePullPolicy: {{ .Values.adapter.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.adapter.service.port }}
+              name: napcat-ws
+              protocol: TCP
+          resources: {{ .Values.adapter.resources }}
+          volumeMounts:
+            - mountPath: /adapters/data
+              name: data
+            - mountPath: /adapters/config.toml
+              name: config
+              readOnly: true
+              subPath: config.toml
+      imagePullSecrets: {{ .Values.adapter.image.pullSecrets }}
+      nodeSelector: {{ .Values.adapter.nodeSelector }}
+      tolerations: {{ .Values.adapter.tolerations }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-maibot-adapter
+        - configMap:
+            items:
+              - key: config.toml
+                path: config.toml
+            name: {{ .Release.Name }}-maibot-adapter
+          name: config
