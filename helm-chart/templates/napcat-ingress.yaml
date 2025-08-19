@@ -4,7 +4,10 @@ kind: Ingress
 metadata:
   name: {{ .Release.Name }}-maibot-napcat
   namespace: {{ .Release.Namespace }}
-  annotations: {{ .Values.napcat.ingress.annotations | default nil }}
+  {{- if .Values.napcat.ingress.annotations }}
+  annotations:
+    {{ toYaml .Values.napcat.ingress.annotations | nindent 4 }}
+  {{- end }}
   labels:
     app: {{ .Release.Name }}-maibot-napcat
 spec:

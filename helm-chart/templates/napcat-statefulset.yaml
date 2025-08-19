@@ -42,7 +42,10 @@ spec:
             - containerPort: 6099
               name: webui
               protocol: TCP
-          resources: {{ .Values.napcat.resources | default nil }}
+          {{- if .Values.napcat.resources }}
+          resources:
+            {{ toYaml .Values.napcat.resources | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - mountPath: /app/napcat/config
               name: napcat
@@ -50,9 +53,18 @@ spec:
             - mountPath: /app/.config/QQ
               name: napcat
               subPath: data
-      imagePullSecrets: {{ .Values.napcat.image.pullSecrets | default nil }}
-      nodeSelector: {{ .Values.napcat.nodeSelector | default nil }}
-      tolerations: {{ .Values.napcat.tolerations | default nil }}
+      {{- if .Values.napcat.image.pullSecrets }}
+      imagePullSecrets:
+        {{ toYaml .Values.napcat.image.pullSecrets | nindent 8 }}
+      {{- end }}
+      {{- if .Values.napcat.nodeSelector }}
+      nodeSelector:
+        {{ toYaml .Values.napcat.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.napcat.tolerations }}
+      tolerations:
+        {{ toYaml .Values.napcat.tolerations | nindent 8 }}
+      {{- end }}
       volumes:
         - name: napcat
           persistentVolumeClaim:

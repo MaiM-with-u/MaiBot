@@ -27,7 +27,10 @@ spec:
             - containerPort: 8095
               name: napcat-ws
               protocol: TCP
-          resources: {{ .Values.adapter.resources | default nil }}
+          {{- if .Values.adapter.resources }}
+          resources:
+            {{ toYaml .Values.adapter.resources | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - mountPath: /adapters/data
               name: data
@@ -35,9 +38,18 @@ spec:
               name: config
               readOnly: true
               subPath: config.toml
-      imagePullSecrets: {{ .Values.adapter.image.pullSecrets | default nil }}
-      nodeSelector: {{ .Values.adapter.nodeSelector | default nil }}
-      tolerations: {{ .Values.adapter.tolerations | default nil }}
+      {{- if .Values.adapter.image.pullSecrets }}
+      imagePullSecrets:
+        {{ toYaml .Values.adapter.image.pullSecrets | nindent 8 }}
+      {{- end }}
+      {{- if .Values.adapter.nodeSelector }}
+      nodeSelector:
+        {{ toYaml .Values.adapter.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.adapter.tolerations }}
+      tolerations:
+        {{ toYaml .Values.adapter.tolerations | nindent 8 }}
+      {{- end }}
       volumes:
         - name: data
           persistentVolumeClaim:

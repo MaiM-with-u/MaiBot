@@ -34,14 +34,26 @@ spec:
             - containerPort: 80
               name: dashboard
               protocol: TCP
-          resources: {{ .Values.statistics_dashboard.resources | default nil }}
+          {{- if .Values.statistics_dashboard.resources }}
+          resources:
+            {{ toYaml .Values.statistics_dashboard.resources | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - mountPath: /usr/share/nginx/html
               name: statistics
               readOnly: true
-      imagePullSecrets: {{ .Values.statistics_dashboard.image.pullSecrets | default nil }}
-      nodeSelector: {{ .Values.statistics_dashboard.nodeSelector | default nil }}
-      tolerations: {{ .Values.core.tolerations | default nil }}
+      {{- if .Values.statistics_dashboard.image.pullSecrets }}
+      imagePullSecrets:
+        {{ toYaml .Values.statistics_dashboard.image.pullSecrets | nindent 8 }}
+      {{- end }}
+      {{- if .Values.statistics_dashboard.nodeSelector }}
+      nodeSelector:
+        {{ toYaml .Values.statistics_dashboard.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.statistics_dashboard.tolerations }}
+      tolerations:
+        {{ toYaml .Values.statistics_dashboard.tolerations | nindent 8 }}
+      {{- end }}
       volumes:
         - name: statistics
           persistentVolumeClaim:

@@ -35,7 +35,10 @@ spec:
             - containerPort: 8000
               name: adapter-ws
               protocol: TCP
-          resources: {{ .Values.core.resources | default nil }}
+          {{- if .Values.core.resources }}
+          resources:
+            {{ toYaml .Values.core.resources | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - mountPath: /MaiMBot/data
               name: data
@@ -59,9 +62,18 @@ spec:
             - mountPath: /MaiMBot/statistics
               name: statistics
             {{- end }}
-      imagePullSecrets: {{ .Values.core.image.pullSecrets | default nil }}
-      nodeSelector: {{ .Values.core.nodeSelector | default nil }}
-      tolerations: {{ .Values.core.tolerations | default nil }}
+      {{- if .Values.core.image.pullSecrets }}
+      imagePullSecrets:
+        {{ toYaml .Values.core.image.pullSecrets | nindent 8 }}
+      {{- end }}
+      {{- if .Values.core.nodeSelector }}
+      nodeSelector:
+        {{ toYaml .Values.core.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.core.tolerations }}
+      tolerations:
+        {{ toYaml .Values.core.tolerations | nindent 8 }}
+      {{- end }}
       volumes:
         - name: data
           persistentVolumeClaim:

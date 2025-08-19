@@ -38,13 +38,25 @@ spec:
             - containerPort: 8080
               name: webui
               protocol: TCP
-          resources: {{ .Values.sqlite_web.resources | default nil }}
+          {{- if .Values.sqlite_web.resources }}
+          resources:
+            {{ toYaml .Values.sqlite_web.resources | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - mountPath: /data/MaiMBot
               name: data
-      imagePullSecrets: {{ .Values.sqlite_web.image.pullSecrets | default nil }}
-      nodeSelector: {{ .Values.sqlite_web.nodeSelector | default nil }}
-      tolerations: {{ .Values.sqlite_web.tolerations | default nil }}
+      {{- if .Values.sqlite_web.image.pullSecrets }}
+      imagePullSecrets:
+        {{ toYaml .Values.sqlite_web.image.pullSecrets | nindent 8 }}
+      {{- end }}
+      {{- if .Values.sqlite_web.nodeSelector }}
+      nodeSelector:
+        {{ toYaml .Values.sqlite_web.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.sqlite_web.tolerations }}
+      tolerations:
+        {{ toYaml .Values.sqlite_web.tolerations | nindent 8 }}
+      {{- end }}
       volumes:
         - name: data
           persistentVolumeClaim:

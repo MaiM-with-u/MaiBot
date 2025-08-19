@@ -4,7 +4,10 @@ kind: Ingress
 metadata:
   name: {{ .Release.Name }}-maibot-statistics-dashboard
   namespace: {{ .Release.Namespace }}
-  annotations: {{ .Values.statistics_dashboard.ingress.annotations | default nil }}
+  {{- if .Values.statistics_dashboard.ingress.annotations }}
+  annotations:
+    {{ toYaml .Values.statistics_dashboard.ingress.annotations | nindent 4 }}
+  {{- end }}
   labels:
     app: {{ .Release.Name }}-maibot-statistics-dashboard
 spec:
