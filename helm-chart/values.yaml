@@ -101,11 +101,9 @@ statistics_dashboard:
     enabled: false
     className: nginx
     annotations: { }
-    hosts:
-      - host: maim-statistics.example.com  # 访问运行统计看板的域名
-        paths:
-          - path: /
-            pathType: Prefix
+    host: maim-statistics.example.com  # 访问运行统计看板的域名
+    path: /
+    pathType: Prefix
 
   persistence:
     storageClass:
@@ -157,11 +155,9 @@ napcat:
     enabled: false  # 是否启用
     className: nginx
     annotations: { }
-    hosts:
-      - host: napcat.example.com  # 暴露napcat web面板使用的域名
-        paths:
-          - path: /
-            pathType: Prefix
+    host: napcat.example.com  # 暴露napcat web面板使用的域名
+    path: /
+    pathType: Prefix
 
   persistence:
     storageClass:
@@ -205,11 +201,9 @@ sqlite-web:
     enabled: false  # 是否启用
     className: nginx
     annotations: { }
-    hosts:
-      - host: maim-sqlite.example.com  # 暴露websocket使用的域名
-        paths:
-          - path: /
-            pathType: Prefix
+    host: maim-sqlite.example.com  # 暴露websocket使用的域名
+    path: /
+    pathType: Prefix
 
 # 麦麦各部分组件的运行配置文件
 config:
