@@ -5,7 +5,7 @@ metadata:
   name: {{ .Release.Name }}-maibot-adapter-cm-generator
   namespace: {{ .Release.Namespace }}
   annotations:
-    "helm.sh/hook": post-install
+    "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   backoffLimit: 0
