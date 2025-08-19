@@ -374,17 +374,21 @@ class GeminiClient(BaseClient):
         # 将tool_options转换为Gemini API所需的格式
         tools = _convert_tool_options(tool_options) if tool_options else None
         # 将response_format转换为Gemini API所需的格式
+        if extra_params and "thinking_budget" in extra_params:
+            tb = extra_params["thinking_budget"]
+        else:
+            tb = int(max_tokens / 2)
+
+        tb = int(tb)  # 转成 int，避免字符串或 None 出错
+        tb = max(512, min(tb, 24576))  # 限制在合法范围（512-24576）
+
         generation_config_dict = {
             "max_output_tokens": max_tokens,
             "temperature": temperature,
             "response_modalities": ["TEXT"],
             "thinking_config": ThinkingConfig(
                 include_thoughts=True,
-                thinking_budget=(
-                    extra_params["thinking_budget"]
-                    if extra_params and "thinking_budget" in extra_params
-                    else int(max_tokens / 2)  # 默认思考预算为最大token数的一半，防止空回复
-                ),
+                thinking_budget=tb,
             ),
             "safety_settings": gemini_safe_settings,  # 防止空回复问题
         }
