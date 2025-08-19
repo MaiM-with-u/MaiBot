@@ -9,5 +9,7 @@ spec:
   resources:
     requests:
       storage: {{ .Values.napcat.persistence.size }}
+  {{- if .Values.adapter.persistence.storageClass }}
   storageClassName: {{ .Values.napcat.persistence.storageClass | default nil }}
+  {{- end }}
 {{- end }}

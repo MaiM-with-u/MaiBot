@@ -8,4 +8,6 @@ spec:
   resources:
     requests:
       storage: {{ .Values.adapter.persistence.size }}
+  {{- if .Values.adapter.persistence.storageClass }}
   storageClassName: {{ .Values.adapter.persistence.storageClass | default nil }}
+  {{- end }}

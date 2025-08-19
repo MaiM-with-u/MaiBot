@@ -9,5 +9,7 @@ spec:
   resources:
     requests:
       storage: {{ .Values.statistics_dashboard.persistence.size }}
+  {{- if .Values.adapter.persistence.storageClass }}
   storageClassName: {{ .Values.statistics_dashboard.persistence.storageClass | default nil }}
+  {{- end }}
 {{- end }}
