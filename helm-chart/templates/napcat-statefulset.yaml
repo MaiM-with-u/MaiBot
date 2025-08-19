@@ -21,9 +21,9 @@ spec:
         - name: napcat
           env:
             - name: NAPCAT_GID
-              value: {{ .Values.napcat.permission.gid }}
+              value: "{{ .Values.napcat.permission.gid }}"
             - name: NAPCAT_UID
-              value: {{ .Values.napcat.permission.uid }}
+              value: "{{ .Values.napcat.permission.uid }}"
             - name: TZ
               value: Asia/Shanghai
           image: {{ .Values.napcat.image.repository }}:{{ .Values.napcat.image.tag }}
