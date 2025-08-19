@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-maibot-core
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes: {{ .Values.core.persistence.accessModes }}
+  resources:
+    requests:
+      storage: {{ .Values.core.persistence.size }}
+  storageClassName: {{ .Values.core.persistence.storageClass | default nil }}
