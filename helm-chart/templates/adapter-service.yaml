@@ -10,7 +10,7 @@ spec:
     - name: napcat-ws
       port: {{ .Values.adapter.service.port }}
       protocol: TCP
-      targetPort: {{ .Values.adapter.service.port }}
+      targetPort: 8095
       nodePort: {{ .Values.adapter.service.nodePort }}
   selector:
     app: {{ .Release.Name }}-maibot-adapter

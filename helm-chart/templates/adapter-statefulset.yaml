@@ -24,7 +24,7 @@ spec:
           image: {{ .Values.adapter.image.repository }}:{{ .Values.adapter.image.tag }}
           imagePullPolicy: {{ .Values.adapter.image.pullPolicy }}
           ports:
-            - containerPort: {{ .Values.adapter.service.port }}
+            - containerPort: 8095
               name: napcat-ws
               protocol: TCP
           resources: {{ .Values.adapter.resources }}
