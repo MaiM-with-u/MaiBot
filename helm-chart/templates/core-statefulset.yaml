@@ -85,5 +85,5 @@ spec:
         {{- if .Values.statistics_dashboard.enabled }}
         - name: statistics
           persistentVolumeClaim:
-            claimName: {{ .Release.Name }}-maibot-statistics
+            claimName: {{ .Release.Name }}-maibot-statistics-dashboard
         {{- end }}
