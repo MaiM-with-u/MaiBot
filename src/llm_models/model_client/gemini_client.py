@@ -44,10 +44,13 @@ from ..payload_content.tool_option import ToolOption, ToolParam, ToolCall
 
 logger = get_logger("Gemini客户端")
 
-# gemini_thinking参数
-GEMINI_THINKING_BUDGET_MIN = 512
-GEMINI_THINKING_BUDGET_MAX = 24576
-DEFAULT_THINKING_BUDGET = 1024
+# gemini_thinking参数（默认范围）
+# 不同模型的思考预算范围配置
+THINKING_BUDGET_LIMITS = {
+    "gemini-2.5-flash":       {"min": 1,   "max": 24576, "can_disable": True},
+    "gemini-2.5-flash-lite":  {"min": 512, "max": 24576, "can_disable": True},
+    "gemini-2.5-pro":         {"min": 128, "max": 32768, "can_disable": False},
+}
 
 gemini_safe_settings = [
     SafetySetting(category=HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold=HarmBlockThreshold.BLOCK_NONE),
@@ -333,6 +336,23 @@ class GeminiClient(BaseClient):
             api_key=api_provider.api_key,
         )  # 这里和openai不一样，gemini会自己决定自己是否需要retry
 
+    @staticmethod
+    def clamp_thinking_budget(tb: int, model_id: str) -> int:
+        """
+        按模型限制思考预算范围，仅支持指定的模型
+        """
+        if model_id not in THINKING_BUDGET_LIMITS:
+            raise ValueError(f"模型 {model_id} 不支持 ThinkingConfig")
+        limits = THINKING_BUDGET_LIMITS[model_id]
+        if tb == -1:
+            return -1  # 动态思考模式
+        if tb == 0:
+            if limits["can_disable"]:
+                return 0
+            else:
+                return limits["min"]
+        return max(limits["min"], min(tb, limits["max"]))
+
     async def get_response(
         self,
         model_info: ModelInfo,
@@ -379,17 +399,14 @@ class GeminiClient(BaseClient):
         # 将tool_options转换为Gemini API所需的格式
         tools = _convert_tool_options(tool_options) if tool_options else None
         # 将response_format转换为Gemini API所需的格式
-        try:
-            if extra_params and "thinking_budget" in extra_params:
-                tb = extra_params["thinking_budget"]
-                tb = int(tb)  # 尝试转换为整数
-            else:
-                tb = int(max_tokens / 2)
-        except (TypeError, ValueError) as e:
-            logger.warning(f"无效的thinking_budget值 {extra_params.get('thinking_budget') if extra_params else None}，使用默认值 {DEFAULT_THINKING_BUDGET}: {e}")
-            tb = DEFAULT_THINKING_BUDGET
+        # 处理 thinking_budget
+        if extra_params and "thinking_budget" in extra_params:
+            tb = extra_params["thinking_budget"]
+            tb = int(tb)  # 尝试转换为整数
+        else:
+            tb = int(max_tokens / 2)
 
-        tb = max(GEMINI_THINKING_BUDGET_MIN, min(tb, GEMINI_THINKING_BUDGET_MAX))  # 限制在合法范围（512-24576）
+        tb = self.clamp_thinking_budget(tb, model_info.model_identifier)
 
         generation_config_dict = {
             "max_output_tokens": max_tokens,
