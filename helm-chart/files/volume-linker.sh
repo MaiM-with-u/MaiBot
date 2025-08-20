@@ -23,7 +23,10 @@ rm -rf /MaiMBot/plugins
 # 创建软链接，从存储卷链接到实际位置
 ln -s /MaiMBot/data/plugins /MaiMBot/plugins
 ln -s /MaiMBot/data/logs /MaiMBot/logs
-ln -s /MaiMBot/statistics/index.html /MaiMBot/maibot_statistics.html
+if [ -f "/MaiMBot/statistics/index.html" ]
+then
+  ln -s /MaiMBot/statistics/index.html /MaiMBot/maibot_statistics.html
+fi
 
 # 启动麦麦
 echo "[VolumeLinker]Starting MaiBot..."
