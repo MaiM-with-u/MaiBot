@@ -341,17 +341,29 @@ class GeminiClient(BaseClient):
     TB_DISABLE_OR_MIN = 0
 
     @staticmethod
-    def clamp_thinking_budget(tb: int, model_id: str) -> int:
+    def clamp_thinking_budget(tb: int, model_id: str):
         """
         按模型限制思考预算范围，仅支持指定的模型（支持带数字后缀的新版本）
         """
-        # 前缀匹配
+        # 精确匹配或更精确的包含匹配
         limits = None
-        for key, val in THINKING_BUDGET_LIMITS.items():
-            if model_id.startswith(key):
-                limits = val
-                break
-        
+        matched_key = None
+    
+        # 首先尝试精确匹配
+        if model_id in THINKING_BUDGET_LIMITS:
+            limits = THINKING_BUDGET_LIMITS[model_id]
+            matched_key = model_id
+        else:
+            # 如果没有精确匹配，尝试更精确的包含匹配
+            # 按键的长度降序排序，优先匹配更长的键
+            sorted_keys = sorted(THINKING_BUDGET_LIMITS.keys(), key=len, reverse=True)
+            for key in sorted_keys:
+                # 使用更精确的匹配逻辑：键必须是模型ID的一部分，但不能是部分匹配
+                if key in model_id and (model_id == key or model_id.startswith(key + "-")):
+                    limits = THINKING_BUDGET_LIMITS[key]
+                    matched_key = key
+                    break
+
         if limits is None:
             raise ValueError(f"模型 {model_id} 不支持 ThinkingConfig")
         if tb == GeminiClient.TB_DYNAMIC_MODE:
@@ -363,6 +375,7 @@ class GeminiClient(BaseClient):
             else:
                 # 不允许禁用，返回最小值
                 return limits["min"]
+
         # 正常范围裁剪
         return max(limits["min"], min(tb, limits["max"]))
 
@@ -412,15 +425,14 @@ class GeminiClient(BaseClient):
         # 将tool_options转换为Gemini API所需的格式
         tools = _convert_tool_options(tool_options) if tool_options else None
         # 将response_format转换为Gemini API所需的格式
-        # 处理 thinking_budget
-        tb = int(max_tokens / 2)  # 默认值
+        tb = int(max_tokens / 2) # 默认值
         if extra_params and "thinking_budget" in extra_params:
-            raw_tb = extra_params["thinking_budget"]
             try:
-                tb = int(raw_tb)
+                tb = int(extra_params["thinking_budget"])
             except (ValueError, TypeError):
-                logger.warning(f"无效的thinking_budget值 {raw_tb}，将使用默认值")
+                logger.warning(f"无效的 thinking_budget 值 {extra_params['thinking_budget']}，将使用默认值")
 
+        # 裁剪到模型支持的范围
         tb = self.clamp_thinking_budget(tb, model_info.model_identifier)
 
         generation_config_dict = {
