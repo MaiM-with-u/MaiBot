@@ -39,7 +39,7 @@ core:
 
   image:
     repository: sengokucola/maibot
-    tag: main-d919c34
+    tag: main-a8ff08e
     pullPolicy: IfNotPresent
     pullSecrets: [ ]
 
