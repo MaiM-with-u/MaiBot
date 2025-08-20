@@ -8,28 +8,13 @@ set -e
 echo "[VolumeLinker]Preparing volume..."
 
 # 初次启动，在存储卷中检查并创建关键文件和目录
-if [ -d /MaiMBot/data/plugins ]
+mkdir -p /MaiMBot/data/plugins
+mkdir -p /MaiMBot/data/logs
+if [ ! -d "/MaiMBot/statistics" ]
 then
-  echo "[VolumeLinker]    '/MaiMBot/data/plugins' exists."
+  echo "[VolumeLinker]    Statistics volume disabled."
 else
-  mkdir /MaiMBot/data/plugins
-fi
-if [ -d /MaiMBot/data/logs ]
-then
-  echo "[VolumeLinker]    '/MaiMBot/data/logs' exists."
-else
-  mkdir /MaiMBot/data/logs
-fi
-if [ -f /MaiMBot/statistics/index.html ]
-then
-  echo "[VolumeLinker]    '/MaiMBot/statistics/index.html' exists."
-else
-  if [ -d /MaiMBot/statistics ]
-  then
-    touch /MaiMBot/statistics/index.html
-  else
-    echo "[VolumeLinker]    Statistics volume disabled."
-  fi
+  touch /MaiMBot/statistics/index.html
 fi
 
 # 删除空的插件目录，准备创建软链接
