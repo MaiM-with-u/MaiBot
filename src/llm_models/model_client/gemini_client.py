@@ -343,9 +343,15 @@ class GeminiClient(BaseClient):
     @staticmethod
     def clamp_thinking_budget(tb: int, model_id: str) -> int:
         """
-        按模型限制思考预算范围，仅支持指定的模型
+        按模型限制思考预算范围，仅支持指定的模型（支持带数字后缀的新版本）
         """
-        limits = THINKING_BUDGET_LIMITS.get(model_id)
+        # 前缀匹配
+        limits = None
+        for key, val in THINKING_BUDGET_LIMITS.items():
+            if model_id.startswith(key):
+                limits = val
+                break
+        
         if limits is None:
             raise ValueError(f"模型 {model_id} 不支持 ThinkingConfig")
         if tb == GeminiClient.TB_DYNAMIC_MODE:
