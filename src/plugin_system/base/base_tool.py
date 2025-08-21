@@ -29,6 +29,9 @@ class BaseTool(ABC):
     available_for_llm: bool = False
     """是否可供LLM使用"""
 
+    history_ttl: int = 5
+    """工具调用历史记录的TTL值，默认为5。设为0表示不记录历史"""
+
     def __init__(self, plugin_config: Optional[dict] = None):
         self.plugin_config = plugin_config or {}  # 直接存储插件配置字典
 

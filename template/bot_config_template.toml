@@ -1,5 +1,5 @@
 [inner]
-version = "6.4.6"
+version = "6.4.7"
 
 #----以下是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 #如果你想要修改配置文件，请递增version的值
@@ -113,6 +113,11 @@ ban_msgs_regex = [
 
 [tool]
 enable_tool = false # 是否在普通聊天中启用工具
+
+[tool.history]
+enable_history = true # 是否启用工具调用历史记录
+enable_prompt_history = true # 是否在提示词中加入工具历史记录
+max_history = 5 # 每个会话最多保留的历史记录数
 
 [mood]
 enable_mood = true # 是否启用情绪系统

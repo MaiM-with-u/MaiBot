@@ -284,11 +284,31 @@ class ExpressionConfig(ConfigBase):
 
 
 @dataclass
+class ToolHistoryConfig(ConfigBase):
+    """工具历史记录配置类"""
+
+    enable_history: bool = True
+    """是否启用工具历史记录"""
+
+    enable_prompt_history: bool = True
+    """是否在提示词中加入工具历史记录"""
+    
+    max_history: int = 5
+    """注入到提示词中的最大工具历史记录数量"""
+    
+    data_dir: str = "data/tool_history"
+    """历史记录保存目录"""
+
+
+@dataclass
 class ToolConfig(ConfigBase):
     """工具配置类"""
 
     enable_tool: bool = False
     """是否在聊天中启用工具"""
+
+    history: ToolHistoryConfig = field(default_factory=ToolHistoryConfig)
+    """工具历史记录配置"""
 
 
 @dataclass

@@ -24,6 +24,10 @@ initialize_logging()
 
 from src.main import MainSystem #noqa
 from src.manager.async_task_manager import async_task_manager #noqa
+from src.common.tool_history import wrap_tool_executor #noqa
+
+# 初始化工具历史记录
+wrap_tool_executor()
 
 
 

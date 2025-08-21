@@ -7,10 +7,32 @@ from contextlib import asynccontextmanager
 from typing import Dict, Any, Optional, List, Union
 
 from src.common.logger import get_logger
+from src.common.tool_history import ToolHistoryManager
 
 install(extra_lines=3)
 
 logger = get_logger("prompt_build")
+
+# 创建工具历史管理器实例
+tool_history_manager = ToolHistoryManager()
+
+def get_tool_history_prompt(message_id: Optional[str] = None) -> str:
+    """获取工具历史提示词
+    
+    Args:
+        message_id: 会话ID, 用于只获取当前会话的历史
+        
+    Returns:
+        格式化的工具历史提示词
+    """
+    from src.config.config import global_config
+
+    if not global_config.tool.history.enable_prompt_history:
+        return ""
+        
+    return tool_history_manager.get_recent_history_prompt(
+        chat_id=message_id
+    )
 
 
 class PromptContext:
@@ -136,8 +158,39 @@ class PromptManager:
         return prompt
 
     async def format_prompt(self, name: str, **kwargs) -> str:
+        # 获取当前提示词
         prompt = await self.get_prompt_async(name)
-        return prompt.format(**kwargs)
+
+        # 获取当前会话ID
+        message_id = self._context._current_context
+
+        # 获取工具历史提示词
+        tool_history = ""
+        if name in ['action_prompt', 'replyer_prompt', 'planner_prompt', 'tool_executor_prompt']:
+            tool_history = get_tool_history_prompt(message_id)
+
+        # 获取基本格式化结果
+        result = prompt.format(**kwargs)
+
+        # 如果有工具历史，插入到适当位置
+        if tool_history:
+            # 查找合适的插入点
+            # 在人格信息和身份块之后，但在主要内容之前
+            identity_end = result.find("```\n现在，你说：")
+            if identity_end == -1:
+                # 如果找不到特定标记，尝试在第一个段落后插入
+                first_double_newline = result.find("\n\n")
+                if first_double_newline != -1:
+                    # 在第一个双换行后插入
+                    result = f"{result[:first_double_newline + 2]}{tool_history}\n{result[first_double_newline + 2:]}"
+                else:
+                    # 如果找不到合适的位置，添加到开头
+                    result = f"{tool_history}\n\n{result}"
+            else:
+                # 在找到的位置插入
+                result = f"{result[:identity_end]}\n{tool_history}\n{result[identity_end:]}"
+
+        return result
 
 
 # 全局单例
