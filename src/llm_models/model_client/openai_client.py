@@ -60,10 +60,12 @@ def _convert_messages(messages: list[Message]) -> list[ChatCompletionMessagePara
             content = []
             for item in message.content:
                 if isinstance(item, tuple):
+                    # 修复图像格式处理
+                    image_format = "jpeg" if item[0].lower() == "jpg" else item[0].lower()
                     content.append(
                         {
                             "type": "image_url",
-                            "image_url": {"url": f"data:image/{item[0].lower()};base64,{item[1]}"},
+                            "image_url": {"url": f"data:image/{image_format};base64,{item[1]}"},
                         }
                     )
                 elif isinstance(item, str):
@@ -436,6 +438,26 @@ class OpenaiClient(BaseClient):
         messages: Iterable[ChatCompletionMessageParam] = _convert_messages(message_list)
         # 将tool_options转换为OpenAI API所需的格式
         tools: Iterable[ChatCompletionToolParam] = _convert_tool_options(tool_options) if tool_options else NOT_GIVEN  # type: ignore
+        
+        # 创建最终的参数副本，避免修改原始参数
+        final_extra_params = extra_params.copy() if extra_params else {}
+        
+        # 检测 Gemini 模型并处理 thinking_budget
+        if "gemini-" in model_info.model_identifier and "thinking_budget" in final_extra_params:
+            # 延迟导入模块级函数和常量，避免循环依赖
+            from .gemini_client import clamp_thinking_budget, THINKING_BUDGET_AUTO
+            
+            tb = THINKING_BUDGET_AUTO
+            try:
+                tb = int(final_extra_params["thinking_budget"])
+            except (ValueError, TypeError):
+                logger.warning(f"无效的 thinking_budget 值 {final_extra_params['thinking_budget']}，使用默认动态模式 {tb}")
+            
+            tb = clamp_thinking_budget(tb, model_info.model_identifier)
+            final_extra_params["thinking_budget"] = tb
+        elif "gemini-" not in model_info.model_identifier and "thinking_budget" in final_extra_params:
+            # 对于非 Gemini 模型，移除 thinking_budget 参数（如果存在）
+            final_extra_params.pop("thinking_budget", None)
 
         try:
             if model_info.force_stream_mode:
@@ -448,7 +470,7 @@ class OpenaiClient(BaseClient):
                         max_tokens=max_tokens,
                         stream=True,
                         response_format=NOT_GIVEN,
-                        extra_body=extra_params,
+                        extra_body=final_extra_params,
                     )
                 )
                 while not req_task.done():
@@ -461,7 +483,6 @@ class OpenaiClient(BaseClient):
                 resp, usage_record = await stream_response_handler(req_task.result(), interrupt_flag)
             else:
                 # 发送请求并获取响应
-                # start_time = time.time()
                 req_task = asyncio.create_task(
                     self.client.chat.completions.create(
                         model=model_info.model_identifier,
@@ -471,7 +492,7 @@ class OpenaiClient(BaseClient):
                         max_tokens=max_tokens,
                         stream=False,
                         response_format=NOT_GIVEN,
-                        extra_body=extra_params,
+                        extra_body=final_extra_params,
                     )
                 )
                 while not req_task.done():
@@ -479,9 +500,7 @@ class OpenaiClient(BaseClient):
                         # 如果中断量存在且被设置，则取消任务并抛出异常
                         req_task.cancel()
                         raise ReqAbortException("请求被外部信号中断")
-                    await asyncio.sleep(0.1)  # 等待0.5秒后再次检查任务&中断信号量状态
-
-                # logger.info(f"OpenAI请求时间: {model_info.model_identifier}  {time.time() - start_time} \n{messages}")
+                    await asyncio.sleep(0.1)  # 等待0.1秒后再次检查任务&中断信号量状态
 
                 resp, usage_record = async_response_parser(req_task.result())
         except APIConnectionError as e:
