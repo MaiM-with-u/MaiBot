@@ -60,8 +60,7 @@ def _convert_messages(messages: list[Message]) -> list[ChatCompletionMessagePara
             content = []
             for item in message.content:
                 if isinstance(item, tuple):
-                    # 修复图像格式处理
-                    image_format = "jpeg" if item[0].lower() == "jpg" else item[0].lower()
+                    image_format = "jpeg" if "gemini-" in model_info.model_identifier and item[0].lower() == "jpg" else item[0].lower()
                     content.append(
                         {
                             "type": "image_url",
