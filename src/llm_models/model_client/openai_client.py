@@ -38,7 +38,7 @@ from ..payload_content.tool_option import ToolOption, ToolParam, ToolCall
 logger = get_logger("OpenAI客户端")
 
 
-def _convert_messages(messages: list[Message]) -> list[ChatCompletionMessageParam]:
+def _convert_messages(messages: list[Message], gemini: bool) -> list[ChatCompletionMessageParam]:
     """
     转换消息格式 - 将消息转换为OpenAI API所需的格式
     :param messages: 消息列表
@@ -60,7 +60,7 @@ def _convert_messages(messages: list[Message]) -> list[ChatCompletionMessagePara
             content = []
             for item in message.content:
                 if isinstance(item, tuple):
-                    image_format = "jpeg" if "gemini-" in model_info.model_identifier and item[0].lower() == "jpg" else item[0].lower()
+                    image_format = "jpeg" if gemini and item[0].lower() == "jpg" else item[0].lower()
                     content.append(
                         {
                             "type": "image_url",
@@ -433,16 +433,17 @@ class OpenaiClient(BaseClient):
         if async_response_parser is None:
             async_response_parser = _default_normal_response_parser
 
+        # 检测gemini
+        gemini = "gemini-" in model_info.model_identifier
         # 将messages构造为OpenAI API所需的格式
-        messages: Iterable[ChatCompletionMessageParam] = _convert_messages(message_list)
+        messages: Iterable[ChatCompletionMessageParam] = _convert_messages(message_list, gemini)
         # 将tool_options转换为OpenAI API所需的格式
         tools: Iterable[ChatCompletionToolParam] = _convert_tool_options(tool_options) if tool_options else NOT_GIVEN  # type: ignore
         
         # 创建最终的参数副本，避免修改原始参数
         final_extra_params = extra_params.copy() if extra_params else {}
-        
         # 检测 Gemini 模型并处理 thinking_budget
-        if "gemini-" in model_info.model_identifier and "thinking_budget" in final_extra_params:
+        if gemini and "thinking_budget" in final_extra_params:
             # 延迟导入模块级函数和常量，避免循环依赖
             from .gemini_client import clamp_thinking_budget, THINKING_BUDGET_AUTO
             
@@ -454,7 +455,7 @@ class OpenaiClient(BaseClient):
             
             tb = clamp_thinking_budget(tb, model_info.model_identifier)
             final_extra_params["thinking_budget"] = tb
-        elif "gemini-" not in model_info.model_identifier and "thinking_budget" in final_extra_params:
+        elif not gemini and "thinking_budget" in final_extra_params:
             # 对于非 Gemini 模型，移除 thinking_budget 参数（如果存在）
             final_extra_params.pop("thinking_budget", None)
 
