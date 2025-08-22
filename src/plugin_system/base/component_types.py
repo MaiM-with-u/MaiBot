@@ -12,9 +12,10 @@ class ComponentType(Enum):
 
     ACTION = "action"  # 动作组件
     COMMAND = "command"  # 命令组件
-    TOOL = "tool"  # 服务组件（预留）
+    TOOL = "tool"  # 工具组件
     SCHEDULER = "scheduler"  # 定时任务组件（预留）
-    EVENT_HANDLER = "event_handler"  # 事件处理组件（预留）
+    EVENT_HANDLER = "event_handler"  # 事件处理组件
+    EVENT = "event"  # 事件组件
 
     def __str__(self) -> str:
         return self.value
@@ -165,7 +166,6 @@ class ToolInfo(ComponentInfo):
 class EventHandlerInfo(ComponentInfo):
     """事件处理器组件信息"""
 
-    event_type: EventType = EventType.ON_MESSAGE  # 监听事件类型
     intercept_message: bool = False  # 是否拦截消息处理（默认不拦截）
     weight: int = 0  # 事件处理器权重，决定执行顺序
 
@@ -173,6 +173,13 @@ class EventHandlerInfo(ComponentInfo):
         super().__post_init__()
         self.component_type = ComponentType.EVENT_HANDLER
 
+@dataclass
+class EventInfo(ComponentInfo):
+    """事件组件信息"""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.component_type = ComponentType.EVENT
 
 @dataclass
 class PluginInfo:

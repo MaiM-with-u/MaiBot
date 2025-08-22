@@ -9,6 +9,22 @@ from src.plugin_system.base.component_types import (
 )
 
 
+def get_component_instance(
+    component_name: str, component_type: ComponentType
+) -> Optional[object]:
+    """
+    获取指定组件的实例。
+
+    Args:
+        component_name (str): 组件名称。
+        component_type (ComponentType): 组件类型。
+
+    Returns:
+        object: 组件实例，如果组件不存在则返回 None。
+    """
+    from src.plugin_system.core.component_registry import component_registry
+    return component_registry.get_component_class(component_name, component_type)  # type: ignoreq
+
 # === 插件信息查询 ===
 def get_all_plugin_info() -> Dict[str, PluginInfo]:
     """

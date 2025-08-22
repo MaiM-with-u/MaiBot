@@ -10,12 +10,14 @@ from src.plugin_system.base.component_types import (
     CommandInfo,
     EventHandlerInfo,
     PluginInfo,
+    EventInfo,
     ComponentType,
 )
 from src.plugin_system.base.base_command import BaseCommand
 from src.plugin_system.base.base_action import BaseAction
 from src.plugin_system.base.base_tool import BaseTool
 from src.plugin_system.base.base_events_handler import BaseEventHandler
+from src.plugin_system.base.base_event import BaseEvent
 
 logger = get_logger("component_registry")
 
@@ -60,6 +62,9 @@ class ComponentRegistry:
         """event_handler名 -> event_handler类"""
         self._enabled_event_handlers: Dict[str, Type[BaseEventHandler]] = {}
         """启用的事件处理器 event_handler名 -> event_handler类"""
+
+        self._event_registry: Dict[str, Type[BaseEvent]] = {}
+        """事件注册表 事件名 -> event 类"""
 
         logger.info("组件注册中心初始化完成")
 
@@ -141,6 +146,10 @@ class ComponentRegistry:
                 assert isinstance(component_info, EventHandlerInfo)
                 assert issubclass(component_class, BaseEventHandler)
                 ret = self._register_event_handler_component(component_info, component_class)
+            case ComponentType.EVENT:
+                assert isinstance(component_info, EventInfo)
+                assert isinstance(component_class, BaseEvent)
+                ret = self._register_event(component_info, component_class)
             case _:
                 logger.warning(f"未知组件类型: {component_type}")
 
@@ -219,7 +228,7 @@ class ComponentRegistry:
         if not handler_info.enabled:
             logger.warning(f"EventHandler组件 {handler_name} 未启用")
             return True  # 未启用，但是也是注册成功
-
+    
         from .events_manager import events_manager  # 延迟导入防止循环导入问题
 
         if events_manager.register_event_subscriber(handler_info, handler_class):
@@ -229,6 +238,18 @@ class ComponentRegistry:
             logger.error(f"注册事件处理器 {handler_name} 失败")
             return False
 
+    def _register_event(self, event_info: EventInfo, event_class: BaseEvent) -> bool:
+        """注册事件到事件注册表"""
+        if not (event_name := event_info.name):
+            logger.error(f"Event组件 {event_class.__name__} 必须指定名称")
+            return False
+        if event_name in self._event_registry:
+            logger.warning(f"事件 {event_name} 已存在，跳过注册")
+            return False
+        self._event_registry[event_name] = event_class
+        logger.debug(f"已注册事件: {event_name}")
+        return True
+    
     # === 组件移除相关 ===
 
     async def remove_component(self, component_name: str, component_type: ComponentType, plugin_name: str) -> bool:

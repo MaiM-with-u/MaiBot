@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, Optional, Dict
+from typing import Tuple, Optional, Dict, List
 
 from src.common.logger import get_logger
 from .component_types import MaiMessages, EventType, EventHandlerInfo, ComponentType
@@ -13,8 +13,6 @@ class BaseEventHandler(ABC):
     所有事件处理器都应该继承这个基类，提供事件处理的基本接口
     """
 
-    event_type: EventType = EventType.UNKNOWN
-    """事件类型，默认为未知"""
     handler_name: str = ""
     """处理器名称"""
     handler_description: str = ""
@@ -23,6 +21,8 @@ class BaseEventHandler(ABC):
     """处理器权重，越大权重越高"""
     intercept_message: bool = False
     """是否拦截消息，默认为否"""
+    init_subcribe: List[str] = []
+    """初始化时订阅的事件名称"""
 
     def __init__(self):
         self.log_prefix = "[EventHandler]"
@@ -30,8 +30,12 @@ class BaseEventHandler(ABC):
         """对应插件名"""
         self.plugin_config: Optional[Dict] = None
         """插件配置字典"""
-        if self.event_type == EventType.UNKNOWN:
-            raise NotImplementedError("事件处理器必须指定 event_type")
+        self.subcribed_events = []
+        """订阅的事件列表"""
+
+        if self.init_subcribe:
+            for event_name in self.init_subcribe:
+                self.subcribe(event_name)
 
     @abstractmethod
     async def execute(self, message: MaiMessages) -> Tuple[bool, bool, Optional[str]]:
@@ -41,6 +45,43 @@ class BaseEventHandler(ABC):
             Tuple[bool, bool, Optional[str]]: (是否执行成功, 是否需要继续处理, 可选的返回消息)
         """
         raise NotImplementedError("子类必须实现 execute 方法")
+
+    def subcribe(self, event_name: str) -> None:
+        """订阅一个事件
+
+        Args:
+            event (BaseEvent): 要订阅的事件实例
+        """
+        from src.plugin_system.apis.event_api import get_event
+
+        event = get_event(event_name)
+        if event is None: 
+            logger.error(f"事件 '{event_name}' 不存在，无法订阅")
+            return
+        
+        event.subcribers.append(self)
+        logger.debug(f"{self.log_prefix} 订阅事件 {event.name}")
+        self.subcribed_events.append(event.name)
+
+    def unsubscribe(self, event_name: str) -> None:
+        """取消订阅一个事件
+
+        Args:
+            event (BaseEvent): 要取消订阅的事件实例
+        """
+        from src.plugin_system.apis.event_api import get_event
+
+        event = get_event(event_name)
+        if event is None: 
+            logger.error(f"事件 '{event_name}' 不存在，无法取消订阅")
+            return
+        
+        if self in event.subcribers:
+            event.subcribers.remove(self)
+            logger.debug(f"{self.log_prefix} 取消订阅事件 {event.name}")
+            self.subcribed_events.remove(event.name)
+        else:
+            logger.warning(f"{self.log_prefix} 未订阅事件 {event.name}，无法取消订阅")
 
     @classmethod
     def get_handler_info(cls) -> "EventHandlerInfo":
@@ -54,7 +95,6 @@ class BaseEventHandler(ABC):
             name=name,
             component_type=ComponentType.EVENT_HANDLER,
             description=getattr(cls, "handler_description", "events处理器"),
-            event_type=cls.event_type,
             weight=cls.weight,
             intercept_message=cls.intercept_message,
         )

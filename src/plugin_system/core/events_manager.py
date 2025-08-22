@@ -157,14 +157,9 @@ class EventsManager:
 
     def _insert_event_handler(self, handler_class: Type[BaseEventHandler], handler_info: EventHandlerInfo) -> bool:
         """插入事件处理器到对应的事件类型列表中并设置其插件配置"""
-        if handler_class.event_type == EventType.UNKNOWN:
-            logger.error(f"事件处理器 {handler_class.__name__} 的事件类型未知，无法注册")
-            return False
 
         handler_instance = handler_class()
         handler_instance.set_plugin_name(handler_info.plugin_name or "unknown")
-        self._events_subscribers[handler_class.event_type].append(handler_instance)
-        self._events_subscribers[handler_class.event_type].sort(key=lambda x: x.weight, reverse=True)
 
         return True
 
