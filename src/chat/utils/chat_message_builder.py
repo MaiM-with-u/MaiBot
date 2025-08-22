@@ -361,10 +361,10 @@ def _build_readable_messages_internal(
     # 创建时间戳到消息ID的映射，用于在消息前添加[id]标识符
     timestamp_to_id_mapping: Dict[float, str] = {}
     if message_id_list:
-        for msg in message_id_list:
+        for msg_id, msg in message_id_list:
             timestamp = msg.time
             if timestamp is not None:
-                timestamp_to_id_mapping[timestamp] = msg.message_id
+                timestamp_to_id_mapping[timestamp] = msg_id
 
     def process_pic_ids(content: Optional[str]) -> str:
         """处理内容中的图片ID，将其替换为[图片x]格式"""
@@ -477,7 +477,7 @@ def _build_readable_messages_internal(
         readable_time = translate_timestamp_to_human_readable(timestamp, mode=timestamp_mode)
 
         # 查找消息id（如果有）并构建id_prefix
-        message_id = timestamp_to_id_mapping.get(timestamp)
+        message_id = timestamp_to_id_mapping.get(timestamp, "")
         id_prefix = f"[{message_id}]" if message_id else ""
 
         if is_action:
@@ -606,7 +606,7 @@ def build_readable_messages_with_id(
     truncate: bool = False,
     show_actions: bool = False,
     show_pic: bool = True,
-) -> Tuple[str, List[DatabaseMessages]]:
+) -> Tuple[str, List[Tuple[str, DatabaseMessages]]]:
     """
     将消息列表转换为可读的文本格式，并返回原始(时间戳, 昵称, 内容)列表。
     允许通过参数控制格式化行为。

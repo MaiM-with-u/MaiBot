@@ -341,7 +341,6 @@ MODULE_COLORS = {
     "lpmm": "\033[96m",
     "plugin_system": "\033[91m",  # 亮红色
     "person_info": "\033[32m",  # 绿色
-    "individuality": "\033[94m",  # 显眼的亮蓝色
     "manager": "\033[35m",  # 紫色
     "llm_models": "\033[36m",  # 青色
     "remote": "\033[38;5;242m",  # 深灰色，更不显眼
@@ -423,7 +422,6 @@ MODULE_COLORS = {
 # 定义模块别名映射 - 将真实的logger名称映射到显示的别名
 MODULE_ALIASES = {
     # 示例映射
-    "individuality": "人格特质",
     "emoji": "表情包",
     "no_action_action": "摸鱼",
     "reply_action": "回复",

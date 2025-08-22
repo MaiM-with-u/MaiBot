@@ -110,7 +110,6 @@ class LogFormatter:
             "plugin_system": "#FF0080",
             "experimental": "#FFFFFF",
             "person_info": "#008000",
-            "individuality": "#000080",
             "manager": "#800080",
             "llm_models": "#008080",
             "plugins": "#800000",

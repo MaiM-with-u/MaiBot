@@ -10,7 +10,6 @@ from src.chat.message_receive.chat_stream import get_chat_manager
 from src.config.config import global_config
 from src.chat.message_receive.bot import chat_bot
 from src.common.logger import get_logger
-from src.individuality.individuality import get_individuality, Individuality
 from src.common.server import get_global_server, Server
 from src.mood.mood_manager import mood_manager
 from src.chat.knowledge import lpmm_start_up
@@ -43,8 +42,6 @@ class MainSystem:
             self.hippocampus_manager = hippocampus_manager
         else:
             self.hippocampus_manager = None
-
-        self.individuality: Individuality = get_individuality()
 
         # 使用消息API替代直接的FastAPI实例
         self.app: MessageServer = get_global_api()
@@ -121,9 +118,6 @@ class MainSystem:
 
         # 将bot.py中的chat_bot.message_process消息处理函数注册到api.py的消息处理基类中
         self.app.register_message_handler(chat_bot.message_process)
-
-        # 初始化个体特征
-        await self.individuality.initialize()
         
         await check_and_run_migrations()
         

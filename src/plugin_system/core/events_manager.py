@@ -1,6 +1,6 @@
 import asyncio
 import contextlib
-from typing import List, Dict, Optional, Type, Tuple, Any, Coroutine
+from typing import List, Dict, Optional, Type, Tuple, Any, TYPE_CHECKING
 
 from src.chat.message_receive.message import MessageRecv
 from src.chat.message_receive.chat_stream import get_chat_manager
@@ -8,6 +8,9 @@ from src.common.logger import get_logger
 from src.plugin_system.base.component_types import EventType, EventHandlerInfo, MaiMessages
 from src.plugin_system.base.base_events_handler import BaseEventHandler
 from .global_announcement_manager import global_announcement_manager
+
+if TYPE_CHECKING:
+    from src.common.data_models.llm_data_model import LLMGenerationDataModel
 
 logger = get_logger("events_manager")
 
@@ -47,7 +50,7 @@ class EventsManager:
         event_type: EventType,
         message: Optional[MessageRecv] = None,
         llm_prompt: Optional[str] = None,
-        llm_response: Optional[Dict[str, Any]] = None,
+        llm_response: Optional["LLMGenerationDataModel"] = None,
         stream_id: Optional[str] = None,
         action_usage: Optional[List[str]] = None,
     ) -> Optional[MaiMessages]:
@@ -62,57 +65,42 @@ class EventsManager:
             else:
                 return self._transform_event_without_message(stream_id, llm_prompt, llm_response, action_usage)
 
-        return None # ON_START, ON_STOP事件没有消息体
+        return None  # ON_START, ON_STOP事件没有消息体
 
-    def _execute_handler(
-        self, 
-        handler: BaseEventHandler, 
-        message: Optional[MaiMessages]
-    ) -> Coroutine[Any, Any, tuple[bool, bool, Any]]:
-        """封装了调用 handler.execute 的逻辑。"""
-        return handler.execute(message) if message else handler.execute()
-        
     def _dispatch_handler_task(self, handler: BaseEventHandler, message: Optional[MaiMessages]):
         """分发一个非阻塞（异步）的事件处理任务。"""
         try:
-            # 无论是否有 message，都统一调用
-            coro = self._execute_handler(handler, message)
-            task = asyncio.create_task(coro)
-            
+            task = asyncio.create_task(handler.execute(message))
+
             task_name = f"{handler.plugin_name}-{handler.handler_name}"
             task.set_name(task_name)
             task.add_done_callback(self._task_done_callback)
-            
+
             self._handler_tasks.setdefault(handler.handler_name, []).append(task)
         except Exception as e:
             logger.error(f"创建事件处理器任务 {handler.handler_name} 时发生异常: {e}", exc_info=True)
 
-    async def _dispatch_intercepting_handler(
-        self, 
-        handler: BaseEventHandler, 
-        message: Optional[MaiMessages]
-    ) -> bool:
+    async def _dispatch_intercepting_handler(self, handler: BaseEventHandler, message: Optional[MaiMessages]) -> bool:
         """分发并等待一个阻塞（同步）的事件处理器，返回是否应继续处理。"""
         try:
-            # 统一调用
-            success, continue_processing, result = await self._execute_handler(handler, message)
-            
+            success, continue_processing, result = await handler.execute(message)
+
             if not success:
                 logger.error(f"EventHandler {handler.handler_name} 执行失败: {result}")
             else:
                 logger.debug(f"EventHandler {handler.handler_name} 执行成功: {result}")
-            
+
             return continue_processing
         except Exception as e:
             logger.error(f"EventHandler {handler.handler_name} 发生异常: {e}", exc_info=True)
-            return True # 发生异常时默认不中断其他处理
+            return True  # 发生异常时默认不中断其他处理
 
     async def handle_mai_events(
         self,
         event_type: EventType,
         message: Optional[MessageRecv] = None,
         llm_prompt: Optional[str] = None,
-        llm_response: Optional[Dict[str, Any]] = None,
+        llm_response: Optional["LLMGenerationDataModel"] = None,
         stream_id: Optional[str] = None,
         action_usage: Optional[List[str]] = None,
     ) -> bool:
@@ -122,7 +110,7 @@ class EventsManager:
         from src.plugin_system.core import component_registry
 
         continue_flag = True
-        
+
         # 1. 准备消息
         transformed_message = self._prepare_message(
             event_type, message, llm_prompt, llm_response, stream_id, action_usage
@@ -137,9 +125,13 @@ class EventsManager:
 
         for handler in handlers:
             # 3. 前置检查和配置加载
-            if current_stream_id and handler.handler_name in global_announcement_manager.get_disabled_chat_event_handlers(current_stream_id):
+            if (
+                current_stream_id
+                and handler.handler_name
+                in global_announcement_manager.get_disabled_chat_event_handlers(current_stream_id)
+            ):
                 continue
-            
+
             # 统一加载插件配置
             plugin_config = component_registry.get_plugin_config(handler.plugin_name) or {}
             handler.set_plugin_config(plugin_config)
@@ -152,7 +144,7 @@ class EventsManager:
             else:
                 # 异步执行，不阻塞
                 self._dispatch_handler_task(handler, transformed_message)
-        
+
         return continue_flag
 
     def _insert_event_handler(self, handler_class: Type[BaseEventHandler], handler_info: EventHandlerInfo) -> bool:
@@ -181,16 +173,16 @@ class EventsManager:
         return False
 
     def _transform_event_message(
-        self, message: MessageRecv, llm_prompt: Optional[str] = None, llm_response: Optional[Dict[str, Any]] = None
+        self, message: MessageRecv, llm_prompt: Optional[str] = None, llm_response: Optional["LLMGenerationDataModel"] = None
     ) -> MaiMessages:
         """转换事件消息格式"""
         # 直接赋值部分内容
         transformed_message = MaiMessages(
             llm_prompt=llm_prompt,
-            llm_response_content=llm_response.get("content") if llm_response else None,
-            llm_response_reasoning=llm_response.get("reasoning") if llm_response else None,
-            llm_response_model=llm_response.get("model") if llm_response else None,
-            llm_response_tool_call=llm_response.get("tool_calls") if llm_response else None,
+            llm_response_content=llm_response.content if llm_response else None,
+            llm_response_reasoning=llm_response.reasoning if llm_response else None,
+            llm_response_model=llm_response.model if llm_response else None,
+            llm_response_tool_call=llm_response.tool_calls if llm_response else None,
             raw_message=message.raw_message,
             additional_data=message.message_info.additional_config or {},
         )
@@ -234,7 +226,7 @@ class EventsManager:
         return transformed_message
 
     def _build_message_from_stream(
-        self, stream_id: str, llm_prompt: Optional[str] = None, llm_response: Optional[Dict[str, Any]] = None
+        self, stream_id: str, llm_prompt: Optional[str] = None, llm_response: Optional["LLMGenerationDataModel"] = None
     ) -> MaiMessages:
         """从流ID构建消息"""
         chat_stream = get_chat_manager().get_stream(stream_id)
@@ -246,7 +238,7 @@ class EventsManager:
         self,
         stream_id: str,
         llm_prompt: Optional[str] = None,
-        llm_response: Optional[Dict[str, Any]] = None,
+        llm_response: Optional["LLMGenerationDataModel"] = None,
         action_usage: Optional[List[str]] = None,
     ) -> MaiMessages:
         """没有message对象时进行转换"""
@@ -255,10 +247,10 @@ class EventsManager:
         return MaiMessages(
             stream_id=stream_id,
             llm_prompt=llm_prompt,
-            llm_response_content=(llm_response.get("content") if llm_response else None),
-            llm_response_reasoning=(llm_response.get("reasoning") if llm_response else None),
-            llm_response_model=llm_response.get("model") if llm_response else None,
-            llm_response_tool_call=(llm_response.get("tool_calls") if llm_response else None),
+            llm_response_content=(llm_response.content if llm_response else None),
+            llm_response_reasoning=(llm_response.reasoning if llm_response else None),
+            llm_response_model=(llm_response.model if llm_response else None),
+            llm_response_tool_call=(llm_response.tool_calls if llm_response else None),
             is_group_message=(not (not chat_stream.group_info)),
             is_private_message=(not chat_stream.group_info),
             action_usage=action_usage,

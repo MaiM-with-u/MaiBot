@@ -16,8 +16,8 @@ from src.chat.utils.timer_calculator import Timer
 from src.chat.planner_actions.planner import ActionPlanner
 from src.chat.planner_actions.action_modifier import ActionModifier
 from src.chat.planner_actions.action_manager import ActionManager
-from src.chat.chat_loop.hfc_utils import CycleDetail
-from src.chat.chat_loop.hfc_utils import send_typing, stop_typing
+from src.chat.heart_flow.hfc_utils import CycleDetail
+from src.chat.heart_flow.hfc_utils import send_typing, stop_typing
 from src.chat.memory_system.Hippocampus import hippocampus_manager
 from src.chat.frequency_control.talk_frequency_control import talk_frequency_control
 from src.chat.frequency_control.focus_value_control import focus_value_control
@@ -29,6 +29,7 @@ from src.plugin_system.core import events_manager
 from src.plugin_system.apis import generator_api, send_api, message_api, database_api
 from src.mais4u.mai_think import mai_thinking_manager
 from src.mais4u.s4u_config import s4u_config
+from src.chat.utils.chat_message_builder import build_readable_messages_with_id, build_readable_actions, get_actions_by_timestamp_with_chat, get_raw_msg_before_timestamp_with_chat
 
 if TYPE_CHECKING:
     from src.common.data_models.database_data_model import DatabaseMessages
@@ -402,8 +403,8 @@ class HeartFChatting:
                     )
                 ]
             else:
-                # 第一步：动作修改
-                with Timer("动作修改", cycle_timers):
+                # 第一步：动作检查
+                with Timer("动作检查", cycle_timers):
                     try:
                         await self.action_modifier.modify_actions()
                         available_actions = self.action_manager.get_using_actions()
@@ -412,10 +413,45 @@ class HeartFChatting:
 
                 # 执行planner
                 planner_info = self.action_planner.get_necessary_info()
+                
+                
+                
+                
+                
+                message_list_before_now = get_raw_msg_before_timestamp_with_chat(
+                    chat_id=self.stream_id,
+                    timestamp=time.time(),
+                    limit=int(global_config.chat.max_context_size * 0.6),
+                )
+                chat_content_block, message_id_list = build_readable_messages_with_id(
+                    messages=message_list_before_now,
+                    timestamp_mode="normal_no_YMD",
+                    read_mark=self.action_planner.last_obs_time_mark,
+                    truncate=True,
+                    show_actions=True,
+                )
+
+                actions_before_now = get_actions_by_timestamp_with_chat(
+                    chat_id=self.stream_id,
+                    timestamp_start=time.time() - 600,
+                    timestamp_end=time.time(),
+                    limit=5,
+                )
+
+                actions_before_now_block = build_readable_actions(
+                    actions=actions_before_now,
+                )
+                                
+                
+                
+                
                 prompt_info = await self.action_planner.build_planner_prompt(
                     is_group_chat=planner_info[0],
                     chat_target_info=planner_info[1],
                     current_available_actions=planner_info[2],
+                    chat_content_block=chat_content_block,
+                    actions_before_now_block=actions_before_now_block,
+                    message_id_list=message_id_list,
                 )
                 if not await events_manager.handle_mai_events(
                     EventType.ON_PLAN, None, prompt_info[0], None, self.chat_stream.stream_id
@@ -427,6 +463,9 @@ class HeartFChatting:
                         loop_start_time=self.last_read_time,
                         available_actions=available_actions,
                     )
+                    
+                    for action in action_to_use_info:
+                        print(action.action_type)
 
             # 3. 并行执行所有动作
             action_tasks = [
@@ -679,7 +718,7 @@ class HeartFChatting:
                 }
             else:
                 try:
-                    success, response_set, prompt, selected_expressions = await generator_api.generate_reply(
+                    success, llm_response = await generator_api.generate_reply(
                         chat_stream=self.chat_stream,
                         reply_message=action_planner_info.action_message,
                         available_actions=available_actions,
@@ -688,10 +727,9 @@ class HeartFChatting:
                         enable_tool=global_config.tool.enable_tool,
                         request_type="replyer",
                         from_plugin=False,
-                        return_expressions=True,
                     )
 
-                    if not success or not response_set:
+                    if not success or not llm_response or not llm_response.reply_set:
                         if action_planner_info.action_message:
                             logger.info(f"对 {action_planner_info.action_message.processed_plain_text} 的回复生成失败")
                         else:
@@ -701,7 +739,8 @@ class HeartFChatting:
                 except asyncio.CancelledError:
                     logger.debug(f"{self.log_prefix} 并行执行：回复生成任务已被取消")
                     return {"action_type": "reply", "success": False, "reply_text": "", "loop_info": None}
-
+                response_set = llm_response.reply_set
+                selected_expressions = llm_response.selected_expressions
                 loop_info, reply_text, _ = await self._send_and_store_reply(
                     response_set=response_set,
                     action_message=action_planner_info.action_message,  # type: ignore

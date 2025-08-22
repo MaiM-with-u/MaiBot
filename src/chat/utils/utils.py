@@ -685,7 +685,7 @@ def assign_message_ids(messages: List[DatabaseMessages]) -> List[DatabaseMessage
     Returns:
         List[DatabaseMessages]: 分配了唯一ID的消息列表(写入message_id属性)
     """
-    result: List[DatabaseMessages] = list(messages)  # 复制原始消息列表
+    result: List[Tuple[str, DatabaseMessages]] = []  # 复制原始消息列表
     used_ids = set()
     len_i = len(messages)
     if len_i > 100:
@@ -695,7 +695,7 @@ def assign_message_ids(messages: List[DatabaseMessages]) -> List[DatabaseMessage
         a = 1
         b = 9
 
-    for i, _ in enumerate(result):
+    for i, message in enumerate(messages):
         # 生成唯一的简短ID
         while True:
             # 使用索引+随机数生成简短ID
@@ -705,7 +705,7 @@ def assign_message_ids(messages: List[DatabaseMessages]) -> List[DatabaseMessage
             if message_id not in used_ids:
                 used_ids.add(message_id)
                 break
-        result[i].message_id = message_id
+        result.append((message_id, message))
 
     return result
 

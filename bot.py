@@ -1,7 +1,13 @@
 import asyncio
 import hashlib
 import os
+import sys
+import time
+import platform
+import traceback
 from dotenv import load_dotenv
+from pathlib import Path
+from rich.traceback import install
 
 if os.path.exists(".env"):
     load_dotenv(".env", override=True)
@@ -9,22 +15,14 @@ if os.path.exists(".env"):
 else:
     print("未找到.env文件，请确保程序所需的环境变量被正确设置")
     raise FileNotFoundError(".env 文件不存在，请创建并配置所需的环境变量")
-import sys
-import time
-import platform
-import traceback
-from pathlib import Path
-from rich.traceback import install
-
-# maim_message imports for console input
 
 # 最早期初始化日志系统，确保所有后续模块都使用正确的日志格式
 from src.common.logger import initialize_logging, get_logger, shutdown_logging
+
 initialize_logging()
 
-from src.main import MainSystem #noqa
-from src.manager.async_task_manager import async_task_manager #noqa
-
+from src.main import MainSystem  # noqa
+from src.manager.async_task_manager import async_task_manager  # noqa
 
 
 logger = get_logger("main")
@@ -48,21 +46,6 @@ app = None
 loop = None
 
 
-async def request_shutdown() -> bool:
-    """请求关闭程序"""
-    try:
-        if loop and not loop.is_closed():
-            try:
-                loop.run_until_complete(graceful_shutdown())
-            except Exception as ge:  # 捕捉优雅关闭时可能发生的错误
-                logger.error(f"优雅关闭时发生错误: {ge}")
-                return False
-        return True
-    except Exception as e:
-        logger.error(f"请求关闭程序时发生错误: {e}")
-        return False
-
-
 def easter_egg():
     # 彩蛋
     from colorama import init, Fore
@@ -76,15 +59,15 @@ def easter_egg():
     print(rainbow_text)
 
 
-
-async def graceful_shutdown():
+async def graceful_shutdown():  # sourcery skip: use-named-expression
     try:
         logger.info("正在优雅关闭麦麦...")
-        # 触发 ON_STOP 事件
+        
         from src.plugin_system.core.events_manager import events_manager
-        from src.plugin_system.base.component_types import EventType      
-        asyncio.run(events_manager.handle_mai_events(event_type=EventType.ON_STOP))     
-        # logger.info("已触发 ON_STOP 事件")
+        from src.plugin_system.base.component_types import EventType
+        # 触发 ON_STOP 事件
+        _ = await events_manager.handle_mai_events(event_type=EventType.ON_STOP)
+
         # 停止所有异步任务
         await async_task_manager.stop_and_wait_all_tasks()
 

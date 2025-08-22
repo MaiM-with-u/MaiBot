@@ -116,9 +116,9 @@ class ActionInfo(ComponentInfo):
     action_require: List[str] = field(default_factory=list)  # 动作需求说明
     associated_types: List[str] = field(default_factory=list)  # 关联的消息类型
     # 激活类型相关
-    focus_activation_type: ActionActivationType = ActionActivationType.ALWAYS
-    normal_activation_type: ActionActivationType = ActionActivationType.ALWAYS
-    activation_type: ActionActivationType = ActionActivationType.ALWAYS
+    focus_activation_type: ActionActivationType = ActionActivationType.ALWAYS #已弃用
+    normal_activation_type: ActionActivationType = ActionActivationType.ALWAYS #已弃用
+    activation_type: ActionActivationType = ActionActivationType.ALWAYS 
     random_activation_probability: float = 0.0
     llm_judge_prompt: str = ""
     activation_keywords: List[str] = field(default_factory=list)  # 激活关键词列表

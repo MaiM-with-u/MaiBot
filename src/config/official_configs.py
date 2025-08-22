@@ -48,13 +48,10 @@ class PersonalityConfig(ConfigBase):
     """表达风格"""
     
     plan_style: str = ""
+    """行为风格"""
 
-    compress_personality: bool = True
-    """是否压缩人格，压缩后会精简人格信息，节省token消耗并提高回复性能，但是会丢失一些信息，如果人设不长，可以关闭"""
-
-    compress_identity: bool = True
-    """是否压缩身份，压缩后会精简身份信息，节省token消耗并提高回复性能，但是会丢失一些信息，如果不长，可以关闭"""
-
+    interest: str = ""
+    """兴趣"""
 
 @dataclass
 class RelationshipConfig(ConfigBase):
@@ -73,9 +70,15 @@ class ChatConfig(ConfigBase):
 
     max_context_size: int = 18
     """上下文长度"""
+    
+    interest_rate_mode: Literal["fast", "accurate"] = "fast"
+    """兴趣值计算模式，fast为快速计算，accurate为精确计算"""
 
     mentioned_bot_inevitable_reply: bool = False
     """提及 bot 必然回复"""
+    
+    planner_size: int = 1
+    """副规划器大小，越小，麦麦的动作执行能力越精细，但是消耗更多token，调大可以缓解429类错误"""
 
     at_bot_inevitable_reply: bool = False
     """@bot 必然回复"""

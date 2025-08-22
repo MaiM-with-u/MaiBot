@@ -4,9 +4,10 @@ import os
 import pickle
 import random
 import asyncio
-from typing import List, Dict, Any, TYPE_CHECKING
+from typing import List, Dict, Any
 from src.config.config import global_config
 from src.common.logger import get_logger
+from src.common.data_models.database_data_model import DatabaseMessages
 from src.person_info.relationship_manager import get_relationship_manager
 from src.person_info.person_info import Person, get_person_id
 from src.chat.message_receive.chat_stream import get_chat_manager
@@ -17,8 +18,6 @@ from src.chat.utils.chat_message_builder import (
     num_new_messages_since,
 )
 
-if TYPE_CHECKING:
-    from src.common.data_models.database_data_model import DatabaseMessages
 
 logger = get_logger("relationship_builder")
 

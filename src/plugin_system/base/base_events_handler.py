@@ -38,9 +38,10 @@ class BaseEventHandler(ABC):
                 self.subcribe(event_name)
 
     @abstractmethod
-    async def execute(self, message: MaiMessages) -> Tuple[bool, bool, Optional[str]]:
+    async def execute(self, message: MaiMessages | None) -> Tuple[bool, bool, Optional[str]]:
         """执行事件处理的抽象方法，子类必须实现
-
+        Args:
+            message (MaiMessages | None): 事件消息对象，当你注册的事件为ON_START和ON_STOP时message为None
         Returns:
             Tuple[bool, bool, Optional[str]]: (是否执行成功, 是否需要继续处理, 可选的返回消息)
         """

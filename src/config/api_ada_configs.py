@@ -117,6 +117,9 @@ class ModelTaskConfig(ConfigBase):
     planner: TaskConfig
     """规划模型配置"""
 
+    planner_small: TaskConfig
+    """副规划模型配置"""
+
     embedding: TaskConfig
     """嵌入模型配置"""
 
