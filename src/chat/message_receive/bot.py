@@ -258,10 +258,9 @@ class ChatBot:
                 logger.info(f"命令处理完成，跳过后续消息处理: {cmd_result}")
                 return
             
-            # 触发 ON_MESSAGE 事件
-            on_message_event = event_manager.get_event("on_message")
-            if not await on_message_event.activate(message):
-                return
+            result = await event_manager.trigger_event("on_message",message=message)
+            if not result.all_continue_process():
+                raise UserWarning(f"插件{result.get_summary().get('stopped_handlers','')}于消息到达时取消了消息处理")
 
             # 确认从接口发来的message是否有自定义的prompt模板信息
             if message.message_info.template_info and not message.message_info.template_info.template_default:
