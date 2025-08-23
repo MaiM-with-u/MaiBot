@@ -67,7 +67,7 @@ max_context_size = 20 # 上下文长度
 
 interest_rate_mode = "fast" #激活值计算模式，可选fast或者accurate
 
-planner_size = 2 # 副规划器大小，越小，麦麦的动作执行能力越精细，但是消耗更多token，调大可以缓解429类错误
+planner_size = 2.5 # 副规划器大小，越小，麦麦的动作执行能力越精细，但是消耗更多token，调大可以缓解429类错误
 
 mentioned_bot_inevitable_reply = true # 提及 bot 大概率回复
 at_bot_inevitable_reply = true # @bot 或 提及bot 大概率回复
@@ -129,7 +129,7 @@ mood_update_threshold = 1 # 情绪更新阈值,越高，更新越慢
 [emoji]
 emoji_chance = 0.6 # 麦麦激活表情包动作的概率
 
-max_reg_num = 60 # 表情包最大注册数量
+max_reg_num = 100 # 表情包最大注册数量
 do_replace = true # 开启则在达到最大数量时删除（替换）表情包，关闭则达到最大数量时不会继续收集表情包
 check_interval = 10 # 检查表情包（注册，破损，删除）的时间间隔(分钟)
 steal_emoji = true # 是否偷取表情包，让麦麦可以将一些表情包据为己有

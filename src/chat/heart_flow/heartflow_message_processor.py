@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 logger = get_logger("chat")
 
-async def _calculate_interest(message: MessageRecv) -> Tuple[float, bool, list[str]]:
+async def _calculate_interest(message: MessageRecv) -> Tuple[float, list[str]]:
     """计算消息的兴趣度
 
     Args:

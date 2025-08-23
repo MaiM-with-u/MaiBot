@@ -139,13 +139,21 @@ class EmojiAction(BaseAction):
             # 7. 发送表情包
             success = await self.send_emoji(emoji_base64)
 
-            if not success:
-                logger.error(f"{self.log_prefix} 表情包发送失败")
-                return False, "表情包发送失败"
+            if success:
+                logger.info(f"{self.log_prefix} 成功发送表情包")
+                # 存储动作信息
+                await self.store_action_info(
+                    action_build_into_prompt=True,
+                    action_prompt_display=f"发送了表情包，原因：{reason}",
+                    action_done=True,
+                )
+                return True, f"成功发送表情包:{emoji_description}"
+            else:
+                error_msg = "发送表情包失败"
+                logger.error(f"{self.log_prefix} {error_msg}")
 
-            # no_action计数器现在由heartFC_chat.py统一管理，无需在此重置
-
-            return True, f"发送表情包: {emoji_description}"
+                await self.send_text("执行表情包动作失败")
+                return False, error_msg
 
         except Exception as e:
             logger.error(f"{self.log_prefix} 表情动作执行失败: {e}", exc_info=True)

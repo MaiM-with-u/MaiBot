@@ -330,7 +330,7 @@ def _build_readable_messages_internal(
     pic_id_mapping: Optional[Dict[str, str]] = None,
     pic_counter: int = 1,
     show_pic: bool = True,
-    message_id_list: Optional[List[DatabaseMessages]] = None,
+    message_id_list: Optional[List[Tuple[str, DatabaseMessages]]] = None,
 ) -> Tuple[str, List[Tuple[float, str, str]], Dict[str, str], int]:
     # sourcery skip: use-getitem-for-re-match-groups
     """
@@ -533,7 +533,7 @@ def build_pic_mapping_info(pic_id_mapping: Dict[str, str]) -> str:
     return "\n".join(mapping_lines)
 
 
-def build_readable_actions(actions: List[Dict[str, Any]]) -> str:
+def build_readable_actions(actions: List[Dict[str, Any]],mode:str="relative") -> str:
     """
     将动作列表转换为可读的文本格式。
     格式: 在（）分钟前，你使用了(action_name)，具体内容是：（action_prompt_display）
@@ -556,18 +556,24 @@ def build_readable_actions(actions: List[Dict[str, Any]]) -> str:
     for action in actions:
         action_time = action.get("time", current_time)
         action_name = action.get("action_name", "未知动作")
+        # action_reason = action.get(action_data")
         if action_name in ["no_action", "no_action"]:
             continue
 
         action_prompt_display = action.get("action_prompt_display", "无具体内容")
 
         time_diff_seconds = current_time - action_time
-
-        if time_diff_seconds < 60:
-            time_ago_str = f"在{int(time_diff_seconds)}秒前"
-        else:
-            time_diff_minutes = round(time_diff_seconds / 60)
-            time_ago_str = f"在{int(time_diff_minutes)}分钟前"
+        if mode == "relative":
+            if time_diff_seconds < 60:
+                time_ago_str = f"在{int(time_diff_seconds)}秒前"
+            else:
+                time_diff_minutes = round(time_diff_seconds / 60)
+                time_ago_str = f"在{int(time_diff_minutes)}分钟前"
+        elif mode == "absolute":
+            # 转化为可读时间（仅保留时分秒，不包含日期）
+            action_time_struct = time.localtime(action_time)
+            time_str = time.strftime("%H:%M:%S", action_time_struct)
+            time_ago_str = f"在{time_str}"
 
         line = f"{time_ago_str}，你使用了“{action_name}”，具体内容是：“{action_prompt_display}”"
         output_lines.append(line)
@@ -635,7 +641,7 @@ def build_readable_messages(
     truncate: bool = False,
     show_actions: bool = False,
     show_pic: bool = True,
-    message_id_list: Optional[List[DatabaseMessages]] = None,
+    message_id_list: Optional[List[Tuple[str, DatabaseMessages]]] = None,
 ) -> str:  # sourcery skip: extract-method
     """
     将消息列表转换为可读的文本格式。

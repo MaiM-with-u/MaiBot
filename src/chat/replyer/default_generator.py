@@ -375,9 +375,10 @@ class DefaultReplyer:
 
         instant_memory = None
 
-        running_memories = await self.memory_activator.activate_memory_with_chat_history(
-            target_message=target, chat_history=chat_history
-        )
+        # running_memories = await self.memory_activator.activate_memory_with_chat_history(
+        #     target_message=target, chat_history=chat_history
+        # )
+        running_memories = None
 
         if global_config.memory.enable_instant_memory:
             chat_history_str = build_readable_messages(

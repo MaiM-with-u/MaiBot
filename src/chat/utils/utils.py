@@ -1,6 +1,5 @@
 import random
 import re
-import string
 import time
 import jieba
 import json
@@ -8,7 +7,7 @@ import ast
 import numpy as np
 
 from collections import Counter
-from typing import Optional, Tuple, Dict, List, Any
+from typing import Optional, Tuple, Dict, List
 
 from src.common.logger import get_logger
 from src.common.data_models.database_data_model import DatabaseMessages
@@ -675,7 +674,7 @@ def get_chat_type_and_target_info(chat_id: str) -> Tuple[bool, Optional[Dict]]:
     return is_group_chat, chat_target_info
 
 
-def assign_message_ids(messages: List[DatabaseMessages]) -> List[DatabaseMessages]:
+def assign_message_ids(messages: List[DatabaseMessages]) -> List[Tuple[str, DatabaseMessages]]:
     """
     为消息列表中的每个消息分配唯一的简短随机ID
 
