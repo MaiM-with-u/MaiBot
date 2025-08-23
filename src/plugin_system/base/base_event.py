@@ -1,5 +1,7 @@
 from typing import List, Dict, Any, Optional
-import asyncio
+from src.common.logger import get_logger
+
+logger = get_logger("base_event")
 
 class HandlerResult:
     """事件处理器执行结果
@@ -87,24 +89,20 @@ class BaseEvent:
             return HandlerResultsCollection([])
         
         # 按权重从高到低排序订阅者
-        sorted_subscribers = sorted(self.subscribers, key=lambda h: getattr(h, 'weight', 0), reverse=True)
+        # 使用直接属性访问，-1代表自动权重
+        sorted_subscribers = sorted(self.subscribers, key=lambda h: h.weight if hasattr(h, 'weight') and h.weight != -1 else 0, reverse=True)
         
         results = []
         for subscriber in sorted_subscribers:
             try:
                 result = await subscriber.execute(params)
-                if not isinstance(result, HandlerResult):
-                    # 兼容旧版本，将元组转换为HandlerResult
-                    success, continue_process, message = result
-                    result = HandlerResult(success, continue_process, message or "", getattr(subscriber, 'handler_name', 'unknown_handler'))
-                elif not result.handler_name:
+                if not result.handler_name:
                     # 补充handler_name
-                    result.handler_name = getattr(subscriber, 'handler_name', 'unknown_handler')
+                    result.handler_name = subscriber.handler_name if hasattr(subscriber, 'handler_name') else subscriber.__class__.__name__
                 results.append(result)
             except Exception as e:
                 # 处理执行异常
-                handler_name = getattr(subscriber, 'handler_name', str(subscriber))
-                logger = __import__('src.common.logger', fromlist=['get_logger']).get_logger("base_event")
+                handler_name = subscriber.handler_name if hasattr(subscriber, 'handler_name') else subscriber.__class__.__name__
                 logger.error(f"事件处理器 {handler_name} 执行失败: {e}")
                 results.append(HandlerResult(False, True, str(e), handler_name))
         
