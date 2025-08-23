@@ -63,10 +63,9 @@ async def graceful_shutdown():  # sourcery skip: use-named-expression
     try:
         logger.info("正在优雅关闭麦麦...")
         
-        from src.plugin_system.apis.event_api import get_event
+        from src.plugin_system.core.event_manager import event_manager
         # 触发 ON_STOP 事件
-        on_stop_event = get_event("on_stop")
-        await on_stop_event.activate()
+        await event_manager.trigger_event("on_stop")
 
         # 停止所有异步任务
         await async_task_manager.stop_and_wait_all_tasks()

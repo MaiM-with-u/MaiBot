@@ -15,7 +15,7 @@ from src.mood.mood_manager import mood_manager
 from src.chat.knowledge import lpmm_start_up
 from rich.traceback import install
 from src.migrate_helper.migrate import check_and_run_migrations
-from src.plugin_system.apis.event_api import init_default_events, get_event
+from src.plugin_system.core.event_manager import event_manager
 # from src.api.main import start_api_server
 
 # 导入新的插件管理器
@@ -84,7 +84,7 @@ class MainSystem:
         # logger.info("API服务器启动成功")
 
         # 注册默认事件
-        init_default_events()
+        event_manager.init_default_events()
 
         # 启动LPMM
         lpmm_start_up()
@@ -123,8 +123,7 @@ class MainSystem:
         
 
         # 触发 ON_START 事件
-        on_start_event = get_event("on_start")
-        await on_start_event.activate()
+        await event_manager.trigger_event("on_start")
         # logger.info("已触发 ON_START 事件")
         try:
             init_time = int(1000 * (time.time() - init_start_time))

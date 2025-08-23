@@ -18,11 +18,9 @@ from src.plugin_system.apis import (
     plugin_manage_api,
     send_api,
     tool_api,
-    event_api
 )
 from .logging_api import get_logger
 from .plugin_register_api import register_plugin
-
 # 导出所有API模块，使它们可以通过 apis.xxx 方式访问
 __all__ = [
     "chat_api",
@@ -39,5 +37,4 @@ __all__ = [
     "get_logger",
     "register_plugin",
     "tool_api",
-    "event_api",
 ]

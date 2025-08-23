@@ -13,7 +13,7 @@ from src.chat.message_receive.message import MessageRecv, MessageRecvS4U
 from src.chat.message_receive.storage import MessageStorage
 from src.chat.heart_flow.heartflow_message_processor import HeartFCMessageReceiver
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
-from src.plugin_system.core import component_registry, events_manager, global_announcement_manager
+from src.plugin_system.core import component_registry, event_manager, global_announcement_manager
 from src.plugin_system.base import BaseCommand, EventType
 from src.mais4u.mais4u_chat.s4u_msg_processor import S4UMessageProcessor
 from src.person_info.person_info import Person
@@ -258,9 +258,8 @@ class ChatBot:
                 logger.info(f"命令处理完成，跳过后续消息处理: {cmd_result}")
                 return
             
-            from src.plugin_system.apis.event_api import get_event
             # 触发 ON_MESSAGE 事件
-            on_message_event = get_event("on_message")
+            on_message_event = event_manager.get_event("on_message")
             if not await on_message_event.activate(message):
                 return
 

@@ -33,10 +33,6 @@ class BaseEventHandler(ABC):
         self.subcribed_events = []
         """订阅的事件列表"""
 
-        if self.init_subcribe:
-            for event_name in self.init_subcribe:
-                self.subcribe(event_name)
-
     @abstractmethod
     async def execute(self, message: MaiMessages | None) -> Tuple[bool, bool, Optional[str]]:
         """执行事件处理的抽象方法，子类必须实现
@@ -51,38 +47,31 @@ class BaseEventHandler(ABC):
         """订阅一个事件
 
         Args:
-            event (BaseEvent): 要订阅的事件实例
+            event_name (str): 要订阅的事件名称
         """
-        from src.plugin_system.apis.event_api import get_event
-
-        event = get_event(event_name)
-        if event is None: 
-            logger.error(f"事件 '{event_name}' 不存在，无法订阅")
-            return
+        from src.plugin_system.core.event_manager import event_manager
         
-        event.subcribers.append(self)
-        logger.debug(f"{self.log_prefix} 订阅事件 {event.name}")
-        self.subcribed_events.append(event.name)
+        if not event_manager.subscribe_handler_to_event(self.handler_name, event_name):
+            logger.error(f"事件处理器 {self.handler_name} 订阅事件 {event_name} 失败")
+            return
+            
+        logger.debug(f"{self.log_prefix} 订阅事件 {event_name}")
+        self.subcribed_events.append(event_name)
 
     def unsubscribe(self, event_name: str) -> None:
         """取消订阅一个事件
 
         Args:
-            event (BaseEvent): 要取消订阅的事件实例
+            event_name (str): 要取消订阅的事件名称
         """
-        from src.plugin_system.apis.event_api import get_event
-
-        event = get_event(event_name)
-        if event is None: 
-            logger.error(f"事件 '{event_name}' 不存在，无法取消订阅")
-            return
+        from src.plugin_system.core.event_manager import event_manager
         
-        if self in event.subcribers:
-            event.subcribers.remove(self)
-            logger.debug(f"{self.log_prefix} 取消订阅事件 {event.name}")
-            self.subcribed_events.remove(event.name)
+        if event_manager.unsubscribe_handler_from_event(self.handler_name, event_name):
+            logger.debug(f"{self.log_prefix} 取消订阅事件 {event_name}")
+            if event_name in self.subcribed_events:
+                self.subcribed_events.remove(event_name)
         else:
-            logger.warning(f"{self.log_prefix} 未订阅事件 {event.name}，无法取消订阅")
+            logger.warning(f"{self.log_prefix} 未订阅事件 {event_name}，无法取消订阅")
 
     @classmethod
     def get_handler_info(cls) -> "EventHandlerInfo":

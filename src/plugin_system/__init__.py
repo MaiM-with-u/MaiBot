@@ -35,10 +35,13 @@ from .utils import (
     # generate_plugin_manifest,
 )
 
+from .core.event_manager import (
+    event_manager
+)
+
 from .apis import (
     chat_api,
     tool_api,
-    event_api,
     component_manage_api,
     config_api,
     database_api,
@@ -99,6 +102,8 @@ __all__ = [
     # 工具函数
     "ManifestValidator",
     "get_logger",
+    # 事件管理器
+    "event_manager",
     # "ManifestGenerator",
     # "validate_plugin_manifest",
     # "generate_plugin_manifest",

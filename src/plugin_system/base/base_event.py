@@ -86,8 +86,11 @@ class BaseEvent:
         if not self.enabled:
             return HandlerResultsCollection([])
         
+        # 按权重从高到低排序订阅者
+        sorted_subscribers = sorted(self.subcribers, key=lambda h: getattr(h, 'weight', 0), reverse=True)
+        
         results = []
-        for subscriber in self.subcribers:
+        for subscriber in sorted_subscribers:
             try:
                 result = await subscriber.execute(params)
                 if not isinstance(result, HandlerResult):

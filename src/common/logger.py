@@ -381,6 +381,8 @@ MODULE_COLORS = {
     "database_api": "\033[38;5;10m",  # 绿色
     "utils_api": "\033[38;5;14m",  # 青色
     "message_api": "\033[38;5;6m",  # 青色
+    "tool_api": "\033[38;5;51m",  # 亮青色
+    "event_manager": "\033[38;5;201m",  # 深粉色
     # 管理器模块
     "async_task_manager": "\033[38;5;129m",  # 紫色
     "mood": "\033[38;5;135m",  # 紫红色
@@ -444,6 +446,7 @@ MODULE_ALIASES = {
     "replyer": "言语",
     "config": "配置",
     "main": "主程序",
+    "event_manager": "事件管理器",
 }
 
 RESET_COLOR = "\033[0m"

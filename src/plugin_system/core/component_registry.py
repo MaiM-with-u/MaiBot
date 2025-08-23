@@ -222,33 +222,27 @@ class ComponentRegistry:
         if not isinstance(handler_info, EventHandlerInfo) or not issubclass(handler_class, BaseEventHandler):
             logger.error(f"注册失败: {handler_name} 不是有效的EventHandler")
             return False
-
+    
         self._event_handler_registry[handler_name] = handler_class
 
         if not handler_info.enabled:
             logger.warning(f"EventHandler组件 {handler_name} 未启用")
             return True  # 未启用，但是也是注册成功
-    
-        from .events_manager import events_manager  # 延迟导入防止循环导入问题
-
-        if events_manager.register_event_subscriber(handler_info, handler_class):
-            self._enabled_event_handlers[handler_name] = handler_class
-            return True
-        else:
-            logger.error(f"注册事件处理器 {handler_name} 失败")
-            return False
+        
+        # 使用EventManager进行事件处理器注册
+        from src.plugin_system.core.event_manager import event_manager
+        return event_manager.register_event_handler(handler_class)
 
     def _register_event(self, event_info: EventInfo, event_class: BaseEvent) -> bool:
         """注册事件到事件注册表"""
+        from src.plugin_system.core.event_manager import event_manager
+        
         if not (event_name := event_info.name):
             logger.error(f"Event组件 {event_class.__name__} 必须指定名称")
             return False
-        if event_name in self._event_registry:
-            logger.warning(f"事件 {event_name} 已存在，跳过注册")
-            return False
-        self._event_registry[event_name] = event_class
-        logger.debug(f"已注册事件: {event_name}")
-        return True
+            
+        # 使用EventManager进行事件注册
+        return event_manager.register_event(event_name)
     
     # === 组件移除相关 ===
 
@@ -271,11 +265,8 @@ class ComponentRegistry:
                     self._tool_registry.pop(component_name)
                     self._llm_available_tools.pop(component_name)
                 case ComponentType.EVENT_HANDLER:
-                    from .events_manager import events_manager  # 延迟导入防止循环导入问题
-
                     self._event_handler_registry.pop(component_name)
                     self._enabled_event_handlers.pop(component_name)
-                    await events_manager.unregister_event_subscriber(component_name)
             namespaced_name = f"{component_type}.{component_name}"
             self._components.pop(namespaced_name)
             self._components_by_type[component_type].pop(component_name)
@@ -337,9 +328,7 @@ class ComponentRegistry:
                 assert isinstance(target_component_info, EventHandlerInfo)
                 assert issubclass(target_component_class, BaseEventHandler)
                 self._enabled_event_handlers[component_name] = target_component_class
-                from .events_manager import events_manager  # 延迟导入防止循环导入问题
 
-                events_manager.register_event_subscriber(target_component_info, target_component_class)
         namespaced_name = f"{component_type}.{component_name}"
         self._components[namespaced_name].enabled = True
         self._components_by_type[component_type][component_name].enabled = True
@@ -370,9 +359,7 @@ class ComponentRegistry:
                     self._llm_available_tools.pop(component_name)
                 case ComponentType.EVENT_HANDLER:
                     self._enabled_event_handlers.pop(component_name)
-                    from .events_manager import events_manager  # 延迟导入防止循环导入问题
-
-                    await events_manager.unregister_event_subscriber(component_name)
+                    
             self._components[component_name].enabled = False
             self._components_by_type[component_type][component_name].enabled = False
             logger.info(f"组件 {component_name} 已禁用")
