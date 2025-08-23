@@ -72,7 +72,7 @@ class BaseTool(ABC):
         """
         raise NotImplementedError("子类必须实现execute方法")
 
-    async def direct_execute(self, **function_args: dict[str, Any]) -> dict[str, Any]:
+    async def direct_execute(self, **kwargs: dict[str, Any]) -> dict[str, Any]:
         """直接执行工具函数(供插件调用)
            通过该方法，插件可以直接调用工具，而不需要传入字典格式的参数
            插件可以直接调用此方法，用更加明了的方式传入参数
@@ -88,10 +88,10 @@ class BaseTool(ABC):
         """
         parameter_required = [param[0] for param in self.parameters if param[3]]  # 获取所有必填参数名
         for param_name in parameter_required:
-            if param_name not in function_args:
+            if param_name not in kwargs:
                 raise ValueError(f"工具类 {self.__class__.__name__} 缺少必要参数: {param_name}")
 
-        return await self.execute(function_args)
+        return await self.execute(kwargs)
 
     def get_config(self, key: str, default=None):
         """获取插件配置值，使用嵌套键访问
