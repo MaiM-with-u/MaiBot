@@ -7,6 +7,7 @@ from src.chat.message_receive.chat_stream import get_chat_manager
 from src.common.logger import get_logger
 from src.plugin_system.base.component_types import EventType, EventHandlerInfo, MaiMessages
 from src.plugin_system.base.base_events_handler import BaseEventHandler
+from src.plugin_system.base.base_event import HandlerResult, HandlerResultsCollection
 from .global_announcement_manager import global_announcement_manager
 
 if TYPE_CHECKING:
@@ -83,14 +84,14 @@ class EventsManager:
     async def _dispatch_intercepting_handler(self, handler: BaseEventHandler, message: Optional[MaiMessages]) -> bool:
         """分发并等待一个阻塞（同步）的事件处理器，返回是否应继续处理。"""
         try:
-            success, continue_processing, result = await handler.execute(message)
+            result = await handler.execute(message)
 
-            if not success:
-                logger.error(f"EventHandler {handler.handler_name} 执行失败: {result}")
+            if not result.success:
+                logger.error(f"EventHandler {handler.handler_name} 执行失败: {result.message}")
             else:
-                logger.debug(f"EventHandler {handler.handler_name} 执行成功: {result}")
+                logger.debug(f"EventHandler {handler.handler_name} 执行成功: {result.message}")
 
-            return continue_processing
+            return result.continue_process
         except Exception as e:
             logger.error(f"EventHandler {handler.handler_name} 发生异常: {e}", exc_info=True)
             return True  # 发生异常时默认不中断其他处理
@@ -257,15 +258,15 @@ class EventsManager:
             additional_data={"response_is_processed": True},
         )
 
-    def _task_done_callback(self, task: asyncio.Task[Tuple[bool, bool, str | None]]):
+    def _task_done_callback(self, task: asyncio.Task[HandlerResult]):
         """任务完成回调"""
         task_name = task.get_name() or "Unknown Task"
         try:
-            success, _, result = task.result()  # 忽略是否继续的标志，因为消息本身未被拦截
-            if success:
-                logger.debug(f"事件处理任务 {task_name} 已成功完成: {result}")
+            result = task.result()
+            if result.success:
+                logger.debug(f"事件处理任务 {task_name} 已成功完成: {result.message}")
             else:
-                logger.error(f"事件处理任务 {task_name} 执行失败: {result}")
+                logger.error(f"事件处理任务 {task_name} 执行失败: {result.message}")
         except asyncio.CancelledError:
             pass
         except Exception as e:

@@ -37,7 +37,8 @@ from .utils import (
 
 from .apis import (
     chat_api,
-    tool_api,  
+    tool_api,
+    event_api,
     component_manage_api,
     config_api,
     database_api,
