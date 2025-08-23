@@ -257,8 +257,11 @@ class ChatBot:
                 await MessageStorage.store_message(message, chat)
                 logger.info(f"命令处理完成，跳过后续消息处理: {cmd_result}")
                 return
-
-            if not await events_manager.handle_mai_events(EventType.ON_MESSAGE, message):
+            
+            from src.plugin_system.apis.event_api import get_event
+            # 触发 ON_MESSAGE 事件
+            on_message_event = get_event("on_message")
+            if not await on_message_event.activate(message):
                 return
 
             # 确认从接口发来的message是否有自定义的prompt模板信息

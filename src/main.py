@@ -124,7 +124,7 @@ class MainSystem:
 
         # 触发 ON_START 事件
         on_start_event = get_event("on_start")
-        _ = await on_start_event.activate()
+        await on_start_event.activate()
         # logger.info("已触发 ON_START 事件")
         try:
             init_time = int(1000 * (time.time() - init_start_time))

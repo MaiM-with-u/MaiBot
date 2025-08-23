@@ -203,12 +203,12 @@ class DefaultReplyer:
             if not prompt:
                 logger.warning("构建prompt失败，跳过回复生成")
                 return False, llm_response
-            from src.plugin_system.core.events_manager import events_manager
-
+            
+            from src.plugin_system.apis.event_api import get_event
+            # 触发 POST_LLM 事件
+            post_llm_event = get_event("post_llm")
             if not from_plugin:
-                if not await events_manager.handle_mai_events(
-                    EventType.POST_LLM, None, prompt, None, stream_id=stream_id
-                ):
+                if not await post_llm_event.activate(None, prompt, None, stream_id=stream_id):
                     raise UserWarning("插件于请求前中断了内容生成")
 
             # 4. 调用 LLM 生成回复
@@ -223,10 +223,14 @@ class DefaultReplyer:
                 llm_response.reasoning = reasoning_content
                 llm_response.model = model_name
                 llm_response.tool_calls = tool_call
-                if not from_plugin and not await events_manager.handle_mai_events(
-                    EventType.AFTER_LLM, None, prompt, llm_response, stream_id=stream_id
-                ):
-                    raise UserWarning("插件于请求后取消了内容生成")
+
+                from src.plugin_system.apis.event_api import get_event
+                # 触发 AFTER_LLM 事件
+                after_llm_event = get_event("on_message")
+                if not from_plugin:
+                    if not await after_llm_event.activate(None, prompt, llm_response, stream_id=stream_id):
+                        raise UserWarning("插件于请求后取消了内容生成")
+                
             except UserWarning as e:
                 raise e
             except Exception as llm_e:
