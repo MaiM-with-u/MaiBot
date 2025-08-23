@@ -30,7 +30,7 @@ class BaseEventHandler(ABC):
         """对应插件名"""
         self.plugin_config: Optional[Dict] = None
         """插件配置字典"""
-        self.subcribed_events = []
+        self.subscribed_events = []
         """订阅的事件列表"""
 
     @abstractmethod
