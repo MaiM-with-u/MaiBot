@@ -69,7 +69,7 @@ class BaseEvent:
         self.enabled = True
 
         from src.plugin_system.base.base_events_handler import BaseEventHandler
-        self.subcribers: List["BaseEventHandler"] = [] # 订阅该事件的事件处理器列表
+        self.subscribers: List["BaseEventHandler"] = [] # 订阅该事件的事件处理器列表
 
     def __name__(self):
         return self.name
@@ -87,7 +87,7 @@ class BaseEvent:
             return HandlerResultsCollection([])
         
         # 按权重从高到低排序订阅者
-        sorted_subscribers = sorted(self.subcribers, key=lambda h: getattr(h, 'weight', 0), reverse=True)
+        sorted_subscribers = sorted(self.subscribers, key=lambda h: getattr(h, 'weight', 0), reverse=True)
         
         results = []
         for subscriber in sorted_subscribers:

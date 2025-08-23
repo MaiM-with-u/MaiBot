@@ -151,10 +151,10 @@ class EventManager:
             
         self._event_handlers[handler_name] = handler_class()
         
-        # 处理init_subcribe，缓存失败的订阅
-        if self._event_handlers[handler_name].init_subcribe:
+        # 处理init_subscribe，缓存失败的订阅
+        if self._event_handlers[handler_name].init_subscribe:
             failed_subscriptions = []
-            for event_name in self._event_handlers[handler_name].init_subcribe:
+            for event_name in self._event_handlers[handler_name].init_subscribe:
                 if not self.subscribe_handler_to_event(handler_name, event_name):
                     failed_subscriptions.append(event_name)
             
@@ -205,14 +205,14 @@ class EventManager:
             logger.error(f"事件 {event_name} 不存在，无法订阅事件处理器 {handler_name}")
             return False
             
-        if handler_instance in event.subcribers:
+        if handler_instance in event.subscribers:
             logger.warning(f"事件处理器 {handler_name} 已经订阅了事件 {event_name}，跳过重复订阅")
             return True
             
-        event.subcribers.append(handler_instance)
+        event.subscribers.append(handler_instance)
         
         # 按权重从高到低排序订阅者
-        event.subcribers.sort(key=lambda h: getattr(h, 'weight', 0), reverse=True)
+        event.subscribers.sort(key=lambda h: getattr(h, 'weight', 0), reverse=True)
         
         logger.info(f"事件处理器 {handler_name} 成功订阅到事件 {event_name}，当前权重排序完成")
         return True
@@ -234,9 +234,9 @@ class EventManager:
             
         # 查找并移除处理器实例
         removed = False
-        for subscriber in event.subcribers[:]:
+        for subscriber in event.subscribers[:]:
             if hasattr(subscriber, 'handler_name') and subscriber.handler_name == handler_name:
-                event.subcribers.remove(subscriber)
+                event.subscribers.remove(subscriber)
                 removed = True
                 break
                 
@@ -260,7 +260,7 @@ class EventManager:
         if event is None:
             return {}
             
-        return {handler.handler_name: handler for handler in event.subcribers}
+        return {handler.handler_name: handler for handler in event.subscribers}
     
     async def trigger_event(self, event_name: str, params: Dict[str, Any] = None) -> Optional[HandlerResultsCollection]:
         """触发指定事件

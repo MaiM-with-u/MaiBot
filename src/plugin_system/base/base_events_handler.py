@@ -21,7 +21,7 @@ class BaseEventHandler(ABC):
     """处理器权重，越大权重越高"""
     intercept_message: bool = False
     """是否拦截消息，默认为否"""
-    init_subcribe: List[str] = []
+    init_subscribe: List[str] = []
     """初始化时订阅的事件名称"""
 
     def __init__(self):
@@ -43,7 +43,7 @@ class BaseEventHandler(ABC):
         """
         raise NotImplementedError("子类必须实现 execute 方法")
 
-    def subcribe(self, event_name: str) -> None:
+    def subscribe(self, event_name: str) -> None:
         """订阅一个事件
 
         Args:
@@ -56,7 +56,7 @@ class BaseEventHandler(ABC):
             return
             
         logger.debug(f"{self.log_prefix} 订阅事件 {event_name}")
-        self.subcribed_events.append(event_name)
+        self.subscribed_events.append(event_name)
 
     def unsubscribe(self, event_name: str) -> None:
         """取消订阅一个事件
@@ -68,8 +68,8 @@ class BaseEventHandler(ABC):
         
         if event_manager.unsubscribe_handler_from_event(self.handler_name, event_name):
             logger.debug(f"{self.log_prefix} 取消订阅事件 {event_name}")
-            if event_name in self.subcribed_events:
-                self.subcribed_events.remove(event_name)
+            if event_name in self.subscribed_events:
+                self.subscribed_events.remove(event_name)
         else:
             logger.warning(f"{self.log_prefix} 未订阅事件 {event_name}，无法取消订阅")
 
