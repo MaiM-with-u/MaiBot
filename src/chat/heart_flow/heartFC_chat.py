@@ -440,10 +440,7 @@ class HeartFChatting:
                 )
 
                 # 触发 ON_PLAN 事件
-                result = await event_manager.trigger_event("on_plan", {
-                    "prompt": prompt_info[0],
-                    "stream_id": self.chat_stream.stream_id
-                })
+                result = await event_manager.trigger_event("on_plan", prompt=prompt_info[0],stream_id=self.chat_stream.stream_id)
                 if result and not result.all_continue_process():
                     return
                 

@@ -286,6 +286,7 @@ class EventManager:
         default_events = [
             "on_start",
             "on_stop",
+            "on_plan"
             "on_message",
             "post_llm",
             "after_llm",
