@@ -74,7 +74,7 @@ class BaseEvent:
     def __name__(self):
         return self.name
     
-    async def activate(self, **params: dict) -> HandlerResultsCollection:
+    async def activate(self, params: dict) -> HandlerResultsCollection:
         """激活事件，执行所有订阅的处理器
         
         Args:

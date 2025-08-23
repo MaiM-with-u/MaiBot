@@ -262,18 +262,17 @@ class EventManager:
             
         return {handler.handler_name: handler for handler in event.subscribers}
     
-    async def trigger_event(self, event_name: str, **params: Dict[str, Any]) -> Optional[HandlerResultsCollection]:
+    async def trigger_event(self, event_name: str, **kwargs) -> Optional[HandlerResultsCollection]:
         """触发指定事件
         
         Args:
             event_name (str): 事件名称
-            **params (Dict[str, Any]): 传递给处理器的参数
+            **kwargs: 传递给处理器的参数
             
         Returns:
             HandlerResultsCollection: 所有处理器的执行结果，事件不存在返回None
         """
-        if params is None:
-            params = {}
+        params = kwargs or {}
             
         event = self.get_event(event_name)
         if event is None:
