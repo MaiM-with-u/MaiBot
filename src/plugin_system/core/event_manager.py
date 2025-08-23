@@ -37,6 +37,7 @@ class EventManager:
             
         self._events: Dict[str, BaseEvent] = {}
         self._event_handlers: Dict[str, Type[BaseEventHandler]] = {}
+        self._pending_subscriptions: Dict[str, List[str]] = {}  # 缓存失败的订阅
         self._initialized = True
         logger.info("EventManager 单例初始化完成")
     
@@ -56,6 +57,10 @@ class EventManager:
         event = BaseEvent(event_name)
         self._events[event_name] = event
         logger.info(f"事件 {event_name} 注册成功")
+        
+        # 检查是否有缓存的订阅需要处理
+        self._process_pending_subscriptions(event_name)
+        
         return True
     
     def get_event(self, event_name: str) -> Optional[BaseEvent]:
@@ -145,9 +150,18 @@ class EventManager:
             return False
             
         self._event_handlers[handler_name] = handler_class()
+        
+        # 处理init_subcribe，缓存失败的订阅
         if self._event_handlers[handler_name].init_subcribe:
+            failed_subscriptions = []
             for event_name in self._event_handlers[handler_name].init_subcribe:
-                self._event_handlers[handler_name].subcribe(event_name)
+                if not self.subscribe_handler_to_event(handler_name, event_name):
+                    failed_subscriptions.append(event_name)
+            
+            # 缓存失败的订阅
+            if failed_subscriptions:
+                self._pending_subscriptions[handler_name] = failed_subscriptions
+                logger.warning(f"事件处理器 {handler_name} 的部分订阅失败，已缓存: {failed_subscriptions}")
 
         logger.info(f"事件处理器 {handler_name} 注册成功")
         return True
@@ -306,8 +320,58 @@ class EventManager:
             "disabled_events": len(disabled_events),
             "total_handlers": len(self._event_handlers),
             "event_names": list(self._events.keys()),
-            "handler_names": list(self._event_handlers.keys())
+            "handler_names": list(self._event_handlers.keys()),
+            "pending_subscriptions": len(self._pending_subscriptions)
         }
+
+    def _process_pending_subscriptions(self, event_name: str) -> None:
+        """处理指定事件的缓存订阅
+        
+        Args:
+            event_name (str): 事件名称
+        """
+        handlers_to_remove = []
+        
+        for handler_name, pending_events in self._pending_subscriptions.items():
+            if event_name in pending_events:
+                if self.subscribe_handler_to_event(handler_name, event_name):
+                    pending_events.remove(event_name)
+                    logger.info(f"成功处理缓存订阅: {handler_name} -> {event_name}")
+                
+                # 如果该处理器没有更多待处理订阅，标记为移除
+                if not pending_events:
+                    handlers_to_remove.append(handler_name)
+        
+        # 清理已完成的处理器缓存
+        for handler_name in handlers_to_remove:
+            del self._pending_subscriptions[handler_name]
+
+    def process_all_pending_subscriptions(self) -> int:
+        """处理所有缓存的订阅
+        
+        Returns:
+            int: 成功处理的订阅数量
+        """
+        processed_count = 0
+        
+        # 复制待处理订阅，避免在迭代时修改字典
+        pending_copy = dict(self._pending_subscriptions)
+        
+        for handler_name, pending_events in pending_copy.items():
+            for event_name in pending_events[:]:  # 使用切片避免修改列表
+                if self.subscribe_handler_to_event(handler_name, event_name):
+                    pending_events.remove(event_name)
+                    processed_count += 1
+        
+        # 清理已完成的处理器缓存
+        handlers_to_remove = [name for name, events in self._pending_subscriptions.items() if not events]
+        for handler_name in handlers_to_remove:
+            del self._pending_subscriptions[handler_name]
+        
+        if processed_count > 0:
+            logger.info(f"批量处理缓存订阅完成，共处理 {processed_count} 个订阅")
+        
+        return processed_count
 
 
 # 创建全局事件管理器实例

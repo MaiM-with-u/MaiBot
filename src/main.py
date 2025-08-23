@@ -90,7 +90,10 @@ class MainSystem:
         lpmm_start_up()
 
         # 加载所有actions，包括默认的和插件的
-        plugin_manager.load_all_plugins()       
+        plugin_manager.load_all_plugins()
+
+        # 处理所有缓存的事件订阅（插件加载完成后）
+        event_manager.process_all_pending_subscriptions()
 
         # 初始化表情管理器
         get_emoji_manager().initialize()
