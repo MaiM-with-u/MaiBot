@@ -177,7 +177,7 @@ class EventManager:
         """
         return self._event_handlers.get(handler_name)
     
-    def get_all_event_handlers(self) -> Dict[str, Type[BaseEventHandler]]:
+    def get_all_event_handlers(self) -> Dict[str, BaseEventHandler]:
         """获取所有已注册的事件处理器
         
         Returns:
