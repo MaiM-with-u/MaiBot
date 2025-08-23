@@ -96,10 +96,10 @@ class BaseEvent:
                 if not isinstance(result, HandlerResult):
                     # 兼容旧版本，将元组转换为HandlerResult
                     success, continue_process, message = result
-                    result = HandlerResult(success, continue_process, message or "", getattr(subscriber, 'handler_name', 'unkown_handler'))
+                    result = HandlerResult(success, continue_process, message or "", getattr(subscriber, 'handler_name', 'unknown_handler'))
                 elif not result.handler_name:
                     # 补充handler_name
-                    result.handler_name = getattr(subscriber, 'handler_name', 'unkown_handler')
+                    result.handler_name = getattr(subscriber, 'handler_name', 'unknown_handler')
                 results.append(result)
             except Exception as e:
                 # 处理执行异常

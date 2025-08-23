@@ -224,7 +224,6 @@ class DefaultReplyer:
                 llm_response.model = model_name
                 llm_response.tool_calls = tool_call
 
-                from src.plugin_system.core.event_manager import event_manager
                 # 触发 AFTER_LLM 事件
                 if not from_plugin:
                     result = await event_manager.trigger_event("after_llm",prompt=prompt,llm_response=llm_response,stream_id=stream_id)

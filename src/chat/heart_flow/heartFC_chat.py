@@ -439,7 +439,6 @@ class HeartFChatting:
                     message_id_list=message_id_list,
                 )
 
-                from src.plugin_system.core.event_manager import event_manager
                 # 触发 ON_PLAN 事件
                 result = await event_manager.trigger_event("on_plan", {
                     "prompt": prompt_info[0],
