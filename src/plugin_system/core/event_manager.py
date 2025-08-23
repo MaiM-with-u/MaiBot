@@ -145,6 +145,9 @@ class EventManager:
         """
         handler_name = handler_class.handler_name or handler_class.__name__.lower().replace("handler", "")
         
+        if EventType.UNKNOWN in handler_class.init_subscribe:
+            logger.error(f"事件处理器 {handler_name} 不能订阅 UNKNOWN 事件")
+            return False
         if handler_name in self._event_handlers:
             logger.warning(f"事件处理器 {handler_name} 已存在，跳过注册")
             return False

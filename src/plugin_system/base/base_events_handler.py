@@ -21,7 +21,7 @@ class BaseEventHandler(ABC):
     """处理器权重，越大权重越高"""
     intercept_message: bool = False
     """是否拦截消息，默认为否"""
-    init_subscribe: List[Union[EventType, str]] = []
+    init_subscribe: List[Union[EventType, str]] = [EventType.UNKNOWN]
     """初始化时订阅的事件名称"""
 
     def __init__(self):
