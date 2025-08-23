@@ -3,13 +3,13 @@
 提供统一的事件注册、管理和触发接口
 """
 
-from typing import Dict, Type, List, Optional, Any
+from typing import Dict, Type, List, Optional, Any, Union
 from threading import Lock
 
 from src.common.logger import get_logger
 from src.plugin_system.base.base_event import BaseEvent, HandlerResultsCollection
 from src.plugin_system.base.base_events_handler import BaseEventHandler
-
+from src.plugin_system.base.component_types import EventType
 logger = get_logger("event_manager")
 
 
@@ -41,11 +41,11 @@ class EventManager:
         self._initialized = True
         logger.info("EventManager 单例初始化完成")
     
-    def register_event(self, event_name: str) -> bool:
+    def register_event(self, event_name: Union[EventType, str]) -> bool:
         """注册一个新的事件
         
         Args:
-            event_name (str): 事件名称
+            event_name Union[EventType, str]: 事件名称
             
         Returns:
             bool: 注册成功返回True，已存在返回False
@@ -63,11 +63,11 @@ class EventManager:
         
         return True
     
-    def get_event(self, event_name: str) -> Optional[BaseEvent]:
+    def get_event(self, event_name: Union[EventType, str]) -> Optional[BaseEvent]:
         """获取指定事件实例
         
         Args:
-            event_name (str): 事件名称
+            event_name Union[EventType, str]: 事件名称
             
         Returns:
             BaseEvent: 事件实例，不存在返回None
@@ -98,11 +98,11 @@ class EventManager:
         """
         return {name: event for name, event in self._events.items() if not event.enabled}
     
-    def enable_event(self, event_name: str) -> bool:
+    def enable_event(self, event_name: Union[EventType, str]) -> bool:
         """启用指定事件
         
         Args:
-            event_name (str): 事件名称
+            event_name Union[EventType, str]: 事件名称
             
         Returns:
             bool: 成功返回True，事件不存在返回False
@@ -116,11 +116,11 @@ class EventManager:
         logger.info(f"事件 {event_name} 已启用")
         return True
     
-    def disable_event(self, event_name: str) -> bool:
+    def disable_event(self, event_name: Union[EventType, str]) -> bool:
         """禁用指定事件
         
         Args:
-            event_name (str): 事件名称
+            event_name Union[EventType, str]: 事件名称
             
         Returns:
             bool: 成功返回True，事件不存在返回False
@@ -185,12 +185,12 @@ class EventManager:
         """
         return self._event_handlers.copy()
     
-    def subscribe_handler_to_event(self, handler_name: str, event_name: str) -> bool:
+    def subscribe_handler_to_event(self, handler_name: str, event_name: Union[EventType, str]) -> bool:
         """订阅事件处理器到指定事件
         
         Args:
             handler_name (str): 处理器名称
-            event_name (str): 事件名称
+            event_name Union[EventType, str]: 事件名称
             
         Returns:
             bool: 订阅成功返回True
@@ -217,12 +217,12 @@ class EventManager:
         logger.info(f"事件处理器 {handler_name} 成功订阅到事件 {event_name}，当前权重排序完成")
         return True
     
-    def unsubscribe_handler_from_event(self, handler_name: str, event_name: str) -> bool:
+    def unsubscribe_handler_from_event(self, handler_name: str, event_name: Union[EventType, str]) -> bool:
         """从指定事件取消订阅事件处理器
         
         Args:
             handler_name (str): 处理器名称
-            event_name (str): 事件名称
+            event_name Union[EventType, str]: 事件名称
             
         Returns:
             bool: 取消订阅成功返回True
@@ -247,11 +247,11 @@ class EventManager:
             
         return removed
     
-    def get_event_subscribers(self, event_name: str) -> Dict[str, BaseEventHandler]:
+    def get_event_subscribers(self, event_name: Union[EventType, str]) -> Dict[str, BaseEventHandler]:
         """获取订阅指定事件的所有事件处理器
         
         Args:
-            event_name (str): 事件名称
+            event_name Union[EventType, str]: 事件名称
             
         Returns:
             Dict[str, BaseEventHandler]: 处理器字典，键为处理器名称，值为处理器实例
@@ -262,11 +262,11 @@ class EventManager:
             
         return {handler.handler_name: handler for handler in event.subscribers}
     
-    async def trigger_event(self, event_name: str, **kwargs) -> Optional[HandlerResultsCollection]:
+    async def trigger_event(self, event_name: Union[EventType, str], **kwargs) -> Optional[HandlerResultsCollection]:
         """触发指定事件
         
         Args:
-            event_name (str): 事件名称
+            event_name Union[EventType, str]: 事件名称
             **kwargs: 传递给处理器的参数
             
         Returns:
@@ -284,14 +284,15 @@ class EventManager:
     def init_default_events(self) -> None:
         """初始化默认事件"""
         default_events = [
-            "on_start",
-            "on_stop",
-            "on_plan",
-            "on_message",
-            "post_llm",
-            "after_llm",
-            "post_send",
-            "after_send"
+            EventType.ON_START,
+            EventType.ON_STOP,
+            EventType.ON_PLAN,
+            EventType.ON_MESSAGE,
+            EventType.POST_LLM,
+            EventType.AFTER_LLM,
+            EventType.POST_SEND,
+            EventType.AFTER_SEND,
+            EventType.UNKNOWN
         ]
         
         for event_name in default_events:
@@ -324,11 +325,11 @@ class EventManager:
             "pending_subscriptions": len(self._pending_subscriptions)
         }
 
-    def _process_pending_subscriptions(self, event_name: str) -> None:
+    def _process_pending_subscriptions(self, event_name: Union[EventType, str]) -> None:
         """处理指定事件的缓存订阅
         
         Args:
-            event_name (str): 事件名称
+            event_name Union[EventType, str]: 事件名称
         """
         handlers_to_remove = []
         

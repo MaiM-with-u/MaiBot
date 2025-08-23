@@ -8,6 +8,7 @@ import traceback
 from dotenv import load_dotenv
 from pathlib import Path
 from rich.traceback import install
+from src.plugin_system.base.component_types import EventType
 
 if os.path.exists(".env"):
     load_dotenv(".env", override=True)
@@ -65,7 +66,7 @@ async def graceful_shutdown():  # sourcery skip: use-named-expression
         
         from src.plugin_system.core.event_manager import event_manager
         # 触发 ON_STOP 事件
-        await event_manager.trigger_event("on_stop")
+        await event_manager.trigger_event(EventType.ON_STOP)
 
         # 停止所有异步任务
         await async_task_manager.stop_and_wait_all_tasks()

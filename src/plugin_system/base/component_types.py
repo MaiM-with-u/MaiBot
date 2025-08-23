@@ -181,6 +181,25 @@ class EventInfo(ComponentInfo):
         super().__post_init__()
         self.component_type = ComponentType.EVENT
 
+# 事件类型枚举
+class EventType(Enum):
+    """
+    事件类型枚举类
+    """
+
+    ON_START = "on_start"  # 启动事件，用于调用按时任务
+    ON_STOP = "on_stop"  # 停止事件，用于调用按时任务
+    ON_MESSAGE = "on_message"
+    ON_PLAN = "on_plan"
+    POST_LLM = "post_llm"
+    AFTER_LLM = "after_llm"
+    POST_SEND = "post_send"
+    AFTER_SEND = "after_send"
+    UNKNOWN = "unknown"  # 未知事件类型
+
+    def __str__(self) -> str:
+        return self.value
+    
 @dataclass
 class PluginInfo:
     """插件信息"""

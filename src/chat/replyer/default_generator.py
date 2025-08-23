@@ -207,7 +207,7 @@ class DefaultReplyer:
             from src.plugin_system.core.event_manager import event_manager
             # 触发 POST_LLM 事件
             if not from_plugin:
-                result = await event_manager.trigger_event("post_llm",prompt=prompt,llm_response=llm_response,stream_id=stream_id)
+                result = await event_manager.trigger_event(EventType.POST_LLM,prompt=prompt,llm_response=llm_response,stream_id=stream_id)
                 if not result.all_continue_process():
                     raise UserWarning(f"插件{result.get_summary().get('stopped_handlers', '')}于请求前中断了内容生成")
 
@@ -226,7 +226,7 @@ class DefaultReplyer:
 
                 # 触发 AFTER_LLM 事件
                 if not from_plugin:
-                    result = await event_manager.trigger_event("after_llm",prompt=prompt,llm_response=llm_response,stream_id=stream_id)
+                    result = await event_manager.trigger_event(EventType.AFTER_LLM,prompt=prompt,llm_response=llm_response,stream_id=stream_id)
                     if not result.all_continue_process():
                         raise UserWarning(f"插件{result.get_summary().get("stopped_handlers","")}于请求后取消了内容生成")
                 

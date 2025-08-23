@@ -24,7 +24,7 @@ from src.chat.frequency_control.focus_value_control import focus_value_control
 from src.chat.express.expression_learner import expression_learner_manager
 from src.person_info.relationship_builder_manager import relationship_builder_manager
 from src.person_info.person_info import Person
-from src.plugin_system.base.component_types import ChatMode, ActionInfo
+from src.plugin_system.base.component_types import ChatMode, ActionInfo, EventType
 from src.plugin_system.core.event_manager import event_manager
 from src.plugin_system.apis import generator_api, send_api, message_api, database_api
 from src.mais4u.mai_think import mai_thinking_manager
@@ -440,7 +440,7 @@ class HeartFChatting:
                 )
 
                 # 触发 ON_PLAN 事件
-                result = await event_manager.trigger_event("on_plan", prompt=prompt_info[0],stream_id=self.chat_stream.stream_id)
+                result = await event_manager.trigger_event(EventType.ON_PLAN, prompt=prompt_info[0],stream_id=self.chat_stream.stream_id)
                 if result and not result.all_continue_process():
                     return
                 

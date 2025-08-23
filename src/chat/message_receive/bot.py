@@ -258,7 +258,7 @@ class ChatBot:
                 logger.info(f"命令处理完成，跳过后续消息处理: {cmd_result}")
                 return
             
-            result = await event_manager.trigger_event("on_message",message=message)
+            result = await event_manager.trigger_event(EventType.ON_MESSAGE,message=message)
             if not result.all_continue_process():
                 raise UserWarning(f"插件{result.get_summary().get('stopped_handlers','')}于消息到达时取消了消息处理")
 

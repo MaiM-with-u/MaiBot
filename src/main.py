@@ -16,6 +16,7 @@ from src.chat.knowledge import lpmm_start_up
 from rich.traceback import install
 from src.migrate_helper.migrate import check_and_run_migrations
 from src.plugin_system.core.event_manager import event_manager
+from src.plugin_system.base.component_types import EventType
 # from src.api.main import start_api_server
 
 # 导入新的插件管理器
@@ -126,7 +127,7 @@ class MainSystem:
         
 
         # 触发 ON_START 事件
-        await event_manager.trigger_event("on_start")
+        await event_manager.trigger_event(EventType.ON_START)
         # logger.info("已触发 ON_START 事件")
         try:
             init_time = int(1000 * (time.time() - init_start_time))

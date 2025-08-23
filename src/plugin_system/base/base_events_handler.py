@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, Optional, Dict, List
+from typing import Tuple, Optional, Dict, List, Union
 
 from src.common.logger import get_logger
-from .component_types import MaiMessages, EventType, EventHandlerInfo, ComponentType
+from .component_types import EventType, EventHandlerInfo, ComponentType
 
 logger = get_logger("base_event_handler")
 
@@ -21,7 +21,7 @@ class BaseEventHandler(ABC):
     """处理器权重，越大权重越高"""
     intercept_message: bool = False
     """是否拦截消息，默认为否"""
-    init_subscribe: List[str] = []
+    init_subscribe: List[Union[EventType, str]] = []
     """初始化时订阅的事件名称"""
 
     def __init__(self):
