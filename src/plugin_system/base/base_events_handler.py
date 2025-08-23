@@ -32,6 +32,8 @@ class BaseEventHandler(ABC):
         """插件配置字典"""
         self.subscribed_events = []
         """订阅的事件列表"""
+        if EventType.UNKNOWN in self.init_subscribe:
+            raise NotImplementedError("事件处理器必须指定 event_type")
 
     @abstractmethod
     async def execute(self, kwargs: dict | None) -> Tuple[bool, bool, Optional[str]]:
