@@ -32,7 +32,7 @@ if results.all_continue_process():
 
 # 获取失败的处理器
 failed_handlers = results.get_failed_handlers()
-for handler in failed.handlers:
+for handler in failed_handlers:
     print(f"处理器 {handler.handler_name} 失败: {handler.message}")
 
 # 获取停止处理的处理器
