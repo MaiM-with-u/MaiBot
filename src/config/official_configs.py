@@ -77,7 +77,7 @@ class ChatConfig(ConfigBase):
     mentioned_bot_inevitable_reply: bool = False
     """提及 bot 必然回复"""
     
-    planner_size: int = 1
+    planner_size: float = 1.5
     """副规划器大小，越小，麦麦的动作执行能力越精细，但是消耗更多token，调大可以缓解429类错误"""
 
     at_bot_inevitable_reply: bool = False

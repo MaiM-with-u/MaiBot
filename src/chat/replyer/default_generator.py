@@ -954,7 +954,7 @@ class DefaultReplyer:
             chat_target_name = "对方"
             if self.chat_target_info:
                 chat_target_name = (
-                    self.chat_target_info.get("person_name") or self.chat_target_info.get("user_nickname") or "对方"
+                    self.chat_target_info.person_name or self.chat_target_info.user_nickname or "对方"
                 )
             chat_target_1 = await global_prompt_manager.format_prompt(
                 "chat_target_private1", sender_name=chat_target_name

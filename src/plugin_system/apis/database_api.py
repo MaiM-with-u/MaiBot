@@ -8,6 +8,8 @@
 """
 
 import traceback
+import time
+import json
 from typing import Dict, List, Any, Union, Type, Optional
 from src.common.logger import get_logger
 from peewee import Model, DoesNotExist
@@ -337,8 +339,6 @@ async def store_action_info(
         )
     """
     try:
-        import time
-        import json
         from src.common.database.database_model import ActionRecords
 
         # 构建动作记录数据

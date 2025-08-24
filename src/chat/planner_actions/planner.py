@@ -2,7 +2,9 @@ import json
 import time
 import traceback
 import asyncio
-from typing import Dict, Optional, Tuple, List, Any
+import math
+import random
+from typing import Dict, Optional, Tuple, List, TYPE_CHECKING
 from rich.traceback import install
 from datetime import datetime
 from json_repair import repair_json
@@ -10,7 +12,6 @@ from json_repair import repair_json
 from src.llm_models.utils_model import LLMRequest
 from src.config.config import global_config, model_config
 from src.common.logger import get_logger
-from src.common.data_models.database_data_model import DatabaseMessages
 from src.common.data_models.info_data_model import ActionPlannerInfo
 from src.chat.utils.prompt_builder import Prompt, global_prompt_manager
 from src.chat.utils.chat_message_builder import (
@@ -24,7 +25,10 @@ from src.chat.planner_actions.action_manager import ActionManager
 from src.chat.message_receive.chat_stream import get_chat_manager
 from src.plugin_system.base.component_types import ActionInfo, ChatMode, ComponentType, ActionActivationType
 from src.plugin_system.core.component_registry import component_registry
-import random
+
+if TYPE_CHECKING:
+    from src.common.data_models.info_data_model import TargetPersonInfo
+    from src.common.data_models.database_data_model import DatabaseMessages, DatabaseActionRecords
 
 logger = get_logger("planner")
 
@@ -75,7 +79,7 @@ def init_prompt():
 """,
         "planner_prompt",
     )
-    
+
     Prompt(
         """
 {time_block}
@@ -103,8 +107,6 @@ def init_prompt():
 """,
         "planner_reply_prompt",
     )
-    
-    
 
     Prompt(
         """
@@ -121,7 +123,7 @@ def init_prompt():
     )
 
     Prompt(
-    """
+        """
 {name_block}
 
 {chat_context_description}，{time_block}，现在请你根据以下聊天内容，选择一个或多个action来参与聊天。如果没有合适的action，请选择no_action。,
@@ -163,10 +165,10 @@ class ActionPlanner:
         )  # 用于动作规划
 
         self.last_obs_time_mark = 0.0
-    
+
     def find_message_by_id(
-        self, message_id: str, message_id_list: List[Tuple[str, DatabaseMessages]]
-    ) -> Optional[DatabaseMessages]:
+        self, message_id: str, message_id_list: List[Tuple[str, "DatabaseMessages"]]
+    ) -> Optional["DatabaseMessages"]:
         # sourcery skip: use-next
         """
         根据message_id从message_id_list中查找对应的原始消息
@@ -182,21 +184,20 @@ class ActionPlanner:
             if item[0] == message_id:
                 return item[1]
         return None
-    
-    def _parse_single_action(self, action_json: dict, message_id_list: List[Tuple[str, DatabaseMessages]], current_available_actions: List[Tuple[str, ActionInfo]]) -> List[ActionPlannerInfo]:
+
+    def _parse_single_action(
+        self,
+        action_json: dict,
+        message_id_list: List[Tuple[str, "DatabaseMessages"]],
+        current_available_actions: List[Tuple[str, ActionInfo]],
+    ) -> List[ActionPlannerInfo]:
         """解析单个action JSON并返回ActionPlannerInfo列表"""
         action_planner_infos = []
 
         try:
             action = action_json.get("action", "no_action")
             reasoning = action_json.get("reason", "未提供原因")
-            action_data = {}
-
-            # 将所有其他属性添加到action_data
-            for key, value in action_json.items():
-                if key not in ["action", "reasoning"]:
-                    action_data[key] = value
-
+            action_data = {key: value for key, value in action_json.items() if key not in ["action", "reasoning"]}
             # 非no_action动作需要target_message_id
             target_message = None
             if action != "no_action":
@@ -206,7 +207,7 @@ class ActionPlanner:
                     if target_message is None:
                         logger.warning(f"{self.log_prefix}无法找到target_message_id '{target_message_id}' 对应的消息")
                         # 选择最新消息作为target_message
-                        target_message = message_id_list[-1]
+                        target_message = message_id_list[-1][1]
                 else:
                     logger.warning(f"{self.log_prefix}动作'{action}'缺少target_message_id")
 
@@ -254,10 +255,9 @@ class ActionPlanner:
         self,
         action_list: List[Tuple[str, ActionInfo]],
         chat_content_block: str,
-        message_id_list: List[Tuple[str, DatabaseMessages]],
+        message_id_list: List[Tuple[str, "DatabaseMessages"]],
         is_group_chat: bool = False,
-        chat_target_info: Optional[dict] = None,
-        # current_available_actions: Dict[str, ActionInfo] = {},
+        chat_target_info: Optional["TargetPersonInfo"] = None,
     ) -> List[ActionPlannerInfo]:
         # 构建副planner并执行(单个副planner)
         try:
@@ -267,20 +267,19 @@ class ActionPlanner:
                 timestamp_end=time.time(),
                 limit=20,
             )
-            
+
             # 获取最近的actions
             # 只保留action_type在action_list中的ActionPlannerInfo
             action_names_in_list = [name for name, _ in action_list]
             # actions_before_now是List[Dict[str, Any]]格式，需要提取action_type字段
-            filtered_actions = []
+            filtered_actions: List["DatabaseActionRecords"] = []
             for action_record in actions_before_now:
                 # print(action_record)
                 # print(action_record['action_name'])
                 # print(action_names_in_list)
-                action_type = action_record['action_name']
+                action_type = action_record.action_name
                 if action_type in action_names_in_list:
                     filtered_actions.append(action_record)
-        
 
             actions_before_now_block = build_readable_actions(
                 actions=filtered_actions,
@@ -290,9 +289,7 @@ class ActionPlanner:
             chat_context_description = "你现在正在一个群聊中"
             chat_target_name = None
             if not is_group_chat and chat_target_info:
-                chat_target_name = (
-                    chat_target_info.get("person_name") or chat_target_info.get("user_nickname") or "对方"
-                )
+                chat_target_name = chat_target_info.person_name or chat_target_info.user_nickname or "对方"
                 chat_context_description = f"你正在和 {chat_target_name} 私聊"
 
             action_options_block = ""
@@ -351,7 +348,7 @@ class ActionPlanner:
                     reasoning=f"构建 Planner Prompt 时出错: {e}",
                     action_data={},
                     action_message=None,
-                    available_actions=action_list,
+                    available_actions=None,
                 )
             ]
 
@@ -382,7 +379,7 @@ class ActionPlanner:
                     reasoning=f"副规划器LLM 请求失败，模型出现问题: {req_e}",
                     action_data={},
                     action_message=None,
-                    available_actions=action_list,
+                    available_actions=None,
                 )
             )
             return action_planner_infos
@@ -411,7 +408,7 @@ class ActionPlanner:
                                 reasoning="LLM返回了空列表，选择no_action",
                                 action_data={},
                                 action_message=None,
-                                available_actions=action_list,
+                                available_actions=None,
                             )
                         )
                 elif isinstance(parsed_json, dict):
@@ -425,7 +422,7 @@ class ActionPlanner:
                             reasoning=f"解析后的JSON类型错误: {type(parsed_json)}",
                             action_data={},
                             action_message=None,
-                            available_actions=action_list,
+                            available_actions=None,
                         )
                     )
 
@@ -438,7 +435,7 @@ class ActionPlanner:
                         reasoning=f"解析LLM响应JSON失败: {json_e}. 将使用默认动作 'no_action'.",
                         action_data={},
                         action_message=None,
-                        available_actions=action_list,
+                        available_actions=None,
                     )
                 )
         else:
@@ -449,7 +446,7 @@ class ActionPlanner:
                     reasoning="副规划器没有获得LLM响应",
                     action_data={},
                     action_message=None,
-                    available_actions=action_list,
+                    available_actions=None,
                 )
             )
 
@@ -461,7 +458,7 @@ class ActionPlanner:
                     reasoning="副规划器没有解析到任何有效action",
                     action_data={},
                     action_message=None,
-                    available_actions=action_list,
+                    available_actions=None,
                 )
             )
 
@@ -473,7 +470,8 @@ class ActionPlanner:
         available_actions: Dict[str, ActionInfo],
         mode: ChatMode = ChatMode.FOCUS,
         loop_start_time: float = 0.0,
-    ) -> Tuple[List[ActionPlannerInfo], Optional[DatabaseMessages]]:
+    ) -> Tuple[List[ActionPlannerInfo], Optional["DatabaseMessages"]]:
+        # sourcery skip: use-or-for-fallback
         """
         规划器 (Planner): 使用LLM根据上下文决定做出什么动作。
         """
@@ -482,9 +480,9 @@ class ActionPlanner:
         reasoning: str = "规划器初始化默认"
         action_data = {}
         current_available_actions: Dict[str, ActionInfo] = {}
-        target_message: Optional[DatabaseMessages] = None  # 初始化target_message变量
+        target_message: Optional["DatabaseMessages"] = None  # 初始化target_message变量
         prompt: str = ""
-        message_id_list: list = []
+        message_id_list: list[Tuple[str, "DatabaseMessages"]] = []
 
         message_list_before_now = get_raw_msg_before_timestamp_with_chat(
             chat_id=self.chat_id,
@@ -499,9 +497,8 @@ class ActionPlanner:
             show_actions=True,
         )
 
-        
-        message_list_before_now_short = message_list_before_now[-int(global_config.chat.max_context_size * 0.3):]
-        
+        message_list_before_now_short = message_list_before_now[-int(global_config.chat.max_context_size * 0.3) :]
+
         chat_content_block_short, message_id_list_short = build_readable_messages_with_id(
             messages=message_list_before_now_short,
             timestamp_mode="normal_no_YMD",
@@ -527,49 +524,38 @@ class ActionPlanner:
                             if keyword in chat_content_block_short:
                                 sub_planner_actions[action_name] = action_info
                 elif action_info.activation_type == ActionActivationType.NEVER:
-                    pass
+                    logger.debug(f"{self.log_prefix}动作 {action_name} 设置为 NEVER 激活类型，跳过")
                 else:
                     logger.warning(f"{self.log_prefix}未知的激活类型: {action_info.activation_type}，跳过处理")
 
             sub_planner_actions_num = len(sub_planner_actions)
-            sub_planner_size = global_config.chat.planner_size
-            if global_config.chat.planner_size > int(global_config.chat.planner_size):
-                if random.random() < global_config.chat.planner_size - int(global_config.chat.planner_size):
-                    sub_planner_size = int(global_config.chat.planner_size) + 1
-            sub_planner_num = int(sub_planner_actions_num / sub_planner_size)
-            if sub_planner_actions_num % sub_planner_size != 0:
-                sub_planner_num += 1
+            sub_planner_size = int(global_config.chat.planner_size)
+            if random.random() < global_config.chat.planner_size - int(global_config.chat.planner_size):
+                sub_planner_size = int(global_config.chat.planner_size) + 1
+            sub_planner_num = math.ceil(sub_planner_actions_num / sub_planner_size)
 
             logger.info(f"{self.log_prefix}副规划器数量: {sub_planner_num}, 副规划器大小: {sub_planner_size}")
 
             # 将sub_planner_actions随机分配到sub_planner_num个List中
-            sub_planner_lists = []
+            sub_planner_lists: List[List[Tuple[str, ActionInfo]]] = []
             if sub_planner_actions_num > 0:
                 # 将actions转换为列表并随机打乱
                 action_items = list(sub_planner_actions.items())
                 random.shuffle(action_items)
 
                 # 初始化所有子列表
-                for i in range(sub_planner_num):
+                for _ in range(sub_planner_num):
                     sub_planner_lists.append([])
 
                 # 分配actions到各个子列表
                 for i, (action_name, action_info) in enumerate(action_items):
-                    # 确保每个列表至少有一个action
-                    if i < sub_planner_num:
-                        sub_planner_lists[i].append((action_name, action_info))
-                    else:
-                        # 随机选择一个列表添加action，但不超过最大大小限制
-                        available_lists = [j for j, lst in enumerate(sub_planner_lists) if len(lst) < sub_planner_size]
-                        if available_lists:
-                            target_list = random.choice(available_lists)
-                            sub_planner_lists[target_list].append((action_name, action_info))
+                    sub_planner_lists[i % sub_planner_num].append((action_name, action_info))
 
                 logger.info(
-                    f"{self.log_prefix}成功将{len(sub_planner_actions)}个actions分配到{sub_planner_num}个子列表中"
+                    f"{self.log_prefix}成功将{sub_planner_actions_num}个actions分配到{sub_planner_num}个子列表中"
                 )
-                for i, lst in enumerate(sub_planner_lists):
-                    logger.debug(f"{self.log_prefix}子列表{i + 1}: {len(lst)}个actions")
+                for i, action_list in enumerate(sub_planner_lists):
+                    logger.debug(f"{self.log_prefix}子列表{i + 1}: {len(action_list)}个actions")
             else:
                 logger.info(f"{self.log_prefix}没有可用的actions需要分配")
 
@@ -580,12 +566,10 @@ class ActionPlanner:
             async def execute_sub_plan(action_list):
                 return await self.sub_plan(
                     action_list=action_list,
-                    # actions_before_now=actions_before_now,
                     chat_content_block=chat_content_block_short,
                     message_id_list=message_id_list_short,
                     is_group_chat=is_group_chat,
                     chat_target_info=chat_target_info,
-                    # current_available_actions=current_available_actions,
                 )
 
             # 创建所有任务
@@ -658,14 +642,14 @@ class ActionPlanner:
                             # 获取第一个（也是唯一一个）action的信息
                             action_info = action_planner_infos[0]
                             action = action_info.action_type
-                            reasoning = action_info.reasoning
-                            action_data.update(action_info.action_data)
+                            reasoning = action_info.reasoning or "没有理由"
+                            action_data.update(action_info.action_data or {})
                             target_message = action_info.action_message
 
                             # 处理target_message为None的情况（保持原有的重试逻辑）
                             if target_message is None and action != "no_action":
                                 # 尝试获取最新消息作为target_message
-                                target_message = message_id_list[-1]
+                                target_message = message_id_list[-1][1]
                                 if target_message is None:
                                     logger.warning(f"{self.log_prefix}无法获取任何消息作为target_message")
                         else:
@@ -699,16 +683,6 @@ class ActionPlanner:
 
         action_data["loop_start_time"] = loop_start_time
 
-        # 过滤掉no_action，除非所有结果都是no_action
-        def filter_no_actions(action_list):
-            """过滤no_action，如果所有都是no_action则返回一个"""
-            non_no_actions = [a for a in action_list if a.action_type != "no_action"]
-            if non_no_actions:
-                return non_no_actions
-            else:
-                # 如果所有都是no_action，返回第一个
-                return [action_list[0]] if action_list else []
-
         # 根据is_parallel决定返回值
         if is_parallel:
             # 如果为真，将主规划器的结果和副规划器的结果都返回
@@ -730,7 +704,7 @@ class ActionPlanner:
             all_actions = main_actions + all_sub_planner_results
 
             # 然后统一过滤no_action
-            actions = filter_no_actions(all_actions)
+            actions = self._filter_no_actions(all_actions)
 
             # 如果所有结果都是no_action，返回一个no_action
             if not actions:
@@ -749,7 +723,7 @@ class ActionPlanner:
             )
         else:
             # 如果为假，只返回副规划器的结果
-            actions = filter_no_actions(all_sub_planner_results)
+            actions = self._filter_no_actions(all_sub_planner_results)
 
             # 如果所有结果都是no_action，返回一个no_action
             if not actions:
@@ -770,13 +744,13 @@ class ActionPlanner:
     async def build_planner_prompt(
         self,
         is_group_chat: bool,  # Now passed as argument
-        chat_target_info: Optional[dict],  # Now passed as argument
+        chat_target_info: Optional["TargetPersonInfo"],  # Now passed as argument
         # current_available_actions: Dict[str, ActionInfo],
+        message_id_list: List[Tuple[str, "DatabaseMessages"]],
         mode: ChatMode = ChatMode.FOCUS,
         # actions_before_now_block :str = "",
-        chat_content_block :str = "",
-        message_id_list :List[Tuple[str, DatabaseMessages]] = None,
-    ) -> tuple[str, List[DatabaseMessages]]:  # sourcery skip: use-join
+        chat_content_block: str = "",
+    ) -> tuple[str, List[Tuple[str, "DatabaseMessages"]]]:  # sourcery skip: use-join
         """构建 Planner LLM 的提示词 (获取模板并填充数据)"""
         try:
             actions_before_now = get_actions_by_timestamp_with_chat(
@@ -789,8 +763,7 @@ class ActionPlanner:
             actions_before_now_block = build_readable_actions(
                 actions=actions_before_now,
             )
-            
-        
+
             if actions_before_now_block:
                 actions_before_now_block = f"你刚刚选择并执行过的action是：\n{actions_before_now_block}"
             else:
@@ -802,16 +775,12 @@ class ActionPlanner:
             if global_config.chat.at_bot_inevitable_reply:
                 mentioned_bonus = "\n- 有人提到你，或者at你"
 
-
             chat_context_description = "你现在正在一个群聊中"
             chat_target_name = None
             if not is_group_chat and chat_target_info:
-                chat_target_name = (
-                    chat_target_info.get("person_name") or chat_target_info.get("user_nickname") or "对方"
-                )
+                chat_target_name = chat_target_info.person_name or chat_target_info.user_nickname or "对方"
                 chat_context_description = f"你正在和 {chat_target_name} 私聊"
-                
-                
+
             # 别删，之后可能会允许主Planner扩展
 
             # action_options_block = ""
@@ -867,7 +836,6 @@ class ActionPlanner:
                     name_block=name_block,
                     plan_style=global_config.personality.plan_style,
                 )
-                return prompt, message_id_list
             else:
                 planner_prompt_template = await global_prompt_manager.get_prompt_async("planner_reply_prompt")
                 prompt = planner_prompt_template.format(
@@ -878,13 +846,13 @@ class ActionPlanner:
                     moderation_prompt=moderation_prompt_block,
                     name_block=name_block,
                 )
-                return prompt, message_id_list
+            return prompt, message_id_list
         except Exception as e:
             logger.error(f"构建 Planner 提示词时出错: {e}")
             logger.error(traceback.format_exc())
             return "构建 Planner Prompt 时出错", []
 
-    def get_necessary_info(self) -> Tuple[bool, Optional[dict], Dict[str, ActionInfo]]:
+    def get_necessary_info(self) -> Tuple[bool, Optional["TargetPersonInfo"], Dict[str, ActionInfo]]:
         """
         获取 Planner 需要的必要信息
         """
@@ -906,6 +874,15 @@ class ActionPlanner:
                 logger.warning(f"{self.log_prefix}使用中的动作 {action_name} 未在已注册动作中找到")
 
         return is_group_chat, chat_target_info, current_available_actions
+
+    # 过滤掉no_action，除非所有结果都是no_action
+    def _filter_no_actions(self, action_list: List[ActionPlannerInfo]) -> List[ActionPlannerInfo]:
+        """过滤no_action，如果所有都是no_action则返回一个"""
+        if non_no_actions := [a for a in action_list if a.action_type != "no_action"]:
+            return non_no_actions
+        else:
+            # 如果所有都是no_action，返回第一个
+            return [action_list[0]] if action_list else []
 
 
 init_prompt()

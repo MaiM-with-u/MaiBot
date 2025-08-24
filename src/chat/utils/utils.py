@@ -7,7 +7,7 @@ import ast
 import numpy as np
 
 from collections import Counter
-from typing import Optional, Tuple, Dict, List
+from typing import Optional, Tuple, List, TYPE_CHECKING
 
 from src.common.logger import get_logger
 from src.common.data_models.database_data_model import DatabaseMessages
@@ -18,6 +18,9 @@ from src.chat.message_receive.chat_stream import get_chat_manager
 from src.llm_models.utils_model import LLMRequest
 from src.person_info.person_info import Person
 from .typo_generator import ChineseTypoGenerator
+
+if TYPE_CHECKING:
+    from src.common.data_models.info_data_model import TargetPersonInfo
 
 logger = get_logger("chat_utils")
 
@@ -612,7 +615,7 @@ def translate_timestamp_to_human_readable(timestamp: float, mode: str = "normal"
         return time.strftime("%H:%M:%S", time.localtime(timestamp))
 
 
-def get_chat_type_and_target_info(chat_id: str) -> Tuple[bool, Optional[Dict]]:
+def get_chat_type_and_target_info(chat_id: str) -> Tuple[bool, Optional["TargetPersonInfo"]]:
     """
     获取聊天类型（是否群聊）和私聊对象信息。
 
@@ -665,7 +668,7 @@ def get_chat_type_and_target_info(chat_id: str) -> Tuple[bool, Optional[Dict]]:
                         f"获取 person_id 或 person_name 时出错 for {platform}:{user_id} in utils: {person_e}"
                     )
 
-                chat_target_info = target_info.__dict__
+                chat_target_info = target_info
         else:
             logger.warning(f"无法获取 chat_stream for {chat_id} in utils")
     except Exception as e:

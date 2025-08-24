@@ -18,7 +18,6 @@ from src.chat.planner_actions.action_modifier import ActionModifier
 from src.chat.planner_actions.action_manager import ActionManager
 from src.chat.heart_flow.hfc_utils import CycleDetail
 from src.chat.heart_flow.hfc_utils import send_typing, stop_typing
-from src.chat.memory_system.Hippocampus import hippocampus_manager
 from src.chat.frequency_control.talk_frequency_control import talk_frequency_control
 from src.chat.frequency_control.focus_value_control import focus_value_control
 from src.chat.express.expression_learner import expression_learner_manager
@@ -29,7 +28,10 @@ from src.plugin_system.core.event_manager import event_manager
 from src.plugin_system.apis import generator_api, send_api, message_api, database_api
 from src.mais4u.mai_think import mai_thinking_manager
 from src.mais4u.s4u_config import s4u_config
-from src.chat.utils.chat_message_builder import build_readable_messages_with_id, build_readable_actions, get_actions_by_timestamp_with_chat, get_raw_msg_before_timestamp_with_chat
+from src.chat.utils.chat_message_builder import (
+    build_readable_messages_with_id,
+    get_raw_msg_before_timestamp_with_chat,
+)
 
 if TYPE_CHECKING:
     from src.common.data_models.database_data_model import DatabaseMessages
@@ -412,10 +414,8 @@ class HeartFChatting:
                         logger.error(f"{self.log_prefix} 动作修改失败: {e}")
 
                 # 执行planner
-                planner_info = self.action_planner.get_necessary_info()
-                
+                is_group_chat, chat_target_info, _ = self.action_planner.get_necessary_info()
 
-                
                 message_list_before_now = get_raw_msg_before_timestamp_with_chat(
                     chat_id=self.stream_id,
                     timestamp=time.time(),
@@ -427,12 +427,11 @@ class HeartFChatting:
                     read_mark=self.action_planner.last_obs_time_mark,
                     truncate=True,
                     show_actions=True,
-                )               
-                
-                
+                )
+
                 prompt_info = await self.action_planner.build_planner_prompt(
-                    is_group_chat=planner_info[0],
-                    chat_target_info=planner_info[1],
+                    is_group_chat=is_group_chat,
+                    chat_target_info=chat_target_info,
                     # current_available_actions=planner_info[2],
                     chat_content_block=chat_content_block,
                     # actions_before_now_block=actions_before_now_block,
@@ -450,7 +449,7 @@ class HeartFChatting:
                         loop_start_time=self.last_read_time,
                         available_actions=available_actions,
                     )
-                    
+
                     for action in action_to_use_info:
                         print(action.action_type)
 

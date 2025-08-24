@@ -8,7 +8,7 @@ from rich.traceback import install
 from src.config.config import global_config
 from src.common.logger import get_logger
 from src.common.message_repository import find_messages, count_messages
-from src.common.data_models.database_data_model import DatabaseMessages
+from src.common.data_models.database_data_model import DatabaseMessages, DatabaseActionRecords
 from src.common.data_models.message_data_model import MessageAndActionModel
 from src.common.database.database_model import ActionRecords
 from src.common.database.database_model import Images
@@ -183,7 +183,7 @@ def get_actions_by_timestamp_with_chat(
     timestamp_end: float = time.time(),
     limit: int = 0,
     limit_mode: str = "latest",
-) -> List[Dict[str, Any]]:
+) -> List[DatabaseActionRecords]:
     """获取在特定聊天从指定时间戳到指定时间戳的动作记录，按时间升序排序，返回动作记录列表"""
     query = ActionRecords.select().where(
         (ActionRecords.chat_id == chat_id)
@@ -196,14 +196,25 @@ def get_actions_by_timestamp_with_chat(
             query = query.order_by(ActionRecords.time.desc()).limit(limit)
             # 获取后需要反转列表，以保持最终输出为时间升序
             actions = list(query)
-            return [action.__data__ for action in reversed(actions)]
+            actions.reverse()
         else:  # earliest
             query = query.order_by(ActionRecords.time.asc()).limit(limit)
     else:
         query = query.order_by(ActionRecords.time.asc())
 
     actions = list(query)
-    return [action.__data__ for action in actions]
+    return [DatabaseActionRecords(
+        action_id=action.action_id,
+        time=action.time,
+        action_name=action.action_name,
+        action_data=action.action_data,
+        action_done=action.action_done,
+        action_build_into_prompt=action.action_build_into_prompt,
+        action_prompt_display=action.action_prompt_display,
+        chat_id=action.chat_id,
+        chat_info_stream_id=action.chat_info_stream_id,
+        chat_info_platform=action.chat_info_platform,
+    ) for action in actions]
 
 
 def get_actions_by_timestamp_with_chat_inclusive(
@@ -533,7 +544,7 @@ def build_pic_mapping_info(pic_id_mapping: Dict[str, str]) -> str:
     return "\n".join(mapping_lines)
 
 
-def build_readable_actions(actions: List[Dict[str, Any]],mode:str="relative") -> str:
+def build_readable_actions(actions: List[DatabaseActionRecords],mode:str="relative") -> str:
     """
     将动作列表转换为可读的文本格式。
     格式: 在（）分钟前，你使用了(action_name)，具体内容是：（action_prompt_display）
@@ -554,13 +565,13 @@ def build_readable_actions(actions: List[Dict[str, Any]],mode:str="relative") ->
     # sorted_actions = sorted(actions, key=lambda x: x.get("time", 0), reverse=True)
 
     for action in actions:
-        action_time = action.get("time", current_time)
-        action_name = action.get("action_name", "未知动作")
+        action_time = action.time or current_time
+        action_name = action.action_name or "未知动作"
         # action_reason = action.get(action_data")
         if action_name in ["no_action", "no_action"]:
             continue
 
-        action_prompt_display = action.get("action_prompt_display", "无具体内容")
+        action_prompt_display = action.action_prompt_display or "无具体内容"
 
         time_diff_seconds = current_time - action_time
         if mode == "relative":
