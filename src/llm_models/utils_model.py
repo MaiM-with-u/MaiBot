@@ -14,7 +14,13 @@ from .payload_content.resp_format import RespFormat
 from .payload_content.tool_option import ToolOption, ToolCall, ToolOptionBuilder, ToolParamType
 from .model_client.base_client import BaseClient, APIResponse, client_registry
 from .utils import compress_messages, llm_usage_recorder
-from .exceptions import NetworkConnectionError, ReqAbortException, RespNotOkException, RespParseException
+from .exceptions import (
+    NetworkConnectionError,
+    ReqAbortException,
+    RespNotOkException,
+    RespParseException,
+    EmptyResponseException,
+)
 
 install(extra_lines=3)
 
@@ -192,12 +198,6 @@ class LLMRequest:
                 endpoint="/chat/completions",
                 time_cost=time.time() - start_time,
             )
-        
-        if not content:
-            if raise_when_empty:
-                logger.warning(f"生成的响应为空, 请求类型: {self.request_type}")
-                raise RuntimeError("生成的响应为空")
-            content = "生成的响应为空，请检查模型配置或输入内容是否正确"
 
         return content, (reasoning_content, model_info.name, tool_calls)
 
@@ -366,6 +366,13 @@ class LLMRequest:
                 retry_interval,
                 can_retry_msg=f"任务-'{task_name}' 模型-'{model_name}': 连接异常，将于{retry_interval}秒后重试",
                 cannot_retry_msg=f"任务-'{task_name}' 模型-'{model_name}': 连接异常，超过最大重试次数，请检查网络连接状态或URL是否正确",
+            )
+        elif isinstance(e, EmptyResponseException):  # 空响应错误
+            return self._check_retry(
+                remain_try,
+                retry_interval,
+                can_retry_msg=f"任务-'{task_name}' 模型-'{model_name}': 收到空响应，将于{retry_interval}秒后重试。原因: {e}",
+                cannot_retry_msg=f"任务-'{task_name}' 模型-'{model_name}': 收到空响应，超过最大重试次数，放弃请求",
             )
         elif isinstance(e, ReqAbortException):
             logger.warning(f"任务-'{task_name}' 模型-'{model_name}': 请求被中断，详细信息-{str(e.message)}")

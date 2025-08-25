@@ -30,6 +30,7 @@ from ..exceptions import (
     NetworkConnectionError,
     RespNotOkException,
     ReqAbortException,
+    EmptyResponseException,
 )
 from ..payload_content.message import Message, RoleType
 from ..payload_content.resp_format import RespFormat
@@ -235,6 +236,9 @@ def _build_stream_api_resp(
 
             resp.tool_calls.append(ToolCall(call_id, function_name, arguments))
 
+    if not resp.content and not resp.tool_calls:
+        raise EmptyResponseException()
+
     return resp
 
 
@@ -332,7 +336,7 @@ def _default_normal_response_parser(
     api_response = APIResponse()
 
     if not hasattr(resp, "choices") or len(resp.choices) == 0:
-        raise RespParseException(resp, "响应解析失败，缺失choices字段")
+        raise EmptyResponseException("响应解析失败，缺失choices字段或choices列表为空")
     message_part = resp.choices[0].message
 
     if hasattr(message_part, "reasoning_content") and message_part.reasoning_content:  # type: ignore
@@ -376,6 +380,9 @@ def _default_normal_response_parser(
 
     # 将原始响应存储在原始数据中
     api_response.raw_data = resp
+
+    if not api_response.content and not api_response.tool_calls:
+        raise EmptyResponseException()
 
     return api_response, _usage_record
 

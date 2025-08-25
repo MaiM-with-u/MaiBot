@@ -96,3 +96,14 @@ class PermissionDeniedException(Exception):
 
     def __str__(self):
         return self.message
+
+
+class EmptyResponseException(Exception):
+    """响应内容为空"""
+
+    def __init__(self, message: str = "响应内容为空，这可能是一个临时性问题"):
+        super().__init__(message)
+        self.message = message
+
+    def __str__(self):
+        return self.message

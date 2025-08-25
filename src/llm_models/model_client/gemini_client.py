@@ -37,6 +37,7 @@ from ..exceptions import (
     NetworkConnectionError,
     RespNotOkException,
     ReqAbortException,
+    EmptyResponseException,
 )
 from ..payload_content.message import Message, RoleType
 from ..payload_content.resp_format import RespFormat, RespFormatType
@@ -224,6 +225,9 @@ def _build_stream_api_resp(
 
             resp.tool_calls.append(ToolCall(call_id, function_name, arguments))
 
+    if not resp.content and not resp.tool_calls:
+        raise EmptyResponseException()
+
     return resp
 
 
@@ -284,26 +288,27 @@ def _default_normal_response_parser(
     """
     api_response = APIResponse()
 
-    if not hasattr(resp, "candidates") or not resp.candidates:
-        raise RespParseException(resp, "响应解析失败，缺失candidates字段")
+    # 解析思考内容
     try:
-        if resp.candidates[0].content and resp.candidates[0].content.parts:
-            for part in resp.candidates[0].content.parts:
-                if not part.text:
-                    continue
-                if part.thought:
-                    api_response.reasoning_content = (
-                        api_response.reasoning_content + part.text if api_response.reasoning_content else part.text
-                    )
+        if (candidates := getattr(resp, "candidates", None)) and candidates:
+            if candidates[0].content and candidates[0].content.parts:
+                for part in candidates[0].content.parts:
+                    if not part.text:
+                        continue
+                    if part.thought:
+                        api_response.reasoning_content = (
+                            api_response.reasoning_content + part.text if api_response.reasoning_content else part.text
+                        )
     except Exception as e:
         logger.warning(f"解析思考内容时发生错误: {e}，跳过解析")
 
-    if resp.text:
-        api_response.content = resp.text
+    # 解析响应内容
+    api_response.content = getattr(resp, "text", None)
 
-    if resp.function_calls:
+    # 解析工具调用
+    if function_calls := getattr(resp, "function_calls", None):
         api_response.tool_calls = []
-        for call in resp.function_calls:
+        for call in function_calls:
             try:
                 if not isinstance(call.args, dict):
                     raise RespParseException(resp, "响应解析失败，工具调用参数无法解析为字典类型")
@@ -313,16 +318,21 @@ def _default_normal_response_parser(
             except Exception as e:
                 raise RespParseException(resp, "响应解析失败，无法解析工具调用参数") from e
 
-    if resp.usage_metadata:
+    # 解析使用情况
+    if usage_metadata := getattr(resp, "usage_metadata", None):
         _usage_record = (
-            resp.usage_metadata.prompt_token_count or 0,
-            (resp.usage_metadata.candidates_token_count or 0) + (resp.usage_metadata.thoughts_token_count or 0),
-            resp.usage_metadata.total_token_count or 0,
+            usage_metadata.prompt_token_count or 0,
+            (usage_metadata.candidates_token_count or 0) + (usage_metadata.thoughts_token_count or 0),
+            usage_metadata.total_token_count or 0,
         )
     else:
         _usage_record = None
 
     api_response.raw_data = resp
+
+    # 最终的、唯一的空响应检查
+    if not api_response.content and not api_response.tool_calls:
+        raise EmptyResponseException("响应中既无文本内容也无工具调用")
 
     return api_response, _usage_record
 
