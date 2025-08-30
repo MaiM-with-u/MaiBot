@@ -37,7 +37,7 @@ logger = get_logger("main")
 class MainSystem:
     def __init__(self):
         # 根据配置条件性地初始化记忆系统
-        if global_config.memory.enable_memory:
+        if global_config.memory.enable_memory and hippocampus_manager is not None:
             self.hippocampus_manager = hippocampus_manager
         else:
             self.hippocampus_manager = None
