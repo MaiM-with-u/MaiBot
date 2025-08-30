@@ -37,16 +37,32 @@ async def _calculate_interest(message: MessageRecv) -> Tuple[float, list[str]]:
     
     is_mentioned, _ = is_mentioned_bot_in_message(message)
     interested_rate = 0.0
+    keywords = []
+    keywords_lite = []
 
-    with Timer("记忆激活"):
-        interested_rate, keywords,keywords_lite = await hippocampus_manager.get_activate_from_text(
-            message.processed_plain_text,
-            max_depth= 4,
-            fast_retrieval=global_config.chat.interest_rate_mode == "fast",
-        )
-        message.key_words = keywords
-        message.key_words_lite = keywords_lite
-        logger.debug(f"记忆激活率: {interested_rate:.2f}, 关键词: {keywords}")
+    # 只有在记忆系统启用时才进行记忆激活
+    if global_config.memory.enable_memory:
+        with Timer("记忆激活"):
+            try:
+                interested_rate, keywords, keywords_lite = await hippocampus_manager.get_activate_from_text(
+                    message.processed_plain_text,
+                    max_depth= 4,
+                    fast_retrieval=global_config.chat.interest_rate_mode == "fast",
+                )
+                message.key_words = keywords
+                message.key_words_lite = keywords_lite
+                logger.debug(f"记忆激活率: {interested_rate:.2f}, 关键词: {keywords}")
+            except Exception as e:
+                logger.warning(f"记忆激活失败，跳过记忆功能: {e}")
+                interested_rate = 0.0
+                keywords = []
+                keywords_lite = []
+                message.key_words = keywords
+                message.key_words_lite = keywords_lite
+    else:
+        # 记忆系统被禁用时，设置默认值
+        message.key_words = []
+        message.key_words_lite = []
 
     text_len = len(message.processed_plain_text)
     # 根据文本长度分布调整兴趣度，采用分段函数实现更精确的兴趣度计算

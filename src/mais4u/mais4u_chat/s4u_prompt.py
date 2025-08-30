@@ -158,18 +158,23 @@ class PromptBuilder:
         return relation_prompt
 
     async def build_memory_block(self, text: str) -> str:
-        # 待更新记忆系统
-        return ""
+        # 如果记忆系统被禁用，直接返回空字符串
+        if not global_config.memory.enable_memory:
+            return ""
+            
+        try:
+            related_memory = await hippocampus_manager.get_memory_from_text(
+                text=text, max_memory_num=2, max_memory_length=2, max_depth=3, fast_retrieval=False
+            )
 
-        related_memory = await hippocampus_manager.get_memory_from_text(
-            text=text, max_memory_num=2, max_memory_length=2, max_depth=3, fast_retrieval=False
-        )
-
-        related_memory_info = ""
-        if related_memory:
-            for memory in related_memory:
-                related_memory_info += memory[1]
-            return await global_prompt_manager.format_prompt("memory_prompt", memory_info=related_memory_info)
+            related_memory_info = ""
+            if related_memory:
+                for memory in related_memory:
+                    related_memory_info += memory[1]
+                return await global_prompt_manager.format_prompt("memory_prompt", memory_info=related_memory_info)
+        except Exception as e:
+            logger.warning(f"获取记忆失败，跳过记忆功能: {e}")
+            
         return ""
 
     def build_chat_history_prompts(self, chat_stream: ChatStream, message: MessageRecvS4U):
