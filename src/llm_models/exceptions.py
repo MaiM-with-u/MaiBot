@@ -65,45 +65,24 @@ class RespParseException(Exception):
         return self.message or "解析响应内容时发生未知错误，请检查是否配置了正确的解析方法"
 
 
-class PayLoadTooLargeError(Exception):
-    """自定义异常类，用于处理请求体过大错误"""
-
-    def __init__(self, message: str):
-        super().__init__(message)
-        self.message = message
-
-    def __str__(self):
-        return "请求体过大，请尝试压缩图片或减少输入内容。"
-
-
-class RequestAbortException(Exception):
-    """自定义异常类，用于处理请求中断异常"""
-
-    def __init__(self, message: str):
-        super().__init__(message)
-        self.message = message
-
-    def __str__(self):
-        return self.message
-
-
-class PermissionDeniedException(Exception):
-    """自定义异常类，用于处理访问拒绝的异常"""
-
-    def __init__(self, message: str):
-        super().__init__(message)
-        self.message = message
-
-    def __str__(self):
-        return self.message
-
-
 class EmptyResponseException(Exception):
     """响应内容为空"""
 
     def __init__(self, message: str = "响应内容为空，这可能是一个临时性问题"):
         super().__init__(message)
         self.message = message
+
+    def __str__(self):
+        return self.message
+
+
+class ModelAttemptFailed(Exception):
+    """当在单个模型上的所有重试都失败后，由“执行者”函数抛出，以通知“调度器”切换模型。"""
+
+    def __init__(self, message: str, original_exception: Exception | None = None):
+        super().__init__(message)
+        self.message = message
+        self.original_exception = original_exception
 
     def __str__(self):
         return self.message
