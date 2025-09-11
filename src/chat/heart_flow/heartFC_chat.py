@@ -557,7 +557,12 @@ class HeartFChatting:
             
             elif action_planner_info.action_type == "wait_time":
                 logger.info(f"{self.log_prefix} 等待{action_planner_info.action_data['time']}秒后回复")
-                await asyncio.sleep(action_planner_info.action_data["time"])
+                try:
+                    sleep_time = float(action_planner_info.action_data["time"])
+                    await asyncio.sleep(sleep_time)
+                except (ValueError, TypeError) as e:
+                    print(f"无效的等待时间: {action_planner_info.action_data['time']}, 使用默认值1秒")
+                    await asyncio.sleep(1)
                 return {"action_type": "wait_time", "success": True, "reply_text": "", "command": ""}
             
             elif action_planner_info.action_type == "no_reply_until_call":
