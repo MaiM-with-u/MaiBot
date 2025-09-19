@@ -455,7 +455,11 @@ class OpenaiClient(BaseClient):
                         max_tokens=max_tokens,
                         stream=True,
                         response_format=NOT_GIVEN,
-                        extra_body=extra_params,
+                        # 将模型配置中的 extra_params 透传给 API 请求体。
+                        # 这允许在 model_config.toml 中为特定模型定义非标准的、代理层或后端API支持的额外参数，
+                        # 例如为通过 OpenAI 兼容代理调用的 Gemini 模型配置 "safety_settings"。
+                        # 如果模型配置中没有 extra_params，这里会传递一个空字典，不会对请求产生影响。
+                        extra_body=model_info.extra_params,
                     )
                 )
                 while not req_task.done():
@@ -478,7 +482,11 @@ class OpenaiClient(BaseClient):
                         max_tokens=max_tokens,
                         stream=False,
                         response_format=NOT_GIVEN,
-                        extra_body=extra_params,
+                        # 将模型配置中的 extra_params 透传给 API 请求体。
+                        # 这允许在 model_config.toml 中为特定模型定义非标准的、代理层或后端API支持的额外参数，
+                        # 例如为通过 OpenAI 兼容代理调用的 Gemini 模型配置 "safety_settings"。
+                        # 如果模型配置中没有 extra_params，这里会传递一个空字典，不会对请求产生影响。
+                        extra_body=model_info.extra_params,
                     )
                 )
                 while not req_task.done():

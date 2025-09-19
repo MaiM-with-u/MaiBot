@@ -39,6 +39,15 @@ max_retry = 2
 timeout = 15
 retry_interval = 5
 
+[[api_providers]] # 为 Hajimi (OpenAI兼容的Gemini代理) 添加专属配置
+name = "Hajimi"                          # 一个清晰的、专属的名称
+base_url = "http://127.0.0.1:8080/v1"    # 【请修改】这里填写你的 Hajimi 代理地址
+api_key = "your-hajimi-key"              # Hajimi 可能不需要密钥，但通常需要一个占位符
+client_type = "openai"                   # 【关键】必须是 "openai" 来使用 OpenAI 兼容模式
+max_retry = 2
+timeout = 30
+retry_interval = 10
+
 
 [[models]] # 模型（可以配置多个）
 model_identifier = "deepseek-chat" # 模型标识符（API服务商提供的模型标识符）
@@ -91,6 +100,20 @@ name = "bge-m3"
 api_provider = "SiliconFlow"
 price_in = 0
 price_out = 0
+
+[[models]]
+model_identifier = "gemini-2.5-flash"        # 这个名字会透传给 Hajimi 后端的 Gemini
+name = "hajimi-2.5-flash"                    # 这是你在程序内部(如 task_config)使用的名字
+api_provider = "Hajimi"                      # 【关键】使用我们上面新定义的 provider
+price_in = 0.0
+price_out = 0.0
+[models.extra_params] # 为这个通过 Hajimi 调用的模型添加安全设置
+safety_settings = [
+    { category = "HARM_CATEGORY_HARASSMENT", threshold = "BLOCK_NONE" }, # 设置骚扰类型的安全阈值为不屏蔽
+    { category = "HARM_CATEGORY_HATE_SPEECH", threshold = "BLOCK_NONE" },  # 设置仇恨言论类型的安全阈值为不屏蔽
+    { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = "BLOCK_NONE" },  # 设置性明显内容的安全阈值为不屏蔽
+    { category = "HARM_CATEGORY_DANGEROUS_CONTENT", threshold = "BLOCK_NONE" }, # 设置危险内容类型的安全阈值为不屏蔽
+]
 
 
 [model_task_config.utils] # 在麦麦的一些组件中使用的模型，例如表情包模块，取名模块，关系模块，是麦麦必须的模型
