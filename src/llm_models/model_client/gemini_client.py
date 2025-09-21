@@ -4,6 +4,7 @@ import base64
 from typing import Callable, AsyncIterator, Optional, Coroutine, Any, List
 
 from google import genai
+from google.genai import _base_url as genai_base_url
 from google.genai.types import (
     Content,
     Part,
@@ -349,6 +350,12 @@ class GeminiClient(BaseClient):
             api_key=api_provider.api_key,
         )  # 这里和openai不一样，gemini会自己决定自己是否需要retry
 
+        if hasattr(api_provider, "base_url") and api_provider.base_url:
+            genai_base_url.set_default_base_urls(
+                gemini_url=api_provider.base_url,
+                vertex_url=None  # 不修改 Vertex URL
+            ) # 尝试传入自定义base_url(实验性，必须为gemini格式)
+    
     @staticmethod
     def clamp_thinking_budget(tb: int, model_id: str) -> int:
         """
