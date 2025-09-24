@@ -251,8 +251,6 @@ class ChatBot:
                 # return
                 pass
 
-            get_chat_manager().register_message(message)
-
             chat = await get_chat_manager().get_or_create_stream(
                 platform=message.message_info.platform,  # type: ignore
                 user_info=user_info,  # type: ignore
@@ -275,6 +273,9 @@ class ChatBot:
                 group_info,
             ):
                 return
+
+            # 只有通过过滤检查的消息才注册到chat_manager
+            get_chat_manager().register_message(message)
 
             # if await self.check_ban_content(message):
             #     logger.warning(f"检测到消息中含有违法，色情，暴力，反动，敏感内容，消息内容：{message.processed_plain_text}，发送者：{message.message_info.user_info.user_nickname}")
