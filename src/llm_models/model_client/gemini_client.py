@@ -427,8 +427,8 @@ class GeminiClient(BaseClient):
         model_info: ModelInfo,
         message_list: list[Message],
         tool_options: list[ToolOption] | None = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.4,
+        max_tokens: Optional[int] = 1024,
+        temperature: Optional[float] = 0.4,
         response_format: RespFormat | None = None,
         stream_response_handler: Optional[
             Callable[
@@ -595,7 +595,7 @@ class GeminiClient(BaseClient):
         self,
         model_info: ModelInfo,
         audio_base64: str,
-        max_tokens: int = 2048,
+        max_tokens: Optional[int] = 2048,
         extra_params: dict[str, Any] | None = None,
     ) -> APIResponse:
         """
