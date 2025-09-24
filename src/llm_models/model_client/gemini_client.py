@@ -598,14 +598,14 @@ class GeminiClient(BaseClient):
         self,
         model_info: ModelInfo,
         audio_base64: str,
-        max_tokens: int = 1024,
+        max_tokens: int = 2048,
         extra_params: dict[str, Any] | None = None,
     ) -> APIResponse:
         """
         获取音频转录
         :param model_info: 模型信息
         :param audio_base64: 音频文件的Base64编码字符串
-        :param max_tokens: 最大输出token数（默认1024）
+        :param max_tokens: 最大输出token数（默认2048）
         :param extra_params: 额外参数（可选）
         :return: 转录响应
         """
