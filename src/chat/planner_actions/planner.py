@@ -451,9 +451,6 @@ class ActionPlanner:
             # 调用LLM
             llm_content, (reasoning_content, _, _) = await self.planner_llm.generate_response_async(prompt=prompt)
 
-            logger.info(f"{self.log_prefix}规划器原始提示词: {prompt}")
-            logger.info(f"{self.log_prefix}规划器原始响应: {llm_content}")
-
             if global_config.debug.show_prompt:
                 logger.info(f"{self.log_prefix}规划器原始提示词: {prompt}")
                 logger.info(f"{self.log_prefix}规划器原始响应: {llm_content}")
