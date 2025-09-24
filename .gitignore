@@ -321,6 +321,7 @@ run_pet.bat
 /plugins/*
 !/plugins
 !/plugins/hello_world_plugin
+!/plugins/emoji_manage_plugin
 !/plugins/take_picture_plugin
 
 config.toml

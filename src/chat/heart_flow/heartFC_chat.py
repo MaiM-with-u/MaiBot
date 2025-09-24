@@ -207,7 +207,7 @@ class HeartFChatting:
                 await self._observe(recent_messages_list=recent_messages_list)
             else:
                 # 没有提到，继续保持沉默，等待5秒防止频繁触发
-                await asyncio.sleep(5)
+                await asyncio.sleep(10)
                 return True
         else:
             await asyncio.sleep(0.2)
@@ -344,6 +344,10 @@ class HeartFChatting:
                         available_actions=available_actions,
                     )
                 )
+                
+            logger.info(
+            f"{self.log_prefix}决定执行{len(action_to_use_info)}个动作: {' '.join([a.action_type for a in action_to_use_info])}"
+        )
 
             # 3. 并行执行所有动作
             action_tasks = [

@@ -3,7 +3,7 @@ import os
 import re
 
 from typing import Dict, Any, Optional
-from maim_message import UserInfo, Seg
+from maim_message import UserInfo, Seg, GroupInfo
 
 from src.common.logger import get_logger
 from src.config.config import global_config
@@ -27,7 +27,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..
 logger = get_logger("chat")
 
 
-def _check_ban_words(text: str, chat: ChatStream, userinfo: UserInfo) -> bool:
+def _check_ban_words(text: str, userinfo: UserInfo, group_info: Optional[GroupInfo] = None) -> bool:
     """检查消息是否包含过滤词
 
     Args:
@@ -40,14 +40,14 @@ def _check_ban_words(text: str, chat: ChatStream, userinfo: UserInfo) -> bool:
     """
     for word in global_config.message_receive.ban_words:
         if word in text:
-            chat_name = chat.group_info.group_name if chat.group_info else "私聊"
+            chat_name = group_info.group_name if group_info else "私聊"
             logger.info(f"[{chat_name}]{userinfo.user_nickname}:{text}")
             logger.info(f"[过滤词识别]消息中含有{word}，filtered")
             return True
     return False
 
 
-def _check_ban_regex(text: str, chat: ChatStream, userinfo: UserInfo) -> bool:
+def _check_ban_regex(text: str, userinfo: UserInfo, group_info: Optional[GroupInfo] = None) -> bool:
     """检查消息是否匹配过滤正则表达式
 
     Args:
@@ -61,10 +61,10 @@ def _check_ban_regex(text: str, chat: ChatStream, userinfo: UserInfo) -> bool:
     # 检查text是否为None或空字符串
     if text is None or not text:
         return False
-    
+
     for pattern in global_config.message_receive.ban_msgs_regex:
         if re.search(pattern, text):
-            chat_name = chat.group_info.group_name if chat.group_info else "私聊"
+            chat_name = group_info.group_name if group_info else "私聊"
             logger.info(f"[{chat_name}]{userinfo.user_nickname}:{text}")
             logger.info(f"[正则表达式过滤]消息匹配到{pattern}，filtered")
             return True
@@ -251,6 +251,21 @@ class ChatBot:
                 # return
                 pass
 
+            # 处理消息内容，生成纯文本
+            await message.process()
+
+            # 过滤检查
+            if _check_ban_words(
+                message.processed_plain_text,
+                user_info,  # type: ignore
+                group_info,
+            ) or _check_ban_regex(
+                message.raw_message,  # type: ignore
+                user_info,  # type: ignore
+                group_info,
+            ):
+                return
+
             get_chat_manager().register_message(message)
 
             chat = await get_chat_manager().get_or_create_stream(
@@ -261,20 +276,9 @@ class ChatBot:
 
             message.update_chat_stream(chat)
 
-            # 处理消息内容，生成纯文本
-            await message.process()
-
             # if await self.check_ban_content(message):
             #     logger.warning(f"检测到消息中含有违法，色情，暴力，反动，敏感内容，消息内容：{message.processed_plain_text}，发送者：{message.message_info.user_info.user_nickname}")
             #     return
-
-            # 过滤检查
-            if _check_ban_words(message.processed_plain_text, chat, user_info) or _check_ban_regex(  # type: ignore
-                message.raw_message,  # type: ignore
-                chat,
-                user_info,  # type: ignore
-            ):
-                return
 
             # 命令处理 - 使用新插件系统检查并处理命令
             is_command, cmd_result, continue_process = await self._process_commands_with_new_system(message)

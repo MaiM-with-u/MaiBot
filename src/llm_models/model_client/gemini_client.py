@@ -1,7 +1,7 @@
 import asyncio
 import io
 import base64
-from typing import Callable, AsyncIterator, Optional, Coroutine, Any, List
+from typing import Callable, AsyncIterator, Optional, Coroutine, Any, List, Dict
 
 from google import genai
 from google.genai.types import (
@@ -17,6 +17,7 @@ from google.genai.types import (
     EmbedContentResponse,
     EmbedContentConfig,
     SafetySetting,
+    HttpOptions,
     HarmCategory,
     HarmBlockThreshold,
 )
@@ -345,7 +346,24 @@ class GeminiClient(BaseClient):
 
     def __init__(self, api_provider: APIProvider):
         super().__init__(api_provider)
+
+        # 增加传入参数处理
+        http_options_kwargs: Dict[str, Any] = {}
+
+        # 秒转换为毫秒传入
+        if api_provider.timeout is not None:
+            http_options_kwargs["timeout"] = int(api_provider.timeout * 1000)
+
+        # 传入并处理地址和版本(必须为Gemini格式)
+        if api_provider.base_url:
+            parts = api_provider.base_url.rstrip("/").rsplit("/", 1)
+            if len(parts) == 2 and parts[1].startswith("v"):
+                http_options_kwargs["base_url"] = f"{parts[0]}/"
+                http_options_kwargs["api_version"] = parts[1]
+            else:
+                http_options_kwargs["base_url"] = api_provider.base_url
         self.client = genai.Client(
+            http_options=HttpOptions(**http_options_kwargs),
             api_key=api_provider.api_key,
         )  # 这里和openai不一样，gemini会自己决定自己是否需要retry
 
@@ -368,20 +386,29 @@ class GeminiClient(BaseClient):
                     limits = THINKING_BUDGET_LIMITS[key]
                     break
 
-        # 特殊值处理
+        # 预算值处理
         if tb == THINKING_BUDGET_AUTO:
             return THINKING_BUDGET_AUTO
         if tb == THINKING_BUDGET_DISABLED:
             if limits and limits.get("can_disable", False):
                 return THINKING_BUDGET_DISABLED
-            return limits["min"] if limits else THINKING_BUDGET_AUTO
+            if limits:
+                logger.warning(f"模型 {model_id} 不支持禁用思考预算，已回退到最小值 {limits['min']}")
+                return limits["min"]
+            return THINKING_BUDGET_AUTO
 
-        # 已知模型裁剪到范围
+        # 已知模型范围裁剪 + 提示
         if limits:
-            return max(limits["min"], min(tb, limits["max"]))
+            if tb < limits["min"]:
+                logger.warning(f"模型 {model_id} 的 thinking_budget={tb} 过小，已调整为最小值 {limits['min']}")
+                return limits["min"]
+            if tb > limits["max"]:
+                logger.warning(f"模型 {model_id} 的 thinking_budget={tb} 过大，已调整为最大值 {limits['max']}")
+                return limits["max"]
+            return tb
 
-        # 未知模型，返回动态模式
-        logger.warning(f"模型 {model_id} 未在 THINKING_BUDGET_LIMITS 中定义，将使用动态模式 tb=-1 兼容。")
+        # 未知模型 → 默认自动模式
+        logger.warning(f"模型 {model_id} 未在 THINKING_BUDGET_LIMITS 中定义，已启用模型自动预算兼容")
         return THINKING_BUDGET_AUTO
 
     async def get_response(
@@ -436,7 +463,9 @@ class GeminiClient(BaseClient):
             try:
                 tb = int(extra_params["thinking_budget"])
             except (ValueError, TypeError):
-                logger.warning(f"无效的 thinking_budget 值 {extra_params['thinking_budget']}，将使用默认动态模式 {tb}")
+                logger.warning(
+                    f"无效的 thinking_budget 值 {extra_params['thinking_budget']}，将使用模型自动预算模式 {tb}"
+                )
         # 裁剪到模型支持的范围
         tb = self.clamp_thinking_budget(tb, model_info.model_identifier)
 

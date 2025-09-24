@@ -499,8 +499,8 @@ class ActionPlanner:
             action.action_data = action.action_data or {}
             action.action_data["loop_start_time"] = loop_start_time
 
-        logger.info(
-            f"{self.log_prefix}规划器决定执行{len(actions)}个动作: {' '.join([a.action_type for a in actions])}"
+        logger.debug(
+            f"{self.log_prefix}规划器选择了{len(actions)}个动作: {' '.join([a.action_type for a in actions])}"
         )
 
         return actions
