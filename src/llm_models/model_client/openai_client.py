@@ -565,6 +565,7 @@ class OpenaiClient(BaseClient):
         self,
         model_info: ModelInfo,
         audio_base64: str,
+        max_tokens: int = 2048,  # OpenAI 实际不用
         extra_params: dict[str, Any] | None = None,
     ) -> APIResponse:
         """
