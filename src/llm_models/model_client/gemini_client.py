@@ -339,19 +339,6 @@ def _default_normal_response_parser(
 
     return api_response, _usage_record
 
-def resolve_thinking_budget(extra_params: dict[str, Any] | None, model_id: str) -> int:
-    """
-    统一解析并裁剪 thinking_budget
-    """
-    tb = THINKING_BUDGET_AUTO
-    if extra_params and "thinking_budget" in extra_params:
-        try:
-            tb = int(extra_params["thinking_budget"])
-        except (ValueError, TypeError):
-            logger.warning(
-                f"无效的 thinking_budget 值 {extra_params['thinking_budget']}，将使用模型自动预算模式 {tb}"
-            )
-    return GeminiClient.clamp_thinking_budget(tb, model_id)
 
 @client_registry.register_client_class("gemini")
 class GeminiClient(BaseClient):
@@ -388,6 +375,18 @@ class GeminiClient(BaseClient):
         """
         limits = None
 
+        # 参数传入处理
+        tb = THINKING_BUDGET_AUTO
+        if extra_params and "thinking_budget" in extra_params:
+            try:
+                tb = int(extra_params["thinking_budget"])
+            except (ValueError, TypeError):
+                logger.warning(
+                    f"无效的 thinking_budget 值 {extra_params['thinking_budget']}，"
+                    f"将使用模型自动预算模式 {THINKING_BUDGET_AUTO}"
+                )
+                tb = THINKING_BUDGET_AUTO
+        
         # 优先尝试精确匹配
         if model_id in THINKING_BUDGET_LIMITS:
             limits = THINKING_BUDGET_LIMITS[model_id]
