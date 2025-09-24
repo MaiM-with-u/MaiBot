@@ -251,18 +251,6 @@ class ChatBot:
                 # return
                 pass
 
-            # 过滤检查
-            if _check_ban_words(
-                message.processed_plain_text,
-                user_info,  # type: ignore
-                group_info,
-            ) or _check_ban_regex(
-                message.raw_message,  # type: ignore
-                user_info,  # type: ignore
-                group_info,
-            ):
-                return
-
             get_chat_manager().register_message(message)
 
             chat = await get_chat_manager().get_or_create_stream(
@@ -275,6 +263,18 @@ class ChatBot:
 
             # 处理消息内容，生成纯文本
             await message.process()
+
+            # 过滤检查（在消息处理之后进行）
+            if _check_ban_words(
+                message.processed_plain_text,
+                user_info,  # type: ignore
+                group_info,
+            ) or _check_ban_regex(
+                message.raw_message,  # type: ignore
+                user_info,  # type: ignore
+                group_info,
+            ):
+                return
 
             # if await self.check_ban_content(message):
             #     logger.warning(f"检测到消息中含有违法，色情，暴力，反动，敏感内容，消息内容：{message.processed_plain_text}，发送者：{message.message_info.user_info.user_nickname}")
