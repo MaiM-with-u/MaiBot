@@ -403,8 +403,8 @@ class OpenaiClient(BaseClient):
         model_info: ModelInfo,
         message_list: list[Message],
         tool_options: list[ToolOption] | None = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.7,
+        max_tokens: Optional[int] = 1024,
+        temperature: Optional[float] = 0.7,
         response_format: RespFormat | None = None,
         stream_response_handler: Optional[
             Callable[
