@@ -369,7 +369,7 @@ class GeminiClient(BaseClient):
         )  # 这里和openai不一样，gemini会自己决定自己是否需要retry
 
     @staticmethod
-    def clamp_thinking_budget(tb: int, model_id: str) -> int:
+    def clamp_thinking_budget(extra_params: dict[str, Any] | None, model_id: str) -> int:
         """
         按模型限制思考预算范围，仅支持指定的模型（支持带数字后缀的新版本）
         """
@@ -382,10 +382,8 @@ class GeminiClient(BaseClient):
                 tb = int(extra_params["thinking_budget"])
             except (ValueError, TypeError):
                 logger.warning(
-                    f"无效的 thinking_budget 值 {extra_params['thinking_budget']}，"
-                    f"将使用模型自动预算模式 {THINKING_BUDGET_AUTO}"
+                    f"无效的 thinking_budget 值 {extra_params['thinking_budget']}，将使用模型自动预算模式 {tb}"
                 )
-                tb = THINKING_BUDGET_AUTO
         
         # 优先尝试精确匹配
         if model_id in THINKING_BUDGET_LIMITS:
@@ -470,7 +468,7 @@ class GeminiClient(BaseClient):
         # 将tool_options转换为Gemini API所需的格式
         tools = _convert_tool_options(tool_options) if tool_options else None
         # 解析并裁剪 thinking_budget
-        tb = resolve_thinking_budget(extra_params, model_info.model_identifier)
+        tb = self.clamp_thinking_budget(extra_params, model_info.model_identifier)
         
         # 将response_format转换为Gemini API所需的格式
         generation_config_dict = {
@@ -609,7 +607,7 @@ class GeminiClient(BaseClient):
         :return: 转录响应
         """
         # 解析并裁剪 thinking_budget
-        tb = resolve_thinking_budget(extra_params, model_info.model_identifier)
+        tb = self.clamp_thinking_budget(extra_params, model_info.model_identifier)
 
         # 构造 prompt + 音频输入
         prompt = "Generate a transcript of the speech. The language of the transcript should **match the language of the speech**."
