@@ -183,13 +183,15 @@ def _process_delta(
     if delta.text:
         fc_delta_buffer.write(delta.text)
         
-    # 处理 thought（Gemini 的特殊字段）
+    # 处理 thought（Gemini 的特殊字段 -> 存到 reasoning，不写客户端 buffer）
     for c in getattr(delta, "candidates", []):
         if c.content and getattr(c.content, "parts", None):
             for p in c.content.parts:
                 if getattr(p, "thought", False) and getattr(p, "text", None):
-                    # 把 thought 写入 buffer，避免 resp.content 永远为空
-                    fc_delta_buffer.write(p.text)
+                    # 只存到临时属性 _reasoning_texts
+                    if not hasattr(delta, "_reasoning_texts"):
+                        delta._reasoning_texts = []
+                    delta._reasoning_texts.append(p.text)
     
     if delta.function_calls:  # 为什么不用hasattr呢，是因为这个属性一定有，即使是个空的
         for call in delta.function_calls:
@@ -237,6 +239,10 @@ def _build_stream_api_resp(
 
             resp.tool_calls.append(ToolCall(call_id, function_name, arguments))
 
+    # 思考链：放到 reasoning_content，不返回给客户端
+    if last_resp and hasattr(last_resp, "_reasoning_texts"):
+        resp.reasoning_content = "\n".join(last_resp._reasoning_texts)
+    
     # 检查是否因为 max_tokens 截断
     reason = None
     if last_resp and getattr(last_resp, "candidates", None):
