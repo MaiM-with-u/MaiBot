@@ -19,9 +19,27 @@ Version 0.1.0 - 2025-10-08
 ## 数据模型部分设计
 
 ## 核心业务逻辑部分设计
+### Prompt 设计
+将Prompt内容彻底模块化设计，同时使用一种专有继承自`TypedDict`的类进行管理
+**具体实现**:
+- [ ] 设计 Prompt 类，继承自 `TypedDict`
+    - [ ] `__init__(self, template: list[str], *, **kwargs)` 维持现有的template设计，但不进行format，直到最后传入LLM时再进行render
+    - [ ] `render(self) -> str` 使用非递归渲染方式渲染Prompt内容
+    - [ ] `update_block(self, prompt_block: "Prompt")` 将另一个Prompt的内容更新到当前Prompt中
+        - [ ] 实现重名属性警告/错误
 
 ## 插件系统部分设计
+### 插件管理
+- [ ] 插件管理器类 `PluginManager` 的更新
+    - [ ] 细节待定
+- [ ] 组件管理器类 `ComponentManager` 的更新
+    - [ ] 细节待定
+### 传递内容设计
+对于传入的Prompt使用上文提到的Prompt类进行管理，方便内容修改避免正则匹配式查找
 
+## 记忆系统部分设计
+启用LPMM系统进行记忆构建，将记忆分类为短期记忆，长期记忆，以及知识
+将所有内容放到同一张图上进行运算。
 ## API 设计（合并到插件系统部分，待定）
 主体合并到插件系统部分
 ### API 设计细则
