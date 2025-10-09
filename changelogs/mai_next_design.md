@@ -10,25 +10,45 @@ Version 0.1.0 - 2025-10-08
 - [ ] 支持并使用maim_message新的`SenderInfo`和`ReceiverInfo`构建消息
 - [ ] 适配器处理跟进该更新
 - [ ] 修复适配器的类型检查问题
+### 图片处理系统
+- [ ] 规范化Emojis与Images的命名，统一保存
 
 ## 数据库部分设计
+合并Emojis和Images到同一个表中
 ### 消息表设计
-### Emoji 表设计
-### Images 表设计
+### Emojis与Images表设计
+- [ ] 设计图片专有ID，并作为文件名
+### Expressions表设计
 
 ## 数据模型部分设计
 
 ## 核心业务逻辑部分设计
 ### Prompt 设计
-将Prompt内容彻底模块化设计，同时使用一种专有继承自`TypedDict`的类进行管理
+将Prompt内容彻底模块化设计
 **具体实现**:
-- [ ] 设计 Prompt 类，继承自 `TypedDict`
+- [ ] 设计 Prompt 类
     - [ ] `__init__(self, template: list[str], *, **kwargs)` 维持现有的template设计，但不进行format，直到最后传入LLM时再进行render
+        - [ ] `__init__`中允许传入任意的键值对，存储在`self.context`中
+        - [ ] `self.prompt_name` 作为Prompt的名称
     - [ ] `render(self) -> str` 使用非递归渲染方式渲染Prompt内容
-    - [ ] `update_block(self, prompt_block: "Prompt")` 将另一个Prompt的内容更新到当前Prompt中
+    - [ ] `add_block(self, prompt_block: "Prompt", block_name: str)` 将另一个Prompt的内容更新到当前Prompt中
         - [ ] 实现重名属性警告/错误
+    - [ ] `remove_block(self, block_name: str)` 移除指定名称的Prompt块
+- [ ] 设计 PromptManager 类
+    - [ ] `__init__(self)` 初始化一个空的Prompt管理器
+    - [ ] `add_prompt(self, name: str, prompt: Prompt)` 添加一个新的Prompt
+        - [ ] 实现重名警告/错误
+    - [ ] `get_prompt(self, name: str) -> Prompt` 根据名称获取Prompt
+        - [ ] 实现不存在时的错误处理
+    - [ ] `remove_prompt(self, name: str)` 移除指定名称的Prompt
+        - [ ] 系统 Prompt 保护
+    - [ ] `list_prompts(self) -> list[str]` 列出所有已添加的Prompt名称
+
+#### Prompt 设计决议讨论
+- MoFox 在我和@拾风的讨论中提出把 Prompt 类中传入构造函数以及构造函数所需要的内容
 
 ## 插件系统部分设计
+### <del>设计一个插件沙盒系统</del>（放弃）
 ### 插件管理
 - [ ] 插件管理器类 `PluginManager` 的更新
     - [ ] 细节待定
@@ -55,7 +75,13 @@ Version 0.1.0 - 2025-10-08
 根据API内容完成
 ### 插件管理
 ### log viewer
+通过特定方式获取日志内容（只读系统，无法将操作反向传递）
 ### 状态监控
+1. Prompt 监控系统
+2. 请求监控系统
+    - [ ] 请求管理（待讨论）
+    - [ ] 使用量
+3. 记忆/知识图监控系统（待讨论）
 
 ---
 
