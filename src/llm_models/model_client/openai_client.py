@@ -199,6 +199,7 @@ def _build_stream_api_resp(
     _fc_delta_buffer: io.StringIO,
     _rc_delta_buffer: io.StringIO,
     _tool_calls_buffer: list[tuple[str, str, io.StringIO]],
+    finish_reason: str | None = None,
 ) -> APIResponse:
     resp = APIResponse()
 
@@ -236,6 +237,16 @@ def _build_stream_api_resp(
 
             resp.tool_calls.append(ToolCall(call_id, function_name, arguments))
 
+    # 检查 max_tokens 截断
+    if finish_reason == "length":
+        if resp.content and resp.content.strip():
+            logger.warning(
+                "⚠ OpenAI 响应因达到 max_tokens 限制被部分截断，\n"
+                "    可能会对回复内容造成影响，建议修改模型 max_tokens 配置！"
+            )
+        else:
+            logger.warning("⚠ OpenAI 响应因达到 max_tokens 限制被截断，\n    请修改模型 max_tokens 配置！")
+    
     if not resp.content and not resp.tool_calls:
         raise EmptyResponseException()
 
@@ -258,6 +269,7 @@ async def _default_stream_response_handler(
     _fc_delta_buffer = io.StringIO()  # 正式内容缓冲区，用于存储接收到的正式内容
     _tool_calls_buffer: list[tuple[str, str, io.StringIO]] = []  # 工具调用缓冲区，用于存储接收到的工具调用
     _usage_record = None  # 使用情况记录
+    finish_reason: str | None = None  # 记录最后的 finish_reason
 
     def _insure_buffer_closed():
         # 确保缓冲区被关闭
@@ -285,6 +297,9 @@ async def _default_stream_response_handler(
             continue  # 跳过本帧，避免访问 choices[0]
         delta = event.choices[0].delta  # 获取当前块的delta内容
 
+        if hasattr(event.choices[0], "finish_reason") and event.choices[0].finish_reason:
+            finish_reason = event.choices[0].finish_reason
+        
         if hasattr(delta, "reasoning_content") and delta.reasoning_content:  # type: ignore
             # 标记：有独立的推理内容块
             _has_rc_attr_flag = True
@@ -311,6 +326,7 @@ async def _default_stream_response_handler(
             _fc_delta_buffer,
             _rc_delta_buffer,
             _tool_calls_buffer,
+            finish_reason=finish_reason,
         ), _usage_record
     except Exception:
         # 确保缓冲区被关闭
@@ -381,6 +397,23 @@ def _default_normal_response_parser(
     # 将原始响应存储在原始数据中
     api_response.raw_data = resp
 
+    # 检查 max_tokens 截断
+    try:
+        choice0 = resp.choices[0]
+        reason = getattr(choice0, "finish_reason", None)
+        if reason and reason == "length":
+            has_real_output = bool(api_response.content and api_response.content.strip())
+            if has_real_output:
+                logger.warning(
+                    "⚠ OpenAI 响应因达到 max_tokens 限制被部分截断，\n"
+                    "    可能会对回复内容造成影响，建议修改模型 max_tokens 配置！"
+                )
+            else:
+                logger.warning("⚠ OpenAI 响应因达到 max_tokens 限制被截断，\n    请修改模型 max_tokens 配置！")
+            return api_response, _usage_record
+    except Exception as e:
+        logger.debug(f"检查 MAX_TOKENS 截断时异常: {e}")
+    
     if not api_response.content and not api_response.tool_calls:
         raise EmptyResponseException()
 
