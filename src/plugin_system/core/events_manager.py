@@ -340,9 +340,28 @@ class EventsManager:
         if event_type not in self._history_enable_map:
             raise ValueError(f"事件类型 {event_type} 未注册")
         try:
-            success, continue_processing, return_message, custom_result, modified_message = await handler.execute(
-                message
-            )
+            result = await handler.execute(message)
+
+            expected_fields = ["success", "continue_processing", "return_message", "custom_result", "modified_message"]
+
+            if not isinstance(result, tuple) or len(result) != 5:
+                if isinstance(result, tuple):
+                    annotated = ", ".join(
+                        f"{name}={val!r}" for name, val in zip(expected_fields, result)
+                    )
+                    actual_desc = f"{len(result)} 个元素 ({annotated})"
+                else:
+                    actual_desc = f"非 tuple 类型: {type(result)}"
+
+                logger.error(
+                    f"[{self.__class__.__name__}] EventHandler {handler.handler_name} 返回值不符合预期:\n"
+                    f"  模块来源: {handler.__class__.__module__}.{handler.__class__.__name__}\n"
+                    f"  期望: 5 个元素 ({', '.join(expected_fields)})\n"
+                    f"  实际: {actual_desc}"
+                )
+                return True, None
+
+            success, continue_processing, return_message, custom_result, modified_message = result
 
             if not success:
                 logger.error(f"EventHandler {handler.handler_name} 执行失败: {return_message}")
@@ -351,13 +370,16 @@ class EventsManager:
 
             if self._history_enable_map[event_type] and custom_result:
                 self._events_result_history[event_type].append(custom_result)
+
             return continue_processing, modified_message
+
         except KeyError:
             logger.error(f"事件 {event_type} 注册的历史记录启用情况与实际不符合")
             return True, None
         except Exception as e:
             logger.error(f"EventHandler {handler.handler_name} 发生异常: {e}", exc_info=True)
             return True, None  # 发生异常时默认不中断其他处理
+
 
     def _task_done_callback(
         self,

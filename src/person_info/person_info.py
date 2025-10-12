@@ -17,7 +17,9 @@ from src.config.config import global_config, model_config
 
 logger = get_logger("person_info")
 
-relation_selection_model = LLMRequest(model_set=model_config.model_task_config.utils_small, request_type="relation_selection")
+relation_selection_model = LLMRequest(
+    model_set=model_config.model_task_config.utils_small, request_type="relation_selection"
+)
 
 
 def get_person_id(platform: str, user_id: Union[int, str]) -> str:
@@ -91,9 +93,10 @@ def extract_categories_from_response(response: str) -> list[str]:
     """从response中提取所有<>包裹的内容"""
     if not isinstance(response, str):
         return []
-    
+
     import re
-    pattern = r'<([^<>]+)>'
+
+    pattern = r"<([^<>]+)>"
     matches = re.findall(pattern, response)
     return matches
 
@@ -420,7 +423,7 @@ class Person:
         except Exception as e:
             logger.error(f"同步用户 {self.person_id} 信息到数据库时出错: {e}")
 
-    async def build_relationship(self,chat_content:str = "",info_type = ""):
+    async def build_relationship(self, chat_content: str = "", info_type=""):
         if not self.is_known:
             return ""
         # 构建points文本
@@ -433,7 +436,7 @@ class Person:
 
         points_text = ""
         category_list = self.get_all_category()
-      
+
         if chat_content:
             prompt = f"""当前聊天内容：
 {chat_content}
@@ -449,11 +452,13 @@ class Person:
             # print(prompt)
             # print(response)
             category_list = extract_categories_from_response(response)
-            if  "none" not in category_list:
+            if "none" not in category_list:
                 for category in category_list:
                     random_memory = self.get_random_memory_by_category(category, 2)
                     if random_memory:
-                        random_memory_str = "\n".join([get_memory_content_from_memory(memory) for memory in random_memory])
+                        random_memory_str = "\n".join(
+                            [get_memory_content_from_memory(memory) for memory in random_memory]
+                        )
                         points_text = f"有关 {category} 的内容：{random_memory_str}"
                         break
         elif info_type:
@@ -466,18 +471,19 @@ class Person:
 <分类1><分类2><分类3>......
 如果没有相关的分类，请输出<none>"""
             response, _ = await relation_selection_model.generate_response_async(prompt)
-            print(prompt)
-            print(response)
+            # print(prompt)
+            # print(response)
             category_list = extract_categories_from_response(response)
-            if  "none" not in category_list:
+            if "none" not in category_list:
                 for category in category_list:
                     random_memory = self.get_random_memory_by_category(category, 3)
                     if random_memory:
-                        random_memory_str = "\n".join([get_memory_content_from_memory(memory) for memory in random_memory])
+                        random_memory_str = "\n".join(
+                            [get_memory_content_from_memory(memory) for memory in random_memory]
+                        )
                         points_text = f"有关 {category} 的内容：{random_memory_str}"
                         break
         else:
-        
             for category in category_list:
                 random_memory = self.get_random_memory_by_category(category, 1)[0]
                 if random_memory:

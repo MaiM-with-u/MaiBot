@@ -1,5 +1,5 @@
 [inner]
-version = "6.14.2"
+version = "6.18.3"
 
 #----以下是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 #如果你想要修改配置文件，请递增version的值
@@ -23,13 +23,12 @@ personality = "是一个女大学生，现在在读大二，会刷贴吧。"
 #アイデンティティがない 生まれないらららら
 # 描述麦麦说话的表达风格，表达习惯，如要修改，可以酌情新增内容
 reply_style = "请回复的平淡一些，简短一些，说中文，不要刻意突出自身学科背景。可以参考贴吧，知乎和微博的回复风格。"
-# 情感特征，影响情绪的变化情况
-emotion_style = "情绪较为稳定，但遭遇特定事件的时候起伏较大"
+
 # 麦麦的兴趣，会影响麦麦对什么话题进行回复
 interest = "对技术相关话题，游戏和动漫相关话题感兴趣，也对日常话题感兴趣，不喜欢太过沉重严肃的话题"
 
 # 麦麦的说话规则，行为风格:
-plan_style = """请你根据聊天内容,用户的最新消息和以下标准选择合适的动作:
+plan_style = """
 1.思考**所有**的可用的action中的**每个动作**是否符合当下条件，如果动作使用条件符合聊天内容就使用
 2.如果相同的内容已经被执行，请不要重复执行
 3.请控制你的发言频率，不要太过频繁的发言
@@ -39,13 +38,17 @@ plan_style = """请你根据聊天内容,用户的最新消息和以下标准选
 # 麦麦识图规则，不建议修改
 visual_style = "请用中文描述这张图片的内容。如果有文字，请把文字描述概括出来，请留意其主题，直观感受，输出为一段平文本，最多30字，请注意不要分点，就输出一段文本"
 
-
 # 麦麦私聊的说话规则，行为风格:
-private_plan_style = """请你根据聊天内容,用户的最新消息和以下标准选择合适的动作:
+private_plan_style = """
 1.思考**所有**的可用的action中的**每个动作**是否符合当下条件，如果动作使用条件符合聊天内容就使用
-2.如果相同的内容已经被执行，请不要重复执行"""
+2.如果相同的内容已经被执行，请不要重复执行
+3.某句话如果已经被回复过，不要重复回复"""
 
 [expression]
+# 表达方式模式
+mode = "classic"
+# 可选：classic经典模式，exp_model 表达模型模式
+
 # 表达学习配置
 learning_list = [ # 表达学习配置列表，支持按聊天流配置
     ["", "enable", "enable", "1.0"],  # 全局配置：使用表达，启用学习，学习强度1.0
@@ -70,22 +73,53 @@ expression_groups = [
 
 
 [chat] #麦麦的聊天设置
-talk_value = 1
+talk_value = 1 #聊天频率，越小越沉默，范围0-1
 mentioned_bot_reply = true # 是否启用提及必回复
-max_context_size = 20 # 上下文长度
+max_context_size = 30 # 上下文长度
+auto_chat_value = 1 # 自动聊天，越小，麦麦主动聊天的概率越低
+planner_smooth = 5 #规划器平滑，增大数值会减小planner负荷，略微降低反应速度，推荐2-8，0为关闭，必须大于等于0
 
-[relationship]
-enable_relationship = true # 是否启用关系系统
+# 动态发言频率规则：按时段/按chat_id调整 talk_value（优先匹配具体chat，再匹配全局）
+# 推荐格式（对象数组）：{ target="platform:id:type" 或 "", time="HH:MM-HH:MM", value=0.5 }
+# 说明:
+# - target 为空字符串表示全局；type 为 group/private，例如："qq:1919810:group" 或 "qq:114514:private"；
+# - 支持跨夜区间，例如 "23:00-02:00"；数值范围建议 0-1。
+talk_value_rules = [
+    { target = "", time = "00:00-08:59", value = 0.8 },
+    { target = "", time = "09:00-22:59", value = 1.0 },
+    { target = "qq:1919810:group", time = "20:00-23:59", value = 0.6 },
+    { target = "qq:114514:private", time = "00:00-23:59", value = 0.3 },
+]
+
+# 动态自动聊天频率规则：按时段/按chat_id调整 auto_chat_value（优先匹配具体chat，再匹配全局）
+# 推荐格式（对象数组）：{ target="platform:id:type" 或 "", time="HH:MM-HH:MM", value=0.5 }
+# 说明:
+# - target 为空字符串表示全局；type 为 group/private，例如："qq:1919810:group" 或 "qq:114514:private"；
+# - 支持跨夜区间，例如 "23:00-02:00"；数值范围建议 0-1。
+auto_chat_value_rules = [
+    { target = "", time = "00:00-08:59", value = 0.3 },
+    { target = "", time = "09:00-22:59", value = 1.0 },
+    { target = "qq:1919810:group", time = "20:00-23:59", value = 0.8 },
+    { target = "qq:114514:private", time = "00:00-23:59", value = 0.5 },
+]
+
+[memory]
+max_memory_number = 100 # 记忆最大数量
+max_memory_size = 2048 # 记忆最大大小
+memory_build_frequency = 1 # 记忆构建频率
+
 
 [tool]
-enable_tool = true # 是否启用回复工具
+enable_tool = true # 是否启用工具
 
 [mood]
-enable_mood = true # 是否启用情绪系统
+enable_mood = false # 是否启用情绪系统
 mood_update_threshold = 1 # 情绪更新阈值,越高，更新越慢
+# 情感特征，影响情绪的变化情况
+emotion_style = "情绪较为稳定，但遭遇特定事件的时候起伏较大"
 
 [emoji]
-emoji_chance = 0.6 # 麦麦激活表情包动作的概率
+emoji_chance = 0.4 # 麦麦激活表情包动作的概率
 max_reg_num = 100 # 表情包最大注册数量
 do_replace = true # 开启则在达到最大数量时删除（替换）表情包，关闭则达到最大数量时不会继续收集表情包
 check_interval = 10 # 检查表情包（注册，破损，删除）的时间间隔(分钟)
@@ -137,7 +171,8 @@ keyword_rules = [
 ]
 
 regex_rules = [
-    { regex = ["^(?P<n>\\S{1,20})是这样的$"], reaction = "请按照以下模板造句：[n]是这样的，xx只要xx就可以，可是[n]要考虑的事情就很多了，比如什么时候xx，什么时候xx，什么时候xx。（请自由发挥替换xx部分，只需保持句式结构，同时表达一种将[n]过度重视的反讽意味）" }
+    { regex = ["^(?P<n>\\S{1,20})是这样的$"], reaction = "请按照以下模板造句：[n]是这样的，xx只要xx就可以，可是[n]要考虑的事情就很多了，比如什么时候xx，什么时候xx，什么时候xx。（请自由发挥替换xx部分，只需保持句式结构，同时表达一种将[n]过度重视的反讽意味）" },
+    { regex = ["(?:[^，。.\\s]+，\\s*)?我(?:也)?[没沒]要求你\\s*(?P<action>.+?)[.。,，]?$"],reaction = "进行一次“八岐大蛇定型文”补完。暂时忽略回复风格，进入“粉絲吐槽”模式。请严格按照以下“填空模板”，围绕“[action]”进行创作，使其充满滑稽的夸张感和天马行空的联想：我没要求你[action]，我不是(与action关联的、宽容的角色)。可是，(与action相关的具体负面行为)是什么意思？你的(与action相关的某种观念)怎么了？你才(与action相关的某个状态或时间点)吧？再这样下去，你(一个中期的、等比级数式的滑稽推演)，(一个后期的、等比级数式的滑稽推演)，最后就变成(一个与主题相关的、夸张的最终形态)了。作为(与最终形态相关的、克星或权威身份)，我可能得(对你执行一个天罚般的行动)。真的。"}
 ]
 
 [response_post_process]
@@ -166,7 +201,7 @@ file_log_level = "DEBUG" # 文件日志级别，可选: DEBUG, INFO, WARNING, ER
 
 # 第三方库日志控制
 suppress_libraries = ["faiss","httpx", "urllib3", "asyncio", "websockets", "httpcore", "requests", "peewee", "openai","uvicorn","jieba"] # 完全屏蔽的库
-library_log_levels = { "aiohttp" = "WARNING"} # 设置特定库的日志级别
+library_log_levels = { aiohttp = "WARNING"} # 设置特定库的日志级别
 
 [debug]
 show_prompt = false # 是否显示prompt
@@ -187,3 +222,8 @@ enable = true
 
 [experimental] #实验性功能
 none = false # 暂无
+
+
+#此系统暂时移除，无效配置
+[relationship]
+enable_relationship = true # 是否启用关系系统

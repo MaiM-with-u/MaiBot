@@ -72,8 +72,8 @@ class BaseClient(ABC):
         model_info: ModelInfo,
         message_list: list[Message],
         tool_options: list[ToolOption] | None = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
         response_format: RespFormat | None = None,
         stream_response_handler: Optional[
             Callable[[Any, asyncio.Event | None], tuple[APIResponse, tuple[int, int, int]]]
@@ -117,6 +117,7 @@ class BaseClient(ABC):
         self,
         model_info: ModelInfo,
         audio_base64: str,
+        max_tokens: Optional[int] = None,
         extra_params: dict[str, Any] | None = None,
     ) -> APIResponse:
         """

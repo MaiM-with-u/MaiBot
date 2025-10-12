@@ -2,7 +2,7 @@ import time
 import random
 import re
 
-from typing import List, Dict, Any, Tuple, Optional, Callable
+from typing import List, Dict, Any, Tuple, Optional, Callable, Iterable
 from rich.traceback import install
 
 from src.config.config import global_config
@@ -124,6 +124,7 @@ def get_raw_msg_by_timestamp_with_chat(
     # 只有当 limit 为 0 时才应用外部 sort
     sort_order = [("time", 1)] if limit == 0 else None
     # 直接将 limit_mode 传递给 find_messages
+    # print(f"get_raw_msg_by_timestamp_with_chat: {chat_id}, {timestamp_start}, {timestamp_end}, {limit}, {limit_mode}, {filter_bot}, {filter_command}")
     return find_messages(
         message_filter=filter_query,
         sort=sort_order,
@@ -215,6 +216,7 @@ def get_actions_by_timestamp_with_chat(
             chat_id=action.chat_id,
             chat_info_stream_id=action.chat_info_stream_id,
             chat_info_platform=action.chat_info_platform,
+            action_reasoning=action.action_reasoning,
         )
         for action in actions
     ]
@@ -417,12 +419,6 @@ def _build_readable_messages_internal(
         timestamp = message.time
         content = message.display_message or message.processed_plain_text or ""
 
-        # 向下兼容
-        if "ᶠ" in content:
-            content = content.replace("ᶠ", "")
-        if "ⁿ" in content:
-            content = content.replace("ⁿ", "")
-
         # 处理图片ID
         if show_pic:
             content = process_pic_ids(content)
@@ -564,14 +560,12 @@ def build_readable_actions(actions: List[DatabaseActionRecords], mode: str = "re
     output_lines = []
     current_time = time.time()
 
-    # The get functions return actions sorted ascending by time. Let's reverse it to show newest first.
-    # sorted_actions = sorted(actions, key=lambda x: x.get("time", 0), reverse=True)
 
     for action in actions:
         action_time = action.time or current_time
         action_name = action.action_name or "未知动作"
         # action_reason = action.get(action_data")
-        if action_name in ["no_action", "no_action"]:
+        if action_name in ["no_reply", "no_reply"]:
             continue
 
         action_prompt_display = action.action_prompt_display or "无具体内容"
@@ -593,6 +587,7 @@ def build_readable_actions(actions: List[DatabaseActionRecords], mode: str = "re
 
         line = f"{time_ago_str}，你使用了“{action_name}”，具体内容是：“{action_prompt_display}”"
         output_lines.append(line)
+ 
 
     return "\n".join(output_lines)
 
@@ -628,6 +623,7 @@ def build_readable_messages_with_id(
     truncate: bool = False,
     show_actions: bool = False,
     show_pic: bool = True,
+    remove_emoji_stickers: bool = False,
 ) -> Tuple[str, List[Tuple[str, DatabaseMessages]]]:
     """
     将消息列表转换为可读的文本格式，并返回原始(时间戳, 昵称, 内容)列表。
@@ -644,6 +640,7 @@ def build_readable_messages_with_id(
         show_pic=show_pic,
         read_mark=read_mark,
         message_id_list=message_id_list,
+        remove_emoji_stickers=remove_emoji_stickers,
     )
 
     return formatted_string, message_id_list
@@ -658,6 +655,7 @@ def build_readable_messages(
     show_actions: bool = False,
     show_pic: bool = True,
     message_id_list: Optional[List[Tuple[str, DatabaseMessages]]] = None,
+    remove_emoji_stickers: bool = False,
 ) -> str:  # sourcery skip: extract-method
     """
     将消息列表转换为可读的文本格式。
@@ -672,13 +670,40 @@ def build_readable_messages(
         read_mark: 已读标记时间戳
         truncate: 是否截断长消息
         show_actions: 是否显示动作记录
+        remove_emoji_stickers: 是否移除表情包并过滤空消息
     """
     # WIP HERE and BELOW ----------------------------------------------
     # 创建messages的深拷贝，避免修改原始列表
     if not messages:
         return ""
 
-    copy_messages: List[MessageAndActionModel] = [MessageAndActionModel.from_DatabaseMessages(msg) for msg in messages]
+    # 如果启用移除表情包，先过滤消息
+    if remove_emoji_stickers:
+        filtered_messages = []
+        for msg in messages:
+            # 获取消息内容
+            content = msg.processed_plain_text
+            # 移除表情包
+            emoji_pattern = r"\[表情包：[^\]]+\]"
+            content = re.sub(emoji_pattern, "", content)
+
+            # 如果移除表情包后内容不为空，则保留消息
+            if content.strip():
+                filtered_messages.append(msg)
+
+        messages = filtered_messages
+
+    copy_messages: List[MessageAndActionModel] = []
+    for msg in messages:
+        if remove_emoji_stickers:
+            # 创建 MessageAndActionModel 但移除表情包
+            model = MessageAndActionModel.from_DatabaseMessages(msg)
+            # 移除表情包
+            if model.processed_plain_text:
+                model.processed_plain_text = re.sub(r"\[表情包：[^\]]+\]", "", model.processed_plain_text)
+            copy_messages.append(model)
+        else:
+            copy_messages.append(MessageAndActionModel.from_DatabaseMessages(msg))
 
     if show_actions and copy_messages:
         # 获取所有消息的时间范围
@@ -862,16 +887,8 @@ async def build_anonymous_messages(messages: List[DatabaseMessages]) -> str:
             user_id = msg.user_info.user_id
             content = msg.display_message or msg.processed_plain_text or ""
 
-            if "ᶠ" in content:
-                content = content.replace("ᶠ", "")
-            if "ⁿ" in content:
-                content = content.replace("ⁿ", "")
-
             # 处理图片ID
             content = process_pic_ids(content)
-
-            # if not all([platform, user_id, timestamp is not None]):
-            # continue
 
             anon_name = get_anon_name(platform, user_id)
             # print(f"anon_name:{anon_name}")
@@ -909,6 +926,7 @@ async def build_anonymous_messages(messages: List[DatabaseMessages]) -> str:
     return formatted_string
 
 
+
 async def get_person_id_list(messages: List[Dict[str, Any]]) -> List[str]:
     """
     从消息列表中提取不重复的 person_id 列表 (忽略机器人自身)。
@@ -937,3 +955,45 @@ async def get_person_id_list(messages: List[Dict[str, Any]]) -> List[str]:
             person_ids_set.add(person_id)
 
     return list(person_ids_set)  # 将集合转换为列表返回
+
+
+async def build_bare_messages(messages: List[DatabaseMessages]) -> str:
+    """
+    构建简化版消息字符串，只包含processed_plain_text内容，不考虑用户名和时间戳
+
+    Args:
+        messages: 消息列表
+
+    Returns:
+        只包含消息内容的字符串
+    """
+    if not messages:
+        return ""
+
+    output_lines = []
+
+    for msg in messages:
+        # 获取纯文本内容
+        content = msg.processed_plain_text or ""
+
+        # 处理图片ID
+        pic_pattern = r"\[picid:[^\]]+\]"
+
+        def replace_pic_id(match):
+            return "[图片]"
+
+        content = re.sub(pic_pattern, replace_pic_id, content)
+
+        # 处理用户引用格式，移除回复和@标记
+        reply_pattern = r"回复<[^:<>]+:[^:<>]+>"
+        content = re.sub(reply_pattern, "回复[某人]", content)
+
+        at_pattern = r"@<[^:<>]+:[^:<>]+>"
+        content = re.sub(at_pattern, "@[某人]", content)
+
+        # 清理并添加到输出
+        content = content.strip()
+        if content:
+            output_lines.append(content)
+
+    return "\n".join(output_lines)

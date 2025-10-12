@@ -34,11 +34,10 @@ class BaseAction(ABC):
     def __init__(
         self,
         action_data: dict,
-        reasoning: str,
+        action_reasoning: str,
         cycle_timers: dict,
         thinking_id: str,
         chat_stream: ChatStream,
-        log_prefix: str = "",
         plugin_config: Optional[dict] = None,
         action_message: Optional["DatabaseMessages"] = None,
         **kwargs,
@@ -60,10 +59,11 @@ class BaseAction(ABC):
         if plugin_config is None:
             plugin_config = {}
         self.action_data = action_data
-        self.reasoning = reasoning
+        self.reasoning = ""
         self.cycle_timers = cycle_timers
         self.thinking_id = thinking_id
-        self.log_prefix = log_prefix
+
+        self.action_reasoning = action_reasoning
 
         self.plugin_config = plugin_config or {}
         """对应的插件配置"""
@@ -76,16 +76,8 @@ class BaseAction(ABC):
         self.action_parameters: dict = getattr(self.__class__, "action_parameters", {}).copy()
         self.action_require: list[str] = getattr(self.__class__, "action_require", []).copy()
 
-        # 设置激活类型实例属性（从类属性复制，提供默认值）
-        self.focus_activation_type = getattr(
-            self.__class__, "focus_activation_type", ActionActivationType.ALWAYS
-        )  # 已弃用
-        """FOCUS模式下的激活类型"""
-        self.normal_activation_type = getattr(
-            self.__class__, "normal_activation_type", ActionActivationType.ALWAYS
-        )  # 已弃用
         """NORMAL模式下的激活类型"""
-        self.activation_type = getattr(self.__class__, "activation_type", self.focus_activation_type)
+        self.activation_type = getattr(self.__class__, "activation_type")
         """激活类型"""
         self.random_activation_probability: float = getattr(self.__class__, "random_activation_probability", 0.0)
         """当激活类型为RANDOM时的概率"""
@@ -115,44 +107,32 @@ class BaseAction(ABC):
         self.user_nickname = None
         self.is_group = False
         self.target_id = None
-        self.has_action_message = False
 
-        if self.action_message:
-            self.has_action_message = True
 
-            if self.action_name != "no_action":
-                self.group_id = (
-                    str(self.action_message.chat_info.group_info.group_id)
-                    if self.action_message.chat_info.group_info
-                    else None
-                )
-                self.group_name = (
-                    self.action_message.chat_info.group_info.group_name
-                    if self.action_message.chat_info.group_info
-                    else None
-                )
+        self.group_id = (
+            str(self.action_message.chat_info.group_info.group_id)
+            if self.action_message.chat_info.group_info
+            else None
+        )
+        self.group_name = (
+            self.action_message.chat_info.group_info.group_name
+            if self.action_message.chat_info.group_info
+            else None
+        )
 
-                self.user_id = str(self.action_message.user_info.user_id)
-                self.user_nickname = self.action_message.user_info.user_nickname
-                if self.group_id:
-                    self.is_group = True
-                    self.target_id = self.group_id
-                else:
-                    self.is_group = False
-                    self.target_id = self.user_id
-            else:
-                if self.chat_stream.group_info:
-                    self.group_id = self.chat_stream.group_info.group_id
-                    self.group_name = self.chat_stream.group_info.group_name
-                    self.is_group = True
-                    self.target_id = self.group_id
-                else:
-                    self.user_id = self.chat_stream.user_info.user_id
-                    self.user_nickname = self.chat_stream.user_info.user_nickname
-                    self.is_group = False
-                    self.target_id = self.user_id
+        self.user_id = str(self.action_message.user_info.user_id)
+        self.user_nickname = self.action_message.user_info.user_nickname
+        
+        if self.group_id:
+            self.is_group = True
+            self.target_id = self.group_id
+            self.log_prefix = f"[{self.group_name}]"
+        else:
+            self.is_group = False
+            self.target_id = self.user_id
+            self.log_prefix = f"[{self.user_nickname} 的 私聊]"
 
-        logger.debug(f"{self.log_prefix} Action组件初始化完成")
+
         logger.debug(
             f"{self.log_prefix} 聊天信息: 类型={'群聊' if self.is_group else '私聊'}, 平台={self.platform}, 目标={self.target_id}"
         )
@@ -441,6 +421,7 @@ class BaseAction(ABC):
             thinking_id=self.thinking_id,
             action_data=self.action_data,
             action_name=self.action_name,
+            action_reasoning=self.action_reasoning,
         )
 
     async def wait_for_new_message(self, timeout: int = 1200) -> Tuple[bool, str]:
@@ -467,11 +448,6 @@ class BaseAction(ABC):
 
             wait_start_time = asyncio.get_event_loop().time()
             while True:
-                # 检查关闭标志
-                # shutting_down = self.get_action_context("shutting_down", False)
-                # if shutting_down:
-                # logger.info(f"{self.log_prefix} 等待新消息时检测到关闭信号，中断等待")
-                # return False, ""
 
                 # 检查新消息
                 current_time = time.time()
@@ -530,8 +506,6 @@ class BaseAction(ABC):
             name=name,
             component_type=ComponentType.ACTION,
             description=getattr(cls, "action_description", "Action动作"),
-            focus_activation_type=focus_activation_type,
-            normal_activation_type=normal_activation_type,
             activation_type=activation_type,
             activation_keywords=getattr(cls, "activation_keywords", []).copy(),
             keyword_case_sensitive=getattr(cls, "keyword_case_sensitive", False),

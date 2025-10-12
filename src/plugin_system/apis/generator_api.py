@@ -90,6 +90,7 @@ async def generate_reply(
     enable_chinese_typo: bool = True,
     request_type: str = "generator_api",
     from_plugin: bool = True,
+    reply_time_point: Optional[float] = None,
 ) -> Tuple[bool, Optional["LLMGenerationDataModel"]]:
     """生成回复
 
@@ -109,6 +110,7 @@ async def generate_reply(
         model_set_with_weight: 模型配置列表，每个元素为 (TaskConfig, weight) 元组
         request_type: 请求类型（可选，记录LLM使用）
         from_plugin: 是否来自插件
+        reply_time_point: 回复时间点
     Returns:
         Tuple[bool, List[Tuple[str, Any]], Optional[str]]: (是否成功, 回复集合, 提示词)
     """
@@ -136,6 +138,7 @@ async def generate_reply(
             reply_reason=reply_reason,
             from_plugin=from_plugin,
             stream_id=chat_stream.stream_id if chat_stream else chat_id,
+            reply_time_point=reply_time_point,
         )
         if not success:
             logger.warning("[GeneratorAPI] 回复生成失败")

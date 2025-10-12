@@ -151,7 +151,7 @@ class Prompt(str):
 
     @staticmethod
     def _process_escaped_braces(template) -> str:
-        """处理模板中的转义花括号，将 \{ 和 \} 替换为临时标记"""  # type: ignore
+        """处理模板中的转义花括号,替换为临时标记"""  # type: ignore
         # 如果传入的是列表，将其转换为字符串
         if isinstance(template, list):
             template = "\n".join(str(item) for item in template)

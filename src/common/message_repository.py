@@ -81,7 +81,8 @@ def find_messages(
             query = query.where(Messages.user_id != global_config.bot.qq_account)
 
         if filter_command:
-            query = query.where(not Messages.is_command)
+            # 使用按位取反构造 Peewee 的 NOT 条件，避免直接与 False 比较
+            query = query.where(~Messages.is_command)
 
         if limit > 0:
             if limit_mode == "earliest":

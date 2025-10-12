@@ -1,3 +1,2 @@
 *.bat text eol=crlf
 *.cmd text eol=crlf
-MaiLauncher.bat text eol=crlf working-tree-encoding=GBK

@@ -22,14 +22,15 @@ def init_prompt():
 以上是群里正在进行的聊天记录
 
 {identity_block}
-你刚刚的情绪状态是：{mood_state}
-
-现在，发送了消息，引起了你的注意，你对其进行了阅读和思考，请你输出一句话描述你新的情绪状态
+你先前的情绪状态是：{mood_state}
 你的情绪特点是:{emotion_style}
+
+现在，请你根据先前的情绪状态和现在的聊天内容，总结推断你现在的情绪状态
 请只输出新的情绪状态，不要输出其他内容：
 """,
-        "change_mood_prompt",
+        "get_mood_prompt",
     )
+
     Prompt(
         """
 {chat_talking_prompt}
@@ -66,37 +67,16 @@ class ChatMood:
 
         self.last_change_time: float = 0
 
-    async def update_mood_by_message(self, message: MessageRecv):
+    async def get_mood(self) -> str:
         self.regression_count = 0
 
-        during_last_time = message.message_info.time - self.last_change_time  # type: ignore
+        current_time = time.time()
 
-        base_probability = 0.05
-        time_multiplier = 4 * (1 - math.exp(-0.01 * during_last_time))
-
-        # 基于消息长度计算基础兴趣度
-        message_length = len(message.processed_plain_text or "")
-        interest_multiplier = min(2.0, 1.0 + message_length / 100)
-
-        logger.debug(
-            f"base_probability: {base_probability}, time_multiplier: {time_multiplier}, interest_multiplier: {interest_multiplier}"
-        )
-        update_probability = global_config.mood.mood_update_threshold * min(
-            1.0, base_probability * time_multiplier * interest_multiplier
-        )
-
-        if random.random() > update_probability:
-            return
-
-        logger.debug(
-            f"{self.log_prefix} 更新情绪状态，更新概率: {update_probability:.2f}"
-        )
-
-        message_time: float = message.message_info.time  # type: ignore
+        logger.info(f"{self.log_prefix} 获取情绪状态")
         message_list_before_now = get_raw_msg_by_timestamp_with_chat_inclusive(
             chat_id=self.chat_id,
             timestamp_start=self.last_change_time,
-            timestamp_end=message_time,
+            timestamp_end=current_time,
             limit=int(global_config.chat.max_context_size / 3),
             limit_mode="last",
         )
@@ -119,11 +99,11 @@ class ChatMood:
         identity_block = f"你的名字是{bot_name}{bot_nickname}"
 
         prompt = await global_prompt_manager.format_prompt(
-            "change_mood_prompt",
+            "get_mood_prompt",
             chat_talking_prompt=chat_talking_prompt,
             identity_block=identity_block,
             mood_state=self.mood_state,
-            emotion_style=global_config.personality.emotion_style,
+            emotion_style=global_config.mood.emotion_style,
         )
 
         response, (reasoning_content, _, _) = await self.mood_model.generate_response_async(
@@ -138,7 +118,9 @@ class ChatMood:
 
         self.mood_state = response
 
-        self.last_change_time = message_time
+        self.last_change_time = current_time
+
+        return response
 
     async def regress_mood(self):
         message_time = time.time()
@@ -172,7 +154,7 @@ class ChatMood:
             chat_talking_prompt=chat_talking_prompt,
             identity_block=identity_block,
             mood_state=self.mood_state,
-            emotion_style=global_config.personality.emotion_style,
+            emotion_style=global_config.mood.emotion_style,
         )
 
         response, (reasoning_content, _, _) = await self.mood_model.generate_response_async(
@@ -222,7 +204,6 @@ class MoodManager:
         if self.task_started:
             return
 
-        logger.info("启动情绪回归任务...")
         task = MoodRegressionTask(self)
         await async_task_manager.add_task(task)
         self.task_started = True

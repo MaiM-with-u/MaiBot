@@ -3,7 +3,7 @@ import time
 import traceback
 import random
 import re
-from typing import Dict, Optional, Tuple, List, TYPE_CHECKING
+from typing import Dict, Optional, Tuple, List, TYPE_CHECKING, Union
 from rich.traceback import install
 from datetime import datetime
 from json_repair import repair_json
@@ -44,14 +44,13 @@ def init_prompt():
 **聊天内容**
 {chat_content_block}
 
-**动作记录**
-{actions_before_now_block}
-
-**可用的action**
+**可选的action**
 reply
 动作描述：
 1.你可以选择呼叫了你的名字，但是你没有做出回应的消息进行回复
 2.你可以自然的顺着正在进行的聊天内容进行回复或自然的提出一个问题
+3.不要回复你自己发送的消息
+4.不要单独对表情包进行回复
 {{
     "action": "reply",
     "target_message_id":"想要回复的消息id",
@@ -76,7 +75,11 @@ no_reply_until_call
 
 {action_options_text}
 
-请选择合适的action，并说明触发action的消息id和选择该action的原因。消息id格式:m+数字
+**你之前的action执行和思考记录**
+{actions_before_now_block}
+
+请选择**可选的**且符合使用条件的action，并说明触发action的消息id(消息id格式:m+数字)
+不要回复你自己发送的消息
 先输出你的选择思考理由，再输出你选择的action，理由是一段平文本，不要分点，精简。
 **动作选择要求**
 请你根据聊天内容,用户的最新消息和以下标准选择合适的动作:
@@ -99,9 +102,7 @@ no_reply_until_call
     "target_message_id":"触发动作的消息id",
     //对应参数
 }}
-```
-
-""",
+```""",
         "planner_prompt",
     )
 
@@ -109,7 +110,7 @@ no_reply_until_call
         """
 {action_name}
 动作描述：{action_description}
-使用条件：
+使用条件{parallel_text}：
 {action_require}
 {{
     "action": "{action_name}",{action_parameters},
@@ -132,6 +133,9 @@ class ActionPlanner:
         )  # 用于动作规划
 
         self.last_obs_time_mark = 0.0
+
+
+        self.plan_log: List[Tuple[str, float, Union[List[ActionPlannerInfo], str]]] = []
 
     def find_message_by_id(
         self, message_id: str, message_id_list: List[Tuple[str, "DatabaseMessages"]]
@@ -157,15 +161,16 @@ class ActionPlanner:
         action_json: dict,
         message_id_list: List[Tuple[str, "DatabaseMessages"]],
         current_available_actions: List[Tuple[str, ActionInfo]],
+        extracted_reasoning: str = "",
     ) -> List[ActionPlannerInfo]:
         """解析单个action JSON并返回ActionPlannerInfo列表"""
         action_planner_infos = []
 
         try:
-            action = action_json.get("action", "no_action")
+            action = action_json.get("action", "no_reply")
             reasoning = action_json.get("reason", "未提供原因")
             action_data = {key: value for key, value in action_json.items() if key not in ["action", "reason"]}
-            # 非no_action动作需要target_message_id
+            # 非no_reply动作需要target_message_id
             target_message = None
 
             if target_message_id := action_json.get("target_message_id"):
@@ -202,6 +207,7 @@ class ActionPlanner:
                     action_data=action_data,
                     action_message=target_message,
                     available_actions=available_actions_dict,
+                    action_reasoning=extracted_reasoning if extracted_reasoning else None,
                 )
             )
 
@@ -216,6 +222,7 @@ class ActionPlanner:
                     action_data={},
                     action_message=None,
                     available_actions=available_actions_dict,
+                    action_reasoning=extracted_reasoning if extracted_reasoning else None,
                 )
             )
 
@@ -225,12 +232,11 @@ class ActionPlanner:
         self,
         available_actions: Dict[str, ActionInfo],
         loop_start_time: float = 0.0,
-    ) -> Tuple[List[ActionPlannerInfo], Optional["DatabaseMessages"]]:
+    ) -> List[ActionPlannerInfo]:
         # sourcery skip: use-named-expression
         """
         规划器 (Planner): 使用LLM根据上下文决定做出什么动作。
         """
-        target_message: Optional["DatabaseMessages"] = None
 
         # 获取聊天上下文
         message_list_before_now = get_raw_msg_before_timestamp_with_chat(
@@ -276,7 +282,7 @@ class ActionPlanner:
         )
 
         # 调用LLM获取决策
-        actions = await self._execute_main_planner(
+        reasoning, actions = await self._execute_main_planner(
             prompt=prompt,
             message_id_list=message_id_list,
             filtered_actions=filtered_actions,
@@ -284,12 +290,34 @@ class ActionPlanner:
             loop_start_time=loop_start_time,
         )
 
-        # 获取target_message（如果有非no_action的动作）
-        non_no_actions = [a for a in actions if a.action_type != "no_reply"]
-        if non_no_actions:
-            target_message = non_no_actions[0].action_message
+        logger.info(f"{self.log_prefix}Planner:{reasoning}。选择了{len(actions)}个动作: {' '.join([a.action_type for a in actions])}")
 
-        return actions, target_message
+        self.add_plan_log(reasoning, actions)
+
+        return actions
+
+    def add_plan_log(self, reasoning: str, actions: List[ActionPlannerInfo]):
+        self.plan_log.append((reasoning, time.time(), actions))
+        if len(self.plan_log) > 20:
+            self.plan_log.pop(0)
+    
+    def add_plan_excute_log(self, result: str):
+        self.plan_log.append(("", time.time(), result))
+        if len(self.plan_log) > 20:
+            self.plan_log.pop(0)
+
+    def get_plan_log_str(self) -> str:
+        plan_log_str = ""
+        for reasoning, time, content in self.plan_log:
+            if isinstance(content, list) and all(isinstance(action, ActionPlannerInfo) for action in content):
+                time = datetime.fromtimestamp(time).strftime("%H:%M:%S")
+                plan_log_str += f"{time}:{reasoning}|你使用了{','.join([action.action_type for action in content])}\n"
+            else:
+                time = datetime.fromtimestamp(time).strftime("%H:%M:%S")
+                plan_log_str += f"{time}:{content}\n"
+                
+        return plan_log_str
+
 
     async def build_planner_prompt(
         self,
@@ -302,18 +330,8 @@ class ActionPlanner:
     ) -> tuple[str, List[Tuple[str, "DatabaseMessages"]]]:
         """构建 Planner LLM 的提示词 (获取模板并填充数据)"""
         try:
-            # 获取最近执行过的动作
-            actions_before_now = get_actions_by_timestamp_with_chat(
-                chat_id=self.chat_id,
-                timestamp_start=time.time() - 600,
-                timestamp_end=time.time(),
-                limit=6,
-            )
-            actions_before_now_block = build_readable_actions(actions=actions_before_now)
-            if actions_before_now_block:
-                actions_before_now_block = f"你刚刚选择并执行过的action是：\n{actions_before_now_block}"
-            else:
-                actions_before_now_block = ""
+
+            actions_before_now_block=self.get_plan_log_str()
 
             # 构建聊天上下文描述
             chat_context_description = "你现在正在一个群聊中"
@@ -343,7 +361,6 @@ class ActionPlanner:
                 interest=interest,
                 plan_style=global_config.personality.plan_style,
             )
-            
 
             return prompt, message_id_list
         except Exception as e:
@@ -421,6 +438,11 @@ class ActionPlanner:
             for require_item in action_info.action_require:
                 require_text += f"- {require_item}\n"
             require_text = require_text.rstrip("\n")
+            
+            if not action_info.parallel_action:
+                parallel_text = "(当选择这个动作时，请不要选择其他动作)"
+            else:
+                parallel_text = ""
 
             # 获取动作提示模板并填充
             using_action_prompt = await global_prompt_manager.get_prompt_async("action_prompt")
@@ -429,6 +451,7 @@ class ActionPlanner:
                 action_description=action_info.description,
                 action_parameters=param_text,
                 action_require=require_text,
+                parallel_text=parallel_text,
             )
 
             action_options_block += using_action_prompt
@@ -442,7 +465,7 @@ class ActionPlanner:
         filtered_actions: Dict[str, ActionInfo],
         available_actions: Dict[str, ActionInfo],
         loop_start_time: float,
-    ) -> List[ActionPlannerInfo]:
+    ) -> Tuple[str,List[ActionPlannerInfo]]:
         """执行主规划器"""
         llm_content = None
         actions: List[ActionPlannerInfo] = []
@@ -451,8 +474,8 @@ class ActionPlanner:
             # 调用LLM
             llm_content, (reasoning_content, _, _) = await self.planner_llm.generate_response_async(prompt=prompt)
 
-            logger.info(f"{self.log_prefix}规划器原始提示词: {prompt}")
-            logger.info(f"{self.log_prefix}规划器原始响应: {llm_content}")
+            # logger.info(f"{self.log_prefix}规划器原始提示词: {prompt}")
+            # logger.info(f"{self.log_prefix}规划器原始响应: {llm_content}")
 
             if global_config.debug.show_prompt:
                 logger.info(f"{self.log_prefix}规划器原始提示词: {prompt}")
@@ -467,7 +490,7 @@ class ActionPlanner:
 
         except Exception as req_e:
             logger.error(f"{self.log_prefix}LLM 请求执行失败: {req_e}")
-            return [
+            return f"LLM 请求失败，模型出现问题: {req_e}",[
                 ActionPlannerInfo(
                     action_type="no_reply",
                     reasoning=f"LLM 请求失败，模型出现问题: {req_e}",
@@ -478,38 +501,41 @@ class ActionPlanner:
             ]
 
         # 解析LLM响应
+        extracted_reasoning = ""
         if llm_content:
             try:
-                if json_objects := self._extract_json_from_markdown(llm_content):
+                json_objects, extracted_reasoning = self._extract_json_from_markdown(llm_content)
+                if json_objects:
                     logger.debug(f"{self.log_prefix}从响应中提取到{len(json_objects)}个JSON对象")
                     filtered_actions_list = list(filtered_actions.items())
                     for json_obj in json_objects:
-                        actions.extend(self._parse_single_action(json_obj, message_id_list, filtered_actions_list))
+                        actions.extend(self._parse_single_action(json_obj, message_id_list, filtered_actions_list, extracted_reasoning))
                 else:
                     # 尝试解析为直接的JSON
                     logger.warning(f"{self.log_prefix}LLM没有返回可用动作: {llm_content}")
+                    extracted_reasoning = "LLM没有返回可用动作"
                     actions = self._create_no_reply("LLM没有返回可用动作", available_actions)
 
             except Exception as json_e:
                 logger.warning(f"{self.log_prefix}解析LLM响应JSON失败 {json_e}. LLM原始输出: '{llm_content}'")
+                extracted_reasoning = f"解析LLM响应JSON失败: {json_e}"
                 actions = self._create_no_reply(f"解析LLM响应JSON失败: {json_e}", available_actions)
                 traceback.print_exc()
         else:
+            extracted_reasoning = "规划器没有获得LLM响应"
             actions = self._create_no_reply("规划器没有获得LLM响应", available_actions)
 
-        # 添加循环开始时间到所有非no_action动作
+        # 添加循环开始时间到所有非no_reply动作
         for action in actions:
             action.action_data = action.action_data or {}
             action.action_data["loop_start_time"] = loop_start_time
 
-        logger.info(
-            f"{self.log_prefix}规划器决定执行{len(actions)}个动作: {' '.join([a.action_type for a in actions])}"
-        )
+        logger.debug(f"{self.log_prefix}规划器选择了{len(actions)}个动作: {' '.join([a.action_type for a in actions])}")
 
-        return actions
+        return extracted_reasoning,actions
 
     def _create_no_reply(self, reasoning: str, available_actions: Dict[str, ActionInfo]) -> List[ActionPlannerInfo]:
-        """创建no_action"""
+        """创建no_reply"""
         return [
             ActionPlannerInfo(
                 action_type="no_reply",
@@ -520,14 +546,25 @@ class ActionPlanner:
             )
         ]
 
-    def _extract_json_from_markdown(self, content: str) -> List[dict]:
+    def _extract_json_from_markdown(self, content: str) -> Tuple[List[dict], str]:
         # sourcery skip: for-append-to-extend
-        """从Markdown格式的内容中提取JSON对象"""
+        """从Markdown格式的内容中提取JSON对象和推理内容"""
         json_objects = []
+        reasoning_content = ""
 
         # 使用正则表达式查找```json包裹的JSON内容
         json_pattern = r"```json\s*(.*?)\s*```"
         matches = re.findall(json_pattern, content, re.DOTALL)
+
+        # 提取JSON之前的内容作为推理文本
+        if matches:
+            # 找到第一个```json的位置
+            first_json_pos = content.find("```json")
+            if first_json_pos > 0:
+                reasoning_content = content[:first_json_pos].strip()
+                # 清理推理内容中的注释标记
+                reasoning_content = re.sub(r"^//\s*", "", reasoning_content, flags=re.MULTILINE)
+                reasoning_content = reasoning_content.strip()
 
         for match in matches:
             try:
@@ -546,7 +583,7 @@ class ActionPlanner:
                 logger.warning(f"解析JSON块失败: {e}, 块内容: {match[:100]}...")
                 continue
 
-        return json_objects
+        return json_objects, reasoning_content
 
 
 init_prompt()

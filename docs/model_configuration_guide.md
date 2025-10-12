@@ -28,7 +28,7 @@ version = "1.1.1"
 ```toml
 [[api_providers]]
 name = "DeepSeek"                       # 服务商名称（自定义）
-base_url = "https://api.deepseek.cn/v1" # API服务的基础URL
+base_url = "https://api.deepseek.com/v1" # API服务的基础URL
 api_key = "your-api-key-here"           # API密钥
 client_type = "openai"                  # 客户端类型
 max_retry = 2                           # 最大重试次数
@@ -43,19 +43,19 @@ retry_interval = 10                     # 重试间隔（秒）
 | `name` | ✅ | 服务商名称，需要在模型配置中引用 | - |
 | `base_url` | ✅ | API服务的基础URL | - |
 | `api_key` | ✅ | API密钥，请替换为实际密钥 | - |
-| `client_type` | ❌ | 客户端类型：`openai`（OpenAI格式）或 `gemini`（Gemini格式，现在支持不良好） | `openai` |
+| `client_type` | ❌ | 客户端类型：`openai`（OpenAI格式）或 `gemini`（Gemini格式） | `openai` |
 | `max_retry` | ❌ | API调用失败时的最大重试次数 | 2 |
 | `timeout` | ❌ | API请求超时时间（秒） | 30 |
 | `retry_interval` | ❌ | 重试间隔时间（秒） | 10 |
 
-**请注意，对于`client_type`为`gemini`的模型，`base_url`字段无效。**
+**请注意，对于`client_type`为`gemini`的模型，`retry`字段由`gemini`自己决定。**
 ### 2.3 支持的服务商示例
 
 #### DeepSeek
 ```toml
 [[api_providers]]
 name = "DeepSeek"
-base_url = "https://api.deepseek.cn/v1"
+base_url = "https://api.deepseek.com/v1"
 api_key = "your-deepseek-api-key"
 client_type = "openai"
 ```
@@ -73,7 +73,7 @@ client_type = "openai"
 ```toml
 [[api_providers]]
 name = "Google"
-base_url = "https://api.google.com/v1"
+base_url = "https://generativelanguage.googleapis.com/v1beta"
 api_key = "your-google-api-key"
 client_type = "gemini"  # 注意：Gemini需要使用特殊客户端
 ```
@@ -131,9 +131,20 @@ enable_thinking = false # 禁用思考
 [models.extra_params]
 thinking = {type = "disabled"} # 禁用思考
 ```
+
+而对于`gemini`需要单独进行配置
+```toml
+[[models]]
+model_identifier = "gemini-2.5-flash"
+name = "gemini-2.5-flash"
+api_provider = "Google"
+[models.extra_params]
+thinking_budget = 0 # 禁用思考
+# thinking_budget = -1 由模型自己决定
+```
+
 请注意，`extra_params` 的配置应该构成一个合法的TOML字典结构，具体内容取决于API服务商的要求。
 
-**请注意，对于`client_type`为`gemini`的模型，此字段无效。**
 ### 3.3 配置参数说明
 
 | 参数 | 必填 | 说明 |

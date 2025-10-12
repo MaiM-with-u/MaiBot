@@ -26,18 +26,6 @@ install(extra_lines=3)
 
 logger = get_logger("model_utils")
 
-# 常见Error Code Mapping
-error_code_mapping = {
-    400: "参数不正确",
-    401: "API key 错误，认证失败，请检查 config/model_config.toml 中的配置是否正确",
-    402: "账号余额不足",
-    403: "需要实名,或余额不足",
-    404: "Not Found",
-    429: "请求过于频繁，请稍后再试",
-    500: "服务器内部故障",
-    503: "服务器负载过高",
-}
-
 
 class RequestType(Enum):
     """请求类型枚举"""
@@ -160,6 +148,8 @@ class LLMRequest:
         )
 
         logger.debug(f"LLM请求总耗时: {time.time() - start_time}")
+        logger.debug(f"LLM生成内容: {response}")
+
         content = response.content
         reasoning_content = response.reasoning_content or ""
         tool_calls = response.tool_calls
@@ -267,14 +257,14 @@ class LLMRequest:
                         extra_params=model_info.extra_params,
                     )
                 elif request_type == RequestType.EMBEDDING:
-                    assert embedding_input is not None
+                    assert embedding_input is not None, "嵌入输入不能为空"
                     return await client.get_embedding(
                         model_info=model_info,
                         embedding_input=embedding_input,
                         extra_params=model_info.extra_params,
                     )
                 elif request_type == RequestType.AUDIO:
-                    assert audio_base64 is not None
+                    assert audio_base64 is not None, "音频Base64不能为空"
                     return await client.get_audio_transcriptions(
                         model_info=model_info,
                         audio_base64=audio_base64,
@@ -365,23 +355,22 @@ class LLMRequest:
                     embedding_input=embedding_input,
                     audio_base64=audio_base64,
                 )
+                total_tokens, penalty, usage_penalty = self.model_usage[model_info.name]
+                if response_usage := response.usage:
+                    total_tokens += response_usage.total_tokens
+                self.model_usage[model_info.name] = (total_tokens, penalty, usage_penalty - 1)
                 return response, model_info
 
             except ModelAttemptFailed as e:
                 last_exception = e.original_exception or e
                 logger.warning(f"模型 '{model_info.name}' 尝试失败，切换到下一个模型。原因: {e}")
                 total_tokens, penalty, usage_penalty = self.model_usage[model_info.name]
-                self.model_usage[model_info.name] = (total_tokens, penalty + 1, usage_penalty)
+                self.model_usage[model_info.name] = (total_tokens, penalty + 1, usage_penalty - 1)
                 failed_models_this_request.add(model_info.name)
 
                 if isinstance(last_exception, RespNotOkException) and last_exception.status_code == 400:
                     logger.error("收到不可恢复的客户端错误 (400)，中止所有尝试。")
                     raise last_exception from e
-
-            finally:
-                total_tokens, penalty, usage_penalty = self.model_usage[model_info.name]
-                if usage_penalty > 0:
-                    self.model_usage[model_info.name] = (total_tokens, penalty, usage_penalty - 1)
 
         logger.error(f"所有 {max_attempts} 个模型均尝试失败。")
         if last_exception:

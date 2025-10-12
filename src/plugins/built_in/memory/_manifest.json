@@ -10,7 +10,7 @@
   "license": "GPL-v3.0-or-later",
   
   "host_application": {
-    "min_version": "0.10.1"
+    "min_version": "0.10.4"
   },
   "homepage_url": "https://github.com/MaiM-with-u/maibot",
   "repository_url": "https://github.com/MaiM-with-u/maibot",

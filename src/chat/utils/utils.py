@@ -383,10 +383,6 @@ def calculate_typing_time(
     - 在所有输入结束后，额外加上回车时间0.3秒
     - 如果is_emoji为True，将使用固定1秒的输入时间
     """
-    # # 将0-1的唤醒度映射到-1到1
-    # mood_arousal = mood_manager.current_mood.arousal
-    # # 映射到0.5到2倍的速度系数
-    # typing_speed_multiplier = 1.5**mood_arousal  # 唤醒度为1时速度翻倍,为-1时速度减半
     # chinese_time *= 1 / typing_speed_multiplier
     # english_time *= 1 / typing_speed_multiplier
     # 计算中文字符数

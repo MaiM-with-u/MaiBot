@@ -363,8 +363,8 @@ MODULE_COLORS = {
     "planner": "\033[36m",
     "relation": "\033[38;5;139m",  # 柔和的紫色，不刺眼
     # 聊天相关模块
-    "normal_chat": "\033[38;5;81m",  # 亮蓝绿色
-    "heartflow": "\033[38;5;175m",  # 柔和的粉色，不显眼但保持粉色系
+    "hfc": "\033[38;5;175m",  # 柔和的粉色，不显眼但保持粉色系
+    "bc": "\033[38;5;175m",  # 柔和的粉色，不显眼但保持粉色系
     "sub_heartflow": "\033[38;5;207m",  # 粉紫色
     "subheartflow_manager": "\033[38;5;201m",  # 深粉色
     "background_tasks": "\033[38;5;240m",  # 灰色
@@ -372,8 +372,6 @@ MODULE_COLORS = {
     "chat_stream": "\033[38;5;51m",  # 亮青色
     "message_storage": "\033[38;5;33m",  # 深蓝色
     "expressor": "\033[38;5;166m",  # 橙色
-    # 专注聊天模块
-    "memory_activator": "\033[38;5;117m",  # 天蓝色
     # 插件系统
     "plugins": "\033[31m",  # 红色
     "plugin_api": "\033[33m",  # 黄色
@@ -408,7 +406,7 @@ MODULE_COLORS = {
     "tts_action": "\033[38;5;58m",  # 深黄色
     "doubao_pic_plugin": "\033[38;5;64m",  # 深绿色
     # Action组件
-    "no_action_action": "\033[38;5;214m",  # 亮橙色，显眼但不像警告
+    "no_reply_action": "\033[38;5;214m",  # 亮橙色，显眼但不像警告
     "reply_action": "\033[38;5;46m",  # 亮绿色
     "base_action": "\033[38;5;250m",  # 浅灰色
     # 数据库和消息
@@ -421,9 +419,7 @@ MODULE_COLORS = {
     "model_utils": "\033[38;5;164m",  # 紫红色
     "relationship_fetcher": "\033[38;5;170m",  # 浅紫色
     "relationship_builder": "\033[38;5;93m",  # 浅蓝色
-    # s4u
-    "context_web_api": "\033[38;5;240m",  # 深灰色
-    "S4U_chat": "\033[92m",  # 深灰色
+    "conflict_tracker": "\033[38;5;82m",  # 柔和的粉色，不显眼但保持粉色系
 }
 
 # 定义模块别名映射 - 将真实的logger名称映射到显示的别名

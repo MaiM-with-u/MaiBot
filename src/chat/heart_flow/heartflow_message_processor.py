@@ -1,17 +1,14 @@
-import asyncio
 import re
 import traceback
 
 from typing import Tuple, TYPE_CHECKING
 
-from src.config.config import global_config
 from src.chat.message_receive.message import MessageRecv
 from src.chat.message_receive.storage import MessageStorage
 from src.chat.heart_flow.heartflow import heartflow
 from src.chat.utils.utils import is_mentioned_bot_in_message
 from src.chat.utils.chat_message_builder import replace_user_references
 from src.common.logger import get_logger
-from src.mood.mood_manager import mood_manager
 from src.person_info.person_info import Person
 from src.common.database.database_model import Images
 
@@ -75,11 +72,7 @@ class HeartFCMessageReceiver:
 
             await self.storage.store_message(message, chat)
 
-            heartflow_chat: HeartFChatting = await heartflow.get_or_create_heartflow_chat(chat.stream_id)  # type: ignore
-
-            if global_config.mood.enable_mood:
-                chat_mood = mood_manager.get_mood_by_chat_id(heartflow_chat.stream_id)
-                asyncio.create_task(chat_mood.update_mood_by_message(message))
+            _heartflow_chat: HeartFChatting = await heartflow.get_or_create_heartflow_chat(chat.stream_id)  # type: ignore
 
             # 3. 日志记录
             mes_name = chat.group_info.group_name if chat.group_info else "私聊"
@@ -107,7 +100,7 @@ class HeartFCMessageReceiver:
                 replace_bot_name=True,
             )
             # if not processed_plain_text:
-                # print(message)
+            # print(message)
 
             logger.info(f"[{mes_name}]{userinfo.user_nickname}:{processed_plain_text}")  # type: ignore
 

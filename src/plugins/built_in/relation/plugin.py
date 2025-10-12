@@ -14,7 +14,6 @@ from src.plugins.built_in.relation.relation import BuildRelationAction
 logger = get_logger("relation_actions")
 
 
-
 class GetPersonInfoTool(BaseTool):
     """获取用户信息"""
 
@@ -24,7 +23,7 @@ class GetPersonInfoTool(BaseTool):
         ("person_name", ToolParamType.STRING, "需要获取信息的人的名称", True, None),
         ("info_type", ToolParamType.STRING, "需要获取信息的类型", True, None),
     ]
-    
+
     available_for_llm = True
 
     async def execute(self, function_args: dict[str, Any]) -> dict[str, Any]:
@@ -44,7 +43,7 @@ class GetPersonInfoTool(BaseTool):
             return {"content": f"用户 {person_name} 不存在"}
         if not person.is_known:
             return {"content": f"不认识用户 {person_name}"}
-        
+
         relation_str = await person.build_relationship(info_type=info_type)
 
         return {"content": relation_str}
@@ -78,8 +77,8 @@ class RelationActionsPlugin(BasePlugin):
     # 配置Schema定义
     config_schema: dict = {
         "plugin": {
-            "enabled": ConfigField(type=bool, default=True, description="是否启用插件"),
-            "config_version": ConfigField(type=str, default="1.0.0", description="配置文件版本"),
+            "enabled": ConfigField(type=bool, default=False, description="是否启用插件"),
+            "config_version": ConfigField(type=str, default="1.0.1", description="配置文件版本"),
         },
         "components": {
             "relation_max_memory_num": ConfigField(type=int, default=10, description="关系记忆最大数量"),

@@ -1,25 +1,23 @@
 from typing import List, Tuple, Type
 
 # 导入新插件系统
-from src.plugin_system import BasePlugin, ComponentInfo
+from src.plugin_system import BasePlugin, ComponentInfo, register_plugin
 from src.plugin_system.base.config_types import ConfigField
 
 # 导入依赖的系统组件
 from src.common.logger import get_logger
 
-from src.plugins.built_in.memory.build_memory import BuildMemoryAction
+from src.plugins.built_in.memory.build_memory import GetMemoryAction, GetMemoryTool
 
-logger = get_logger("relation_actions")
+logger = get_logger("memory_build")
 
 
-# @register_plugin
+@register_plugin
 class MemoryBuildPlugin(BasePlugin):
-    """关系动作插件
+    """记忆构建插件
 
     系统内置插件，提供基础的聊天交互功能：
-    - Reply: 回复动作
-    - NoReply: 不回复动作
-    - Emoji: 表情动作
+    - GetMemory: 获取记忆
 
     注意：插件基本信息优先从_manifest.json文件中读取
     """
@@ -41,10 +39,7 @@ class MemoryBuildPlugin(BasePlugin):
     config_schema: dict = {
         "plugin": {
             "enabled": ConfigField(type=bool, default=True, description="是否启用插件"),
-            "config_version": ConfigField(type=str, default="1.1.0", description="配置文件版本"),
-        },
-        "components": {
-            "memory_max_memory_num": ConfigField(type=int, default=10, description="记忆最大数量"),
+            "config_version": ConfigField(type=str, default="1.1.1", description="配置文件版本"),
         },
     }
 
@@ -53,6 +48,7 @@ class MemoryBuildPlugin(BasePlugin):
 
         # --- 根据配置注册组件 ---
         components = []
-        components.append((BuildMemoryAction.get_action_info(), BuildMemoryAction))
+        # components.append((GetMemoryAction.get_action_info(), GetMemoryAction))
+        components.append((GetMemoryTool.get_tool_info(), GetMemoryTool))
 
         return components

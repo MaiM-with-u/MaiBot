@@ -152,10 +152,10 @@ class BrainPlanner:
         action_planner_infos = []
 
         try:
-            action = action_json.get("action", "no_action")
+            action = action_json.get("action", "no_reply")
             reasoning = action_json.get("reason", "未提供原因")
             action_data = {key: value for key, value in action_json.items() if key not in ["action", "reason"]}
-            # 非no_action动作需要target_message_id
+            # 非no_reply动作需要target_message_id
             target_message = None
 
             if target_message_id := action_json.get("target_message_id"):
@@ -215,12 +215,11 @@ class BrainPlanner:
         self,
         available_actions: Dict[str, ActionInfo],
         loop_start_time: float = 0.0,
-    ) -> Tuple[List[ActionPlannerInfo], Optional["DatabaseMessages"]]:
+    ) -> List[ActionPlannerInfo]:
         # sourcery skip: use-named-expression
         """
         规划器 (Planner): 使用LLM根据上下文决定做出什么动作。
         """
-        target_message: Optional["DatabaseMessages"] = None
 
         # 获取聊天上下文
         message_list_before_now = get_raw_msg_before_timestamp_with_chat(
@@ -274,12 +273,7 @@ class BrainPlanner:
             loop_start_time=loop_start_time,
         )
 
-        # 获取target_message（如果有非no_action的动作）
-        non_no_actions = [a for a in actions if a.action_type != "no_reply"]
-        if non_no_actions:
-            target_message = non_no_actions[0].action_message
-
-        return actions, target_message
+        return actions
 
     async def build_planner_prompt(
         self,
@@ -307,7 +301,9 @@ class BrainPlanner:
 
             if chat_target_info:
                 # 构建聊天上下文描述
-                chat_context_description = f"你正在和 {chat_target_info.person_name or chat_target_info.user_nickname or '对方'} 聊天中"
+                chat_context_description = (
+                    f"你正在和 {chat_target_info.person_name or chat_target_info.user_nickname or '对方'} 聊天中"
+                )
 
             # 构建动作选项块
             action_options_block = await self._build_action_options_block(current_available_actions)
@@ -487,19 +483,19 @@ class BrainPlanner:
         else:
             actions = self._create_no_reply("规划器没有获得LLM响应", available_actions)
 
-        # 添加循环开始时间到所有非no_action动作
+        # 添加循环开始时间到所有非no_reply动作
         for action in actions:
             action.action_data = action.action_data or {}
             action.action_data["loop_start_time"] = loop_start_time
 
-        logger.info(
+        logger.debug(
             f"{self.log_prefix}规划器决定执行{len(actions)}个动作: {' '.join([a.action_type for a in actions])}"
         )
 
         return actions
 
     def _create_no_reply(self, reasoning: str, available_actions: Dict[str, ActionInfo]) -> List[ActionPlannerInfo]:
-        """创建no_action"""
+        """创建no_reply"""
         return [
             ActionPlannerInfo(
                 action_type="no_reply",

@@ -403,8 +403,8 @@ class OpenaiClient(BaseClient):
         model_info: ModelInfo,
         message_list: list[Message],
         tool_options: list[ToolOption] | None = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.7,
+        max_tokens: Optional[int] = 1024,
+        temperature: Optional[float] = 0.7,
         response_format: RespFormat | None = None,
         stream_response_handler: Optional[
             Callable[
@@ -488,6 +488,9 @@ class OpenaiClient(BaseClient):
                         raise ReqAbortException("请求被外部信号中断")
                     await asyncio.sleep(0.1)  # 等待0.5秒后再次检查任务&中断信号量状态
 
+                # logger.
+                logger.debug(f"OpenAI API响应(非流式): {req_task.result()}")
+
                 # logger.info(f"OpenAI请求时间: {model_info.model_identifier}  {time.time() - start_time} \n{messages}")
 
                 resp, usage_record = async_response_parser(req_task.result())
@@ -506,6 +509,8 @@ class OpenaiClient(BaseClient):
                 completion_tokens=usage_record[1],
                 total_tokens=usage_record[2],
             )
+
+        # logger.debug(f"OpenAI API响应: {resp}")
 
         return resp
 

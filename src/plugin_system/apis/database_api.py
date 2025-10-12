@@ -309,6 +309,7 @@ async def store_action_info(
     thinking_id: str = "",
     action_data: Optional[dict] = None,
     action_name: str = "",
+    action_reasoning: str = "",
 ) -> Optional[Dict[str, Any]]:
     """存储动作信息到数据库
 
@@ -322,7 +323,7 @@ async def store_action_info(
         thinking_id: 关联的思考ID
         action_data: 动作数据字典
         action_name: 动作名称
-
+        action_reasoning: 动作执行理由
     Returns:
         Dict[str, Any]: 保存的记录数据
         None: 如果保存失败
@@ -348,6 +349,7 @@ async def store_action_info(
             "action_name": action_name,
             "action_data": json.dumps(action_data or {}, ensure_ascii=False),
             "action_done": action_done,
+            "action_reasoning": action_reasoning,
             "action_build_into_prompt": action_build_into_prompt,
             "action_prompt_display": action_prompt_display,
         }

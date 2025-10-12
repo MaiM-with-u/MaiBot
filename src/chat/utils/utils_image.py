@@ -623,3 +623,41 @@ def image_path_to_base64(image_path: str) -> str:
             return base64.b64encode(image_data).decode("utf-8")
         else:
             raise IOError(f"读取图片文件失败: {image_path}")
+
+
+def base64_to_image(image_base64: str, output_path: str) -> bool:
+    """将base64编码的图片保存为文件
+
+    Args:
+        image_base64: 图片的base64编码
+        output_path: 输出文件路径
+
+    Returns:
+        bool: 是否成功保存
+
+    Raises:
+        ValueError: 当base64编码无效时
+        IOError: 当保存文件失败时
+    """
+    try:
+        # 确保base64字符串只包含ASCII字符
+        if isinstance(image_base64, str):
+            image_base64 = image_base64.encode("ascii", errors="ignore").decode("ascii")
+
+        # 解码base64
+        image_bytes = base64.b64decode(image_base64)
+
+        # 确保输出目录存在
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+
+        # 保存文件
+        with open(output_path, "wb") as f:
+            f.write(image_bytes)
+
+        return True
+
+    except Exception as e:
+        logger.error(f"保存base64图片失败: {e}")
+        return False

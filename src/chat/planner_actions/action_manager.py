@@ -32,7 +32,7 @@ class ActionManager:
         self,
         action_name: str,
         action_data: dict,
-        reasoning: str,
+        action_reasoning: str,
         cycle_timers: dict,
         thinking_id: str,
         chat_stream: ChatStream,
@@ -46,7 +46,7 @@ class ActionManager:
         Args:
             action_name: 动作名称
             action_data: 动作数据
-            reasoning: 执行理由
+            action_reasoning: 执行理由
             cycle_timers: 计时器字典
             thinking_id: 思考ID
             chat_stream: 聊天流
@@ -77,7 +77,7 @@ class ActionManager:
             # 创建动作实例
             instance = component_class(
                 action_data=action_data,
-                reasoning=reasoning,
+                action_reasoning=action_reasoning,
                 cycle_timers=cycle_timers,
                 thinking_id=thinking_id,
                 chat_stream=chat_stream,

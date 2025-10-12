@@ -1,7 +1,5 @@
-
 from src.chat.utils.prompt_builder import Prompt
-# from src.chat.memory_system.memory_activator import MemoryActivator
-
+# from src.memory_system.memory_activator import MemoryActivator
 
 
 def init_rewrite_prompt():
@@ -14,13 +12,11 @@ def init_rewrite_prompt():
         """
 {expression_habits_block}
 {chat_target}
-{time_block}
 {chat_info}
 {identity}
 
-你现在的心情是：{mood_state}
 你正在{chat_target_2},{reply_target_block}
-你想要对上述的发言进行回复，回复的具体内容（原句）是：{raw_reply}
+现在请你对这句内容进行改写，请你参考上述内容进行改写，原句是：{raw_reply}：
 原因是：{reason}
 现在请你将这条具体内容改写成一条适合在群聊中发送的回复消息。
 你需要使用合适的语法和句法，参考聊天内容，组织一条日常且口语化的回复。请你修改你想表达的原句，符合你的表达风格和语言习惯
@@ -28,8 +24,8 @@ def init_rewrite_prompt():
 你可以完全重组回复，保留最基本的表达含义就好，但重组后保持语意通顺。
 {keywords_reaction_prompt}
 {moderation_prompt}
-不要输出多余内容(包括前后缀，冒号和引号，括号，表情包，emoji,at或 @等 )，只输出一条回复就好。
-现在，你说：
+不要输出多余内容(包括冒号和引号，表情包，emoji,at或 @等 )，只输出一条回复就好。
+改写后的回复：
 """,
         "default_expressor_prompt",
     )

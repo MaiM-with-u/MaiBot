@@ -6,7 +6,7 @@ import re
 
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
-from src.mais4u.mai_think import mai_thinking_manager
+from src.memory_system.Memory_chest import global_memory_chest
 from src.common.logger import get_logger
 from src.common.data_models.database_data_model import DatabaseMessages
 from src.common.data_models.info_data_model import ActionPlannerInfo
@@ -24,10 +24,12 @@ from src.chat.utils.chat_message_builder import (
     get_raw_msg_before_timestamp_with_chat,
     replace_user_references,
 )
-from src.chat.express.expression_selector import expression_selector
-
-# from src.chat.memory_system.memory_activator import MemoryActivator
+from src.express.expression_selector import expression_selector
+from src.plugin_system.apis.message_api import translate_pid_to_description
 from src.mood.mood_manager import mood_manager
+
+# from src.memory_system.memory_activator import MemoryActivator
+
 from src.person_info.person_info import Person, is_person_known
 from src.plugin_system.base.component_types import ActionInfo, EventType
 from src.plugin_system.apis import llm_api
@@ -69,6 +71,7 @@ class PrivateReplyer:
         from_plugin: bool = True,
         stream_id: Optional[str] = None,
         reply_message: Optional[DatabaseMessages] = None,
+        reply_time_point: Optional[float] = time.time(),
     ) -> Tuple[bool, LLMGenerationDataModel]:
         # sourcery skip: merge-nested-ifs
         """
@@ -253,8 +256,8 @@ class PrivateReplyer:
             return "", []
         style_habits = []
         # 使用从处理器传来的选中表达方式
-        # LLM模式：调用LLM选择5-10个，然后随机选5个
-        selected_expressions, selected_ids = await expression_selector.select_suitable_expressions_llm(
+        # 根据配置模式选择表达方式：exp_model模式直接使用模型预测，classic模式使用LLM选择
+        selected_expressions, selected_ids = await expression_selector.select_suitable_expressions(
             self.chat_stream.stream_id, chat_history, max_num=8, target_message=target
         )
 
@@ -280,38 +283,22 @@ class PrivateReplyer:
 
         return f"{expression_habits_title}\n{expression_habits_block}", selected_ids
 
-    # async def build_memory_block(self, chat_history: List[DatabaseMessages], target: str) -> str:
-    #     """构建记忆块
+    async def build_mood_state_prompt(self) -> str:
+        """构建情绪状态提示"""
+        if not global_config.mood.enable_mood:
+            return ""
+        mood_state = await mood_manager.get_mood_by_chat_id(self.chat_stream.stream_id).get_mood()
+        return f"你现在的心情是：{mood_state}"
 
-    #     Args:
-    #         chat_history: 聊天历史记录
-    #         target: 目标消息内容
 
-    #     Returns:
-    #         str: 记忆信息字符串
-    #     """
-
-    #     if not global_config.memory.enable_memory:
-    #         return ""
-
-    #     instant_memory = None
-
-    #     running_memories = await self.memory_activator.activate_memory_with_chat_history(
-    #         target_message=target, chat_history=chat_history
-    #     )
-    #     if not running_memories:
-    #         return ""
-
-    #     memory_str = "以下是当前在聊天中，你回忆起的记忆：\n"
-    #     for running_memory in running_memories:
-    #         keywords, content = running_memory
-    #         memory_str += f"- {keywords}：{content}\n"
-
-    #     if instant_memory:
-    #         memory_str += f"- {instant_memory}\n"
-
-    #     return memory_str
-
+    async def build_memory_block(self) -> str:
+        """构建记忆块
+        """
+        if global_memory_chest.get_chat_memories_as_string(self.chat_stream.stream_id):
+            return f"你有以下记忆：\n{global_memory_chest.get_chat_memories_as_string(self.chat_stream.stream_id)}"
+        else:
+            return ""
+    
     async def build_tool_info(self, chat_history: str, sender: str, target: str, enable_tool: bool = True) -> str:
         """构建工具信息块
 
@@ -375,6 +362,64 @@ class PrivateReplyer:
                 sender = parts[0].strip()
                 target = parts[1].strip()
         return sender, target
+
+    def _replace_picids_with_descriptions(self, text: str) -> str:
+        """将文本中的[picid:xxx]替换为具体的图片描述
+        
+        Args:
+            text: 包含picid标记的文本
+            
+        Returns:
+            替换后的文本
+        """
+        # 匹配 [picid:xxxxx] 格式
+        pic_pattern = r"\[picid:([^\]]+)\]"
+        
+        def replace_pic_id(match: re.Match) -> str:
+            pic_id = match.group(1)
+            description = translate_pid_to_description(pic_id)
+            return f"[图片：{description}]"
+        
+        return re.sub(pic_pattern, replace_pic_id, text)
+
+    def _analyze_target_content(self, target: str) -> Tuple[bool, bool, str, str]:
+        """分析target内容类型（基于原始picid格式）
+        
+        Args:
+            target: 目标消息内容（包含[picid:xxx]格式）
+            
+        Returns:
+            Tuple[bool, bool, str, str]: (是否只包含图片, 是否包含文字, 图片部分, 文字部分)
+        """
+        if not target or not target.strip():
+            return False, False, "", ""
+            
+        # 检查是否只包含picid标记
+        picid_pattern = r"\[picid:[^\]]+\]"
+        picid_matches = re.findall(picid_pattern, target)
+        
+        # 移除所有picid标记后检查是否还有文字内容
+        text_without_picids = re.sub(picid_pattern, "", target).strip()
+        
+        has_only_pics = len(picid_matches) > 0 and not text_without_picids
+        has_text = bool(text_without_picids)
+        
+        # 提取图片部分（转换为[图片:描述]格式）
+        pic_part = ""
+        if picid_matches:
+            pic_descriptions = []
+            for picid_match in picid_matches:
+                pic_id = picid_match[7:-1]  # 提取picid:xxx中的xxx部分（从第7个字符开始）
+                description = translate_pid_to_description(pic_id)
+                logger.debug(f"图片ID: {pic_id}, 描述: {description}")
+                # 如果description已经是[图片]格式，直接使用；否则包装为[图片:描述]格式
+                if description == "[图片]":
+                    pic_descriptions.append(description)
+                else:
+                    pic_descriptions.append(f"[图片:{description}]")
+            pic_part = "".join(pic_descriptions)
+        
+        return has_only_pics, has_text, pic_part, text_without_picids
 
     async def build_keywords_reaction_prompt(self, target: Optional[str]) -> str:
         """构建关键词反应提示
@@ -521,13 +566,15 @@ class PrivateReplyer:
             sender = person_name
             target = reply_message.processed_plain_text
 
-        mood_prompt: str = ""
-        if global_config.mood.enable_mood:
-            chat_mood = mood_manager.get_mood_by_chat_id(chat_id)
-            mood_prompt = chat_mood.mood_state
+
 
         target = replace_user_references(target, chat_stream.platform, replace_bot_name=True)
-        target = re.sub(r"\\[picid:[^\\]]+\\]", "[图片]", target)
+        
+        # 在picid替换之前分析内容类型（防止prompt注入）
+        has_only_pics, has_text, pic_part, text_part = self._analyze_target_content(target)
+        
+        # 将[picid:xxx]替换为具体的图片描述
+        target = self._replace_picids_with_descriptions(target)
 
         message_list_before_now_long = get_raw_msg_before_timestamp_with_chat(
             chat_id=chat_id,
@@ -566,8 +613,8 @@ class PrivateReplyer:
             if person.is_known:
                 person_list_short.append(person)
 
-        for person in person_list_short:
-            print(person.person_name)
+        # for person in person_list_short:
+        #     print(person.person_name)
 
         chat_talking_prompt_short = build_readable_messages(
             message_list_before_short,
@@ -585,6 +632,7 @@ class PrivateReplyer:
             self._time_and_run_task(
                 self.build_relation_info(chat_talking_prompt_short, sender), "relation_info"
             ),
+            self._time_and_run_task(self.build_memory_block(), "memory_block"),
             # self._time_and_run_task(self.build_memory_block(message_list_before_short, target), "memory_block"),
             self._time_and_run_task(
                 self.build_tool_info(chat_talking_prompt_short, sender, target, enable_tool=enable_tool), "tool_info"
@@ -592,17 +640,19 @@ class PrivateReplyer:
             self._time_and_run_task(self.get_prompt_info(chat_talking_prompt_short, sender, target), "prompt_info"),
             self._time_and_run_task(self.build_actions_prompt(available_actions, chosen_actions), "actions_info"),
             self._time_and_run_task(self.build_personality_prompt(), "personality_prompt"),
+            self._time_and_run_task(self.build_mood_state_prompt(), "mood_state_prompt"),
         )
 
         # 任务名称中英文映射
         task_name_mapping = {
             "expression_habits": "选取表达方式",
             "relation_info": "感受关系",
-            # "memory_block": "回忆",
+            "memory_block": "回忆",
             "tool_info": "使用工具",
             "prompt_info": "获取知识",
             "actions_info": "动作信息",
             "personality_prompt": "人格信息",
+            "mood_state_prompt": "情绪状态",
         }
 
         # 处理结果
@@ -626,11 +676,12 @@ class PrivateReplyer:
         expression_habits_block: str
         selected_expressions: List[int]
         relation_info: str = results_dict["relation_info"]
-        # memory_block: str = results_dict["memory_block"]
+        memory_block: str = results_dict["memory_block"]
         tool_info: str = results_dict["tool_info"]
         prompt_info: str = results_dict["prompt_info"]  # 直接使用格式化后的结果
         actions_info: str = results_dict["actions_info"]
         personality_prompt: str = results_dict["personality_prompt"]
+        mood_state_prompt: str = results_dict["mood_state_prompt"]
         keywords_reaction_prompt = await self.build_keywords_reaction_prompt(target)
 
         if extra_info:
@@ -642,9 +693,19 @@ class PrivateReplyer:
 
         moderation_prompt_block = "请不要输出违法违规内容，不要输出色情，暴力，政治相关内容，如有敏感内容，请规避。"
 
-        reply_target_block = (
-            f"现在对方说的:{target}。引起了你的注意"
-        )
+        # 使用预先分析的内容类型结果
+        if has_only_pics and not has_text:
+            # 只包含图片
+            reply_target_block = f"现在对方发送的图片：{pic_part}。引起了你的注意"
+        elif has_text and pic_part:
+            # 既有图片又有文字
+            reply_target_block = f"现在对方发送了图片：{pic_part}，并说：{text_part}。引起了你的注意"
+        elif has_text:
+            # 只包含文字
+            reply_target_block = f"现在对方说的：{text_part}。引起了你的注意"
+        else:
+            # 其他情况（空内容等）
+            reply_target_block = f"现在对方说的:{target}。引起了你的注意"
 
         if global_config.bot.qq_account == user_id and platform == global_config.bot.platform:
             return await global_prompt_manager.format_prompt(
@@ -652,12 +713,12 @@ class PrivateReplyer:
                 expression_habits_block=expression_habits_block,
                 tool_info_block=tool_info,
                 knowledge_prompt=prompt_info,
-                # memory_block=memory_block,
+                mood_state=mood_state_prompt,
+                memory_block=memory_block,
                 relation_info_block=relation_info,
                 extra_info_block=extra_info_block,
                 identity=personality_prompt,
                 action_descriptions=actions_info,
-                mood_state=mood_prompt,
                 dialogue_prompt=dialogue_prompt,
                 time_block=time_block,
                 target=target,
@@ -673,12 +734,12 @@ class PrivateReplyer:
                 expression_habits_block=expression_habits_block,
                 tool_info_block=tool_info,
                 knowledge_prompt=prompt_info,
-                # memory_block=memory_block,
+                mood_state=mood_state_prompt,
+                memory_block=memory_block,
                 relation_info_block=relation_info,
                 extra_info_block=extra_info_block,
                 identity=personality_prompt,
                 action_descriptions=actions_info,
-                mood_state=mood_prompt,
                 dialogue_prompt=dialogue_prompt,
                 time_block=time_block,
                 reply_target_block=reply_target_block,
@@ -700,14 +761,14 @@ class PrivateReplyer:
 
         sender, target = self._parse_reply_target(reply_to)
         target = replace_user_references(target, chat_stream.platform, replace_bot_name=True)
-        target = re.sub(r"\\[picid:[^\\]]+\\]", "[图片]", target)
+        
+        # 在picid替换之前分析内容类型（防止prompt注入）
+        has_only_pics, has_text, pic_part, text_part = self._analyze_target_content(target)
+        
+        # 将[picid:xxx]替换为具体的图片描述
+        target = self._replace_picids_with_descriptions(target)
 
-        # 添加情绪状态获取
-        if global_config.mood.enable_mood:
-            chat_mood = mood_manager.get_mood_by_chat_id(chat_id)
-            mood_prompt = chat_mood.mood_state
-        else:
-            mood_prompt = ""
+
 
         message_list_before_now_half = get_raw_msg_before_timestamp_with_chat(
             chat_id=chat_id,
@@ -738,18 +799,39 @@ class PrivateReplyer:
         )
 
         if sender and target:
+            # 使用预先分析的内容类型结果
             if is_group_chat:
                 if sender:
-                    reply_target_block = (
-                        f"现在{sender}说的:{target}。引起了你的注意，你想要在群里发言或者回复这条消息。"
-                    )
+                    if has_only_pics and not has_text:
+                        # 只包含图片
+                        reply_target_block = (
+                            f"现在{sender}发送的图片：{pic_part}。引起了你的注意，你想要在群里发言或者回复这条消息。"
+                        )
+                    elif has_text and pic_part:
+                        # 既有图片又有文字
+                        reply_target_block = (
+                            f"现在{sender}发送了图片：{pic_part}，并说：{text_part}。引起了你的注意，你想要在群里发言或者回复这条消息。"
+                        )
+                    else:
+                        # 只包含文字
+                        reply_target_block = (
+                            f"现在{sender}说的:{text_part}。引起了你的注意，你想要在群里发言或者回复这条消息。"
+                        )
                 elif target:
                     reply_target_block = f"现在{target}引起了你的注意，你想要在群里发言或者回复这条消息。"
                 else:
                     reply_target_block = "现在，你想要在群里发言或者回复消息。"
             else:  # private chat
                 if sender:
-                    reply_target_block = f"现在{sender}说的:{target}。引起了你的注意，针对这条消息回复。"
+                    if has_only_pics and not has_text:
+                        # 只包含图片
+                        reply_target_block = f"现在{sender}发送的图片：{pic_part}。引起了你的注意，针对这条消息回复。"
+                    elif has_text and pic_part:
+                        # 既有图片又有文字
+                        reply_target_block = f"现在{sender}发送了图片：{pic_part}，并说：{text_part}。引起了你的注意，针对这条消息回复。"
+                    else:
+                        # 只包含文字
+                        reply_target_block = f"现在{sender}说的:{text_part}。引起了你的注意，针对这条消息回复。"
                 elif target:
                     reply_target_block = f"现在{target}引起了你的注意，针对这条消息回复。"
                 else:
@@ -785,7 +867,6 @@ class PrivateReplyer:
             reply_target_block=reply_target_block,
             raw_reply=raw_reply,
             reason=reason,
-            mood_state=mood_prompt,  # 添加情绪状态参数
             reply_style=global_config.personality.reply_style,
             keywords_reaction_prompt=keywords_reaction_prompt,
             moderation_prompt=moderation_prompt_block,
@@ -839,7 +920,7 @@ class PrivateReplyer:
                 prompt
             )
 
-            logger.debug(f"replyer生成内容: {content}")
+            logger.info(f"使用 {model_name} 生成回复内容: {content}")
         return content, reasoning_content, model_name, tool_calls
 
     async def get_prompt_info(self, message: str, sender: str, target: str):

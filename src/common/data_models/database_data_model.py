@@ -220,6 +220,7 @@ class DatabaseActionRecords(BaseDataModel):
         chat_id: str,
         chat_info_stream_id: str,
         chat_info_platform: str,
+        action_reasoning:str
     ):
         self.action_id = action_id
         self.time = time
@@ -234,3 +235,4 @@ class DatabaseActionRecords(BaseDataModel):
         self.chat_id = chat_id
         self.chat_info_stream_id = chat_info_stream_id
         self.chat_info_platform = chat_info_platform
+        self.action_reasoning = action_reasoning

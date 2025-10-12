@@ -100,7 +100,7 @@ async def _send_to_target(
         anchor_message: Union["MessageRecv", None] = None
         if reply_message:
             anchor_message = db_message_to_message_recv(reply_message)
-            logger.info(f"[SendAPI] 找到匹配的回复消息，发送者: {anchor_message.message_info.user_info.user_id}")  # type: ignore
+            logger.debug(f"[SendAPI] 找到匹配的回复消息，发送者: {anchor_message.message_info.user_info.user_id}")  # type: ignore
             if anchor_message:
                 anchor_message.update_chat_stream(target_stream)
                 assert anchor_message.message_info.user_info, "用户信息缺失"
@@ -363,7 +363,7 @@ async def custom_reply_set_to_stream(
 ) -> bool:
     """
     向指定流发送混合型消息集
-    
+
     Args:
         reply_set: ReplySetModel 对象，包含多个 ReplyContent
         stream_id: 聊天流ID
@@ -451,7 +451,9 @@ def _parse_content_to_seg(reply_content: "ReplyContent") -> Tuple[Seg, bool]:
                         single_node_content.append(sub_seg)
                 message_segment = Seg(type="seglist", data=single_node_content)
             forward_message_list.append(
-                MessageBase(message_segment=message_segment, message_info=BaseMessageInfo(user_info=user_info)).to_dict()
+                MessageBase(
+                    message_segment=message_segment, message_info=BaseMessageInfo(user_info=user_info)
+                ).to_dict()
             )
         return Seg(type="forward", data=forward_message_list), False  # type: ignore
     else:

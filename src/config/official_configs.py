@@ -2,6 +2,7 @@ import re
 
 from dataclasses import dataclass, field
 from typing import Literal, Optional
+import time
 
 from src.config.config_base import ConfigBase
 
@@ -38,21 +39,18 @@ class PersonalityConfig(ConfigBase):
     personality: str
     """人格"""
 
-    emotion_style: str
-    """情感特征"""
-
     reply_style: str = ""
     """表达风格"""
 
     interest: str = ""
     """兴趣"""
-    
+
     plan_style: str = ""
     """说话规则，行为风格"""
-    
+
     visual_style: str = ""
     """图片提示词"""
-    
+
     private_plan_style: str = ""
     """私聊说话规则，行为风格"""
 
@@ -81,47 +79,211 @@ class ChatConfig(ConfigBase):
     mentioned_bot_reply: bool = True
     """是否启用提及必回复"""
 
+    auto_chat_value: float = 1
+    """自动聊天，越小，麦麦主动聊天的概率越低"""
+
     at_bot_inevitable_reply: float = 1
     """@bot 必然回复，1为100%回复，0为不额外增幅"""
 
-    talk_frequency: float = 0.5
-    """回复频率阈值"""
-    
+    planner_smooth: float = 3
+    """规划器平滑，增大数值会减小planner负荷，略微降低反应速度，推荐2-5，0为关闭，必须大于等于0"""
+
     talk_value: float = 1
     """思考频率"""
 
-    # 合并后的时段频率配置
-    talk_frequency_adjust: list[list[str]] = field(default_factory=lambda: [])
-
-    focus_value: float = 0.5
-    """麦麦的专注思考能力，越低越容易专注，消耗token也越多"""
-
-    focus_value_adjust: list[list[str]] = field(default_factory=lambda: [])
-
+    talk_value_rules: list[dict] = field(default_factory=lambda: [])
     """
-    统一的活跃度和专注度配置
-    格式：[["platform:chat_id:type", "HH:MM,frequency", "HH:MM,frequency", ...], ...]
-    
-    全局配置示例：
-    [["", "8:00,1", "12:00,2", "18:00,1.5", "00:00,0.5"]]
-    
-    特定聊天流配置示例：
+    思考频率规则列表，支持按聊天流/按日内时段配置。
+    规则格式：{ target="platform:id:type" 或 "", time="HH:MM-HH:MM", value=0.5 }
+
+    示例:
     [
-        ["", "8:00,1", "12:00,1.2", "18:00,1.5", "01:00,0.6"],  # 全局默认配置
-        ["qq:1026294844:group", "12:20,1", "16:10,2", "20:10,1", "00:10,0.3"],  # 特定群聊配置
-        ["qq:729957033:private", "8:20,1", "12:10,2", "20:10,1.5", "00:10,0.2"]  # 特定私聊配置
+        ["", "00:00-08:59", 0.2],                 # 全局规则：凌晨到早上更安静
+        ["", "09:00-22:59", 1.0],                 # 全局规则：白天正常
+        ["qq:1919810:group", "20:00-23:59", 0.6], # 指定群在晚高峰降低发言
+        ["qq:114514:private", "00:00-23:59", 0.3],# 指定私聊全时段较安静
     ]
-    
-    说明：
-    - 当第一个元素为空字符串""时，表示全局默认配置
-    - 当第一个元素为"platform:id:type"格式时，表示特定聊天流配置
-    - 后续元素是"时间,频率"格式，表示从该时间开始使用该频率，直到下一个时间点
-    - 优先级：特定聊天流配置 > 全局配置 > 默认值
-    
-    注意：
-    - talk_frequency_adjust 控制回复频率，数值越高回复越频繁
-    - focus_value_adjust 控制专注思考能力，数值越低越容易专注，消耗token也越多
+
+    匹配优先级: 先匹配指定 chat 流规则，再匹配全局规则(\"\").
+    时间区间支持跨夜，例如 "23:00-02:00"。
     """
+
+    auto_chat_value_rules: list[dict] = field(default_factory=lambda: [])
+    """
+    自动聊天频率规则列表，支持按聊天流/按日内时段配置。
+    规则格式：{ target="platform:id:type" 或 "", time="HH:MM-HH:MM", value=0.5 }
+
+    示例:
+    [
+        ["", "00:00-08:59", 0.2],                 # 全局规则：凌晨到早上更安静
+        ["", "09:00-22:59", 1.0],                 # 全局规则：白天正常
+        ["qq:1919810:group", "20:00-23:59", 0.6], # 指定群在晚高峰降低发言
+        ["qq:114514:private", "00:00-23:59", 0.3],# 指定私聊全时段较安静
+    ]
+
+    匹配优先级: 先匹配指定 chat 流规则，再匹配全局规则(\"\").
+    时间区间支持跨夜，例如 "23:00-02:00"。
+    """
+
+    def _parse_stream_config_to_chat_id(self, stream_config_str: str) -> Optional[str]:
+        """与 ChatStream.get_stream_id 一致地从 "platform:id:type" 生成 chat_id。"""
+        try:
+            parts = stream_config_str.split(":")
+            if len(parts) != 3:
+                return None
+
+            platform = parts[0]
+            id_str = parts[1]
+            stream_type = parts[2]
+
+            is_group = stream_type == "group"
+
+            import hashlib
+
+            if is_group:
+                components = [platform, str(id_str)]
+            else:
+                components = [platform, str(id_str), "private"]
+            key = "_".join(components)
+            return hashlib.md5(key.encode()).hexdigest()
+
+        except (ValueError, IndexError):
+            return None
+
+    def _now_minutes(self) -> int:
+        """返回本地时间的分钟数(0-1439)。"""
+        lt = time.localtime()
+        return lt.tm_hour * 60 + lt.tm_min
+
+    def _parse_range(self, range_str: str) -> Optional[tuple[int, int]]:
+        """解析 "HH:MM-HH:MM" 到 (start_min, end_min)。"""
+        try:
+            start_str, end_str = [s.strip() for s in range_str.split("-")]
+            sh, sm = [int(x) for x in start_str.split(":")]
+            eh, em = [int(x) for x in end_str.split(":")]
+            return sh * 60 + sm, eh * 60 + em
+        except Exception:
+            return None
+
+    def _in_range(self, now_min: int, start_min: int, end_min: int) -> bool:
+        """
+        判断 now_min 是否在 [start_min, end_min] 区间内。
+        支持跨夜：如果 start > end，则表示跨越午夜。
+        """
+        if start_min <= end_min:
+            return start_min <= now_min <= end_min
+        # 跨夜：例如 23:00-02:00
+        return now_min >= start_min or now_min <= end_min
+
+    def get_talk_value(self, chat_id: Optional[str]) -> float:
+        """根据规则返回当前 chat 的动态 talk_value，未匹配则回退到基础值。"""
+        if not self.talk_value_rules:
+            return self.talk_value
+
+        now_min = self._now_minutes()
+
+        # 1) 先尝试匹配指定 chat 的规则
+        if chat_id:
+            for rule in self.talk_value_rules:
+                if not isinstance(rule, dict):
+                    continue
+                target = rule.get("target", "")
+                time_range = rule.get("time", "")
+                value = rule.get("value", None)
+                if not isinstance(time_range, str):
+                    continue
+                # 跳过全局
+                if target == "":
+                    continue
+                config_chat_id = self._parse_stream_config_to_chat_id(str(target))
+                if config_chat_id is None or config_chat_id != chat_id:
+                    continue
+                parsed = self._parse_range(time_range)
+                if not parsed:
+                    continue
+                start_min, end_min = parsed
+                if self._in_range(now_min, start_min, end_min):
+                    try:
+                        return float(value)
+                    except Exception:
+                        continue
+
+        # 2) 再匹配全局规则("")
+        for rule in self.talk_value_rules:
+            if not isinstance(rule, dict):
+                continue
+            target = rule.get("target", None)
+            time_range = rule.get("time", "")
+            value = rule.get("value", None)
+            if target != "" or not isinstance(time_range, str):
+                continue
+            parsed = self._parse_range(time_range)
+            if not parsed:
+                continue
+            start_min, end_min = parsed
+            if self._in_range(now_min, start_min, end_min):
+                try:
+                    return float(value)
+                except Exception:
+                    continue
+
+        # 3) 未命中规则返回基础值
+        return self.talk_value
+
+    def get_auto_chat_value(self, chat_id: Optional[str]) -> float:
+        """根据规则返回当前 chat 的动态 auto_chat_value，未匹配则回退到基础值。"""
+        if not self.auto_chat_value_rules:
+            return self.auto_chat_value
+
+        now_min = self._now_minutes()
+
+        # 1) 先尝试匹配指定 chat 的规则
+        if chat_id:
+            for rule in self.auto_chat_value_rules:
+                if not isinstance(rule, dict):
+                    continue
+                target = rule.get("target", "")
+                time_range = rule.get("time", "")
+                value = rule.get("value", None)
+                if not isinstance(time_range, str):
+                    continue
+                # 跳过全局
+                if target == "":
+                    continue
+                config_chat_id = self._parse_stream_config_to_chat_id(str(target))
+                if config_chat_id is None or config_chat_id != chat_id:
+                    continue
+                parsed = self._parse_range(time_range)
+                if not parsed:
+                    continue
+                start_min, end_min = parsed
+                if self._in_range(now_min, start_min, end_min):
+                    try:
+                        return float(value)
+                    except Exception:
+                        continue
+
+        # 2) 再匹配全局规则("")
+        for rule in self.auto_chat_value_rules:
+            if not isinstance(rule, dict):
+                continue
+            target = rule.get("target", None)
+            time_range = rule.get("time", "")
+            value = rule.get("value", None)
+            if target != "" or not isinstance(time_range, str):
+                continue
+            parsed = self._parse_range(time_range)
+            if not parsed:
+                continue
+            start_min, end_min = parsed
+            if self._in_range(now_min, start_min, end_min):
+                try:
+                    return float(value)
+                except Exception:
+                    continue
+
+        # 3) 未命中规则返回基础值
+        return self.auto_chat_value
 
 
 @dataclass
@@ -134,10 +296,22 @@ class MessageReceiveConfig(ConfigBase):
     ban_msgs_regex: set[str] = field(default_factory=lambda: set())
     """过滤正则表达式列表"""
 
+@dataclass
+class MemoryConfig(ConfigBase):
+    """记忆配置类"""
+    
+    max_memory_number: int = 100
+    """记忆最大数量"""
+    
+    memory_build_frequency: int = 1
+    """记忆构建频率"""
 
 @dataclass
 class ExpressionConfig(ConfigBase):
     """表达配置类"""
+
+    mode: str = "classic"
+    """表达方式模式，可选：classic经典模式，exp_model 表达模型模式"""
 
     learning_list: list[list] = field(default_factory=lambda: [])
     """
@@ -300,6 +474,19 @@ class ToolConfig(ConfigBase):
 
 
 @dataclass
+class MoodConfig(ConfigBase):
+    """情绪配置类"""
+
+    enable_mood: bool = True
+    """是否启用情绪系统"""
+    
+    mood_update_threshold: float = 1
+    """情绪更新阈值,越高，更新越慢"""
+    
+    emotion_style: str = "情绪较为稳定，但遭遇特定事件的时候起伏较大"
+    """情感特征，影响情绪的变化情况"""
+
+@dataclass
 class VoiceConfig(ConfigBase):
     """语音识别配置类"""
 
@@ -331,17 +518,6 @@ class EmojiConfig(ConfigBase):
 
     filtration_prompt: str = "符合公序良俗"
     """表情包过滤要求"""
-
-
-@dataclass
-class MoodConfig(ConfigBase):
-    """情绪配置类"""
-
-    enable_mood: bool = False
-    """是否启用情绪系统"""
-
-    mood_update_threshold: float = 1.0
-    """情绪更新阈值,越高，更新越慢"""
 
 
 @dataclass

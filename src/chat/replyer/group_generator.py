@@ -6,7 +6,8 @@ import re
 
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
-from src.mais4u.mai_think import mai_thinking_manager
+from src.memory_system.Memory_chest import global_memory_chest
+from src.memory_system.questions import global_conflict_tracker
 from src.common.logger import get_logger
 from src.common.data_models.database_data_model import DatabaseMessages
 from src.common.data_models.info_data_model import ActionPlannerInfo
@@ -19,16 +20,17 @@ from src.chat.message_receive.uni_message_sender import UniversalMessageSender
 from src.chat.utils.timer_calculator import Timer  # <--- Import Timer
 from src.chat.utils.utils import get_chat_type_and_target_info
 from src.chat.utils.prompt_builder import global_prompt_manager
+from src.mood.mood_manager import mood_manager
 from src.chat.utils.chat_message_builder import (
     build_readable_messages,
     get_raw_msg_before_timestamp_with_chat,
     replace_user_references,
 )
-from src.chat.express.expression_selector import expression_selector
+from src.express.expression_selector import expression_selector
+from src.plugin_system.apis.message_api import translate_pid_to_description
 
-# from src.chat.memory_system.memory_activator import MemoryActivator
-from src.mood.mood_manager import mood_manager
-from src.person_info.person_info import Person, is_person_known
+# from src.memory_system.memory_activator import MemoryActivator
+from src.person_info.person_info import Person
 from src.plugin_system.base.component_types import ActionInfo, EventType
 from src.plugin_system.apis import llm_api
 
@@ -42,6 +44,7 @@ init_rewrite_prompt()
 
 
 logger = get_logger("replyer")
+
 
 class DefaultReplyer:
     def __init__(
@@ -69,6 +72,7 @@ class DefaultReplyer:
         from_plugin: bool = True,
         stream_id: Optional[str] = None,
         reply_message: Optional[DatabaseMessages] = None,
+        reply_time_point: Optional[float] = time.time(),
     ) -> Tuple[bool, LLMGenerationDataModel]:
         # sourcery skip: merge-nested-ifs
         """
@@ -102,6 +106,7 @@ class DefaultReplyer:
                     enable_tool=enable_tool,
                     reply_message=reply_message,
                     reply_reason=reply_reason,
+                    reply_time_point=reply_time_point,
                 )
             llm_response.prompt = prompt
             llm_response.selected_expressions = selected_expressions
@@ -216,30 +221,6 @@ class DefaultReplyer:
             traceback.print_exc()
             return False, llm_response
 
-    async def build_relation_info(self, chat_content: str, sender: str, person_list: List[Person]):
-        if not global_config.relationship.enable_relationship:
-            return ""
-
-        if not sender:
-            return ""
-
-        if sender == global_config.bot.nickname:
-            return ""
-
-        # 获取用户ID
-        person = Person(person_name=sender)
-        if not is_person_known(person_name=sender):
-            logger.warning(f"未找到用户 {sender} 的ID，跳过信息提取")
-            return f"你完全不认识{sender}，不理解ta的相关信息。"
-
-        sender_relation = await person.build_relationship(chat_content)
-        others_relation = ""
-        for person in person_list:
-            person_relation = await person.build_relationship()
-            others_relation += person_relation
-
-        return f"{sender_relation}\n{others_relation}"
-
     async def build_expression_habits(self, chat_history: str, target: str) -> Tuple[str, List[int]]:
         # sourcery skip: for-append-to-extend
         """构建表达习惯块
@@ -257,8 +238,8 @@ class DefaultReplyer:
             return "", []
         style_habits = []
         # 使用从处理器传来的选中表达方式
-        # LLM模式：调用LLM选择5-10个，然后随机选5个
-        selected_expressions, selected_ids = await expression_selector.select_suitable_expressions_llm(
+        # 根据配置模式选择表达方式：exp_model模式直接使用模型预测，classic模式使用LLM选择
+        selected_expressions, selected_ids = await expression_selector.select_suitable_expressions(
             self.chat_stream.stream_id, chat_history, max_num=8, target_message=target
         )
 
@@ -277,44 +258,42 @@ class DefaultReplyer:
         expression_habits_block = ""
         expression_habits_title = ""
         if style_habits_str.strip():
-            expression_habits_title = (
-                "在回复时,你可以参考以下的语言习惯，不要生硬使用："
-            )
+            expression_habits_title = "在回复时,你可以参考以下的语言习惯，不要生硬使用："
             expression_habits_block += f"{style_habits_str}\n"
 
         return f"{expression_habits_title}\n{expression_habits_block}", selected_ids
+    
+    async def build_mood_state_prompt(self) -> str:
+        """构建情绪状态提示"""
+        if not global_config.mood.enable_mood:
+            return ""
+        mood_state = await mood_manager.get_mood_by_chat_id(self.chat_stream.stream_id).get_mood()
+        return f"你现在的心情是：{mood_state}"
+    
+    async def build_memory_block(self) -> str:
+        """构建记忆块
+        """
+        # if not global_config.memory.enable_memory:
+            # return ""
 
-    # async def build_memory_block(self, chat_history: List[DatabaseMessages], target: str) -> str:
-    #     """构建记忆块
+        if global_memory_chest.get_chat_memories_as_string(self.chat_stream.stream_id):
+            return f"你有以下记忆：\n{global_memory_chest.get_chat_memories_as_string(self.chat_stream.stream_id)}"
+        else:
+            return ""
 
-    #     Args:
-    #         chat_history: 聊天历史记录
-    #         target: 目标消息内容
-
-    #     Returns:
-    #         str: 记忆信息字符串
-    #     """
-
-    #     if not global_config.memory.enable_memory:
-    #         return ""
-
-    #     instant_memory = None
-
-    #     running_memories = await self.memory_activator.activate_memory_with_chat_history(
-    #         target_message=target, chat_history=chat_history
-    #     )
-    #     if not running_memories:
-    #         return ""
-
-    #     memory_str = "以下是当前在聊天中，你回忆起的记忆：\n"
-    #     for running_memory in running_memories:
-    #         keywords, content = running_memory
-    #         memory_str += f"- {keywords}：{content}\n"
-
-    #     if instant_memory:
-    #         memory_str += f"- {instant_memory}\n"
-
-    #     return memory_str
+    async def build_question_block(self) -> str:
+        """构建问题块"""
+        # if not global_config.question.enable_question:
+            # return ""
+        questions = global_conflict_tracker.get_questions_by_chat_id(self.chat_stream.stream_id)
+        questions_str = ""
+        for question in questions:
+            questions_str += f"- {question.question}\n"
+        if questions_str:
+            return f"你在聊天中，有以下问题想要得到解答：\n{questions_str}"
+        else:
+            return ""
+    
 
     async def build_tool_info(self, chat_history: str, sender: str, target: str, enable_tool: bool = True) -> str:
         """构建工具信息块
@@ -344,7 +323,7 @@ class DefaultReplyer:
                     content = tool_result.get("content", "")
                     result_type = tool_result.get("type", "tool_result")
 
-                    tool_info_str += f"- 【{tool_name}】{result_type}: {content}\n"
+                    tool_info_str += f"- 【{tool_name}】: {content}\n"
 
                 tool_info_str += "以上是你获取到的实时信息，请在回复时参考这些信息。"
                 logger.info(f"获取到 {len(tool_results)} 个工具结果")
@@ -379,6 +358,64 @@ class DefaultReplyer:
                 sender = parts[0].strip()
                 target = parts[1].strip()
         return sender, target
+
+    def _replace_picids_with_descriptions(self, text: str) -> str:
+        """将文本中的[picid:xxx]替换为具体的图片描述
+        
+        Args:
+            text: 包含picid标记的文本
+            
+        Returns:
+            替换后的文本
+        """
+        # 匹配 [picid:xxxxx] 格式
+        pic_pattern = r"\[picid:([^\]]+)\]"
+        
+        def replace_pic_id(match: re.Match) -> str:
+            pic_id = match.group(1)
+            description = translate_pid_to_description(pic_id)
+            return f"[图片：{description}]"
+        
+        return re.sub(pic_pattern, replace_pic_id, text)
+
+    def _analyze_target_content(self, target: str) -> Tuple[bool, bool, str, str]:
+        """分析target内容类型（基于原始picid格式）
+        
+        Args:
+            target: 目标消息内容（包含[picid:xxx]格式）
+            
+        Returns:
+            Tuple[bool, bool, str, str]: (是否只包含图片, 是否包含文字, 图片部分, 文字部分)
+        """
+        if not target or not target.strip():
+            return False, False, "", ""
+            
+        # 检查是否只包含picid标记
+        picid_pattern = r"\[picid:[^\]]+\]"
+        picid_matches = re.findall(picid_pattern, target)
+        
+        # 移除所有picid标记后检查是否还有文字内容
+        text_without_picids = re.sub(picid_pattern, "", target).strip()
+        
+        has_only_pics = len(picid_matches) > 0 and not text_without_picids
+        has_text = bool(text_without_picids)
+        
+        # 提取图片部分（转换为[图片:描述]格式）
+        pic_part = ""
+        if picid_matches:
+            pic_descriptions = []
+            for picid_match in picid_matches:
+                pic_id = picid_match[7:-1]  # 提取picid:xxx中的xxx部分（从第7个字符开始）
+                description = translate_pid_to_description(pic_id)
+                logger.info(f"图片ID: {pic_id}, 描述: {description}")
+                # 如果description已经是[图片]格式，直接使用；否则包装为[图片:描述]格式
+                if description == "[图片]":
+                    pic_descriptions.append(description)
+                else:
+                    pic_descriptions.append(f"[图片:{description}]")
+            pic_part = "".join(pic_descriptions)
+        
+        return has_only_pics, has_text, pic_part, text_without_picids
 
     async def build_keywords_reaction_prompt(self, target: Optional[str]) -> str:
         """构建关键词反应提示
@@ -438,11 +475,10 @@ class DefaultReplyer:
         duration = end_time - start_time
         return name, result, duration
 
-    def build_s4u_chat_history_prompts(
+    def build_chat_history_prompts(
         self, message_list_before_now: List[DatabaseMessages], target_user_id: str, sender: str
     ) -> Tuple[str, str]:
         """
-        构建 s4u 风格的分离对话 prompt
 
         Args:
             message_list_before_now: 历史消息列表
@@ -498,7 +534,6 @@ class DefaultReplyer:
 --------------------------------
 """
 
-
         # 构建背景对话 prompt
         all_dialogue_prompt = ""
         if message_list_before_now:
@@ -515,51 +550,6 @@ class DefaultReplyer:
                 all_dialogue_prompt = f"{all_dialogue_prompt_str}"
 
         return core_dialogue_prompt, all_dialogue_prompt
-
-    def build_mai_think_context(
-        self,
-        chat_id: str,
-        memory_block: str,
-        relation_info: str,
-        time_block: str,
-        chat_target_1: str,
-        chat_target_2: str,
-        mood_prompt: str,
-        identity_block: str,
-        sender: str,
-        target: str,
-        chat_info: str,
-    ) -> Any:
-        """构建 mai_think 上下文信息
-
-        Args:
-            chat_id: 聊天ID
-            memory_block: 记忆块内容
-            relation_info: 关系信息
-            time_block: 时间块内容
-            chat_target_1: 聊天目标1
-            chat_target_2: 聊天目标2
-            mood_prompt: 情绪提示
-            identity_block: 身份块内容
-            sender: 发送者名称
-            target: 目标消息内容
-            chat_info: 聊天信息
-
-        Returns:
-            Any: mai_think 实例
-        """
-        mai_think = mai_thinking_manager.get_mai_think(chat_id)
-        mai_think.memory_block = memory_block
-        mai_think.relation_info_block = relation_info
-        mai_think.time_block = time_block
-        mai_think.chat_target = chat_target_1
-        mai_think.chat_target_2 = chat_target_2
-        mai_think.chat_info = chat_info
-        mai_think.mood_state = mood_prompt
-        mai_think.identity = identity_block
-        mai_think.sender = sender
-        mai_think.target = target
-        return mai_think
 
     async def build_actions_prompt(
         self, available_actions: Dict[str, ActionInfo], chosen_actions_info: Optional[List[ActionPlannerInfo]] = None
@@ -615,6 +605,7 @@ class DefaultReplyer:
         available_actions: Optional[Dict[str, ActionInfo]] = None,
         chosen_actions: Optional[List[ActionPlannerInfo]] = None,
         enable_tool: bool = True,
+        reply_time_point: Optional[float] = time.time(),
     ) -> Tuple[str, List[int]]:
         """
         构建回复器上下文
@@ -649,23 +640,23 @@ class DefaultReplyer:
             sender = person_name
             target = reply_message.processed_plain_text
 
-        mood_prompt: str = ""
-        if global_config.mood.enable_mood:
-            chat_mood = mood_manager.get_mood_by_chat_id(chat_id)
-            mood_prompt = chat_mood.mood_state
-
         target = replace_user_references(target, chat_stream.platform, replace_bot_name=True)
-        target = re.sub(r"\\[picid:[^\\]]+\\]", "[图片]", target)
+        
+        # 在picid替换之前分析内容类型（防止prompt注入）
+        has_only_pics, has_text, pic_part, text_part = self._analyze_target_content(target)
+        
+        # 将[picid:xxx]替换为具体的图片描述
+        target = self._replace_picids_with_descriptions(target)
 
         message_list_before_now_long = get_raw_msg_before_timestamp_with_chat(
             chat_id=chat_id,
-            timestamp=time.time(),
+            timestamp=reply_time_point,
             limit=global_config.chat.max_context_size * 1,
         )
 
         message_list_before_short = get_raw_msg_before_timestamp_with_chat(
             chat_id=chat_id,
-            timestamp=time.time(),
+            timestamp=reply_time_point,
             limit=int(global_config.chat.max_context_size * 0.33),
         )
 
@@ -686,8 +677,8 @@ class DefaultReplyer:
             if person.is_known:
                 person_list_short.append(person)
 
-        for person in person_list_short:
-            print(person.person_name)
+        # for person in person_list_short:
+        #     print(person.person_name)
 
         chat_talking_prompt_short = build_readable_messages(
             message_list_before_short,
@@ -702,16 +693,15 @@ class DefaultReplyer:
             self._time_and_run_task(
                 self.build_expression_habits(chat_talking_prompt_short, target), "expression_habits"
             ),
-            # self._time_and_run_task(
-            #     self.build_relation_info(chat_talking_prompt_short, sender, person_list_short), "relation_info"
-            # ),
-            # self._time_and_run_task(self.build_memory_block(message_list_before_short, target), "memory_block"),
+            self._time_and_run_task(self.build_memory_block(), "memory_block"),
             self._time_and_run_task(
                 self.build_tool_info(chat_talking_prompt_short, sender, target, enable_tool=enable_tool), "tool_info"
             ),
             self._time_and_run_task(self.get_prompt_info(chat_talking_prompt_short, sender, target), "prompt_info"),
             self._time_and_run_task(self.build_actions_prompt(available_actions, chosen_actions), "actions_info"),
             self._time_and_run_task(self.build_personality_prompt(), "personality_prompt"),
+            self._time_and_run_task(self.build_mood_state_prompt(), "mood_state_prompt"),
+            self._time_and_run_task(self.build_question_block(), "question_block"),
         )
 
         # 任务名称中英文映射
@@ -719,10 +709,13 @@ class DefaultReplyer:
             "expression_habits": "选取表达方式",
             "relation_info": "感受关系",
             # "memory_block": "回忆",
+            "memory_block": "记忆",
             "tool_info": "使用工具",
             "prompt_info": "获取知识",
             "actions_info": "动作信息",
             "personality_prompt": "人格信息",
+            "mood_state_prompt": "情绪状态",
+            "question_block": "问题",
         }
 
         # 处理结果
@@ -747,11 +740,14 @@ class DefaultReplyer:
         selected_expressions: List[int]
         # relation_info: str = results_dict["relation_info"]
         # memory_block: str = results_dict["memory_block"]
+        memory_block: str = results_dict["memory_block"]
         tool_info: str = results_dict["tool_info"]
         prompt_info: str = results_dict["prompt_info"]  # 直接使用格式化后的结果
         actions_info: str = results_dict["actions_info"]
         personality_prompt: str = results_dict["personality_prompt"]
+        question_block: str = results_dict["question_block"]
         keywords_reaction_prompt = await self.build_keywords_reaction_prompt(target)
+        mood_state_prompt: str = results_dict["mood_state_prompt"]
 
         if extra_info:
             extra_info_block = f"以下是你在回复时需要参考的信息，现在请你阅读以下内容，进行决策\n{extra_info}\n以上是你在回复时需要参考的信息，现在请你阅读以下内容，进行决策"
@@ -763,63 +759,49 @@ class DefaultReplyer:
         moderation_prompt_block = "请不要输出违法违规内容，不要输出色情，暴力，政治相关内容，如有敏感内容，请规避。"
 
         if sender:
-            if is_group_chat:
-                reply_target_block = (
-                    f"现在{sender}说的:{target}。引起了你的注意"
-                )
-            else:  # private chat
-                reply_target_block = (
-                    f"现在{sender}说的:{target}。引起了你的注意"
-                )
+            # 使用预先分析的内容类型结果
+            if has_only_pics and not has_text:
+                # 只包含图片
+                reply_target_block = f"现在{sender}发送的图片：{pic_part}。引起了你的注意"
+            elif has_text and pic_part:
+                # 既有图片又有文字
+                reply_target_block = f"现在{sender}发送了图片：{pic_part}，并说：{text_part}。引起了你的注意"
+            elif has_text:
+                # 只包含文字
+                reply_target_block = f"现在{sender}说的：{text_part}。引起了你的注意"
+            else:
+                # 其他情况（空内容等）
+                reply_target_block = f"现在{sender}说的：{target}。引起了你的注意"
         else:
             reply_target_block = ""
 
         # 构建分离的对话 prompt
-        core_dialogue_prompt, background_dialogue_prompt = self.build_s4u_chat_history_prompts(
+        core_dialogue_prompt, background_dialogue_prompt = self.build_chat_history_prompts(
             message_list_before_now_long, user_id, sender
         )
 
-        if global_config.bot.qq_account == user_id and platform == global_config.bot.platform:
-            return await global_prompt_manager.format_prompt(
-                "replyer_self_prompt",
-                expression_habits_block=expression_habits_block,
-                tool_info_block=tool_info,
-                knowledge_prompt=prompt_info,
-                # memory_block=memory_block,
-                # relation_info_block=relation_info,
-                extra_info_block=extra_info_block,
-                identity=personality_prompt,
-                action_descriptions=actions_info,
-                mood_state=mood_prompt,
-                background_dialogue_prompt=background_dialogue_prompt,
-                time_block=time_block,
-                target=target,
-                reason=reply_reason,
-                reply_style=global_config.personality.reply_style,
-                keywords_reaction_prompt=keywords_reaction_prompt,
-                moderation_prompt=moderation_prompt_block,
-            ), selected_expressions
-        else:
-            return await global_prompt_manager.format_prompt(
-                "replyer_prompt",
-                expression_habits_block=expression_habits_block,
-                tool_info_block=tool_info,
-                knowledge_prompt=prompt_info,
-                # memory_block=memory_block,
-                # relation_info_block=relation_info,
-                extra_info_block=extra_info_block,
-                identity=personality_prompt,
-                action_descriptions=actions_info,
-                sender_name=sender,
-                mood_state=mood_prompt,
-                background_dialogue_prompt=background_dialogue_prompt,
-                time_block=time_block,
-                core_dialogue_prompt=core_dialogue_prompt,
-                reply_target_block=reply_target_block,
-                reply_style=global_config.personality.reply_style,
-                keywords_reaction_prompt=keywords_reaction_prompt,
-                moderation_prompt=moderation_prompt_block,
-            ), selected_expressions
+        return await global_prompt_manager.format_prompt(
+            "replyer_prompt",
+            expression_habits_block=expression_habits_block,
+            tool_info_block=tool_info,
+            memory_block=memory_block,
+            knowledge_prompt=prompt_info,
+            mood_state=mood_state_prompt,
+            # memory_block=memory_block,
+            # relation_info_block=relation_info,
+            extra_info_block=extra_info_block,
+            identity=personality_prompt,
+            action_descriptions=actions_info,
+            sender_name=sender,
+            background_dialogue_prompt=background_dialogue_prompt,
+            time_block=time_block,
+            core_dialogue_prompt=core_dialogue_prompt,
+            reply_target_block=reply_target_block,
+            reply_style=global_config.personality.reply_style,
+            keywords_reaction_prompt=keywords_reaction_prompt,
+            moderation_prompt=moderation_prompt_block,
+            question_block=question_block,
+        ), selected_expressions
 
     async def build_prompt_rewrite_context(
         self,
@@ -833,14 +815,12 @@ class DefaultReplyer:
 
         sender, target = self._parse_reply_target(reply_to)
         target = replace_user_references(target, chat_stream.platform, replace_bot_name=True)
-        target = re.sub(r"\\[picid:[^\\]]+\\]", "[图片]", target)
-
-        # 添加情绪状态获取
-        if global_config.mood.enable_mood:
-            chat_mood = mood_manager.get_mood_by_chat_id(chat_id)
-            mood_prompt = chat_mood.mood_state
-        else:
-            mood_prompt = ""
+        
+        # 在picid替换之前分析内容类型（防止prompt注入）
+        has_only_pics, has_text, pic_part, text_part = self._analyze_target_content(target)
+        
+        # 将[picid:xxx]替换为具体的图片描述
+        target = self._replace_picids_with_descriptions(target)
 
         message_list_before_now_half = get_raw_msg_before_timestamp_with_chat(
             chat_id=chat_id,
@@ -858,7 +838,6 @@ class DefaultReplyer:
         # 并行执行2个构建任务
         (expression_habits_block, _), personality_prompt = await asyncio.gather(
             self.build_expression_habits(chat_talking_prompt_half, target),
-            # self.build_relation_info(chat_talking_prompt_half, sender, []),
             self.build_personality_prompt(),
         )
 
@@ -871,18 +850,39 @@ class DefaultReplyer:
         )
 
         if sender and target:
+            # 使用预先分析的内容类型结果
             if is_group_chat:
                 if sender:
-                    reply_target_block = (
-                        f"现在{sender}说的:{target}。引起了你的注意，你想要在群里发言或者回复这条消息。"
-                    )
+                    if has_only_pics and not has_text:
+                        # 只包含图片
+                        reply_target_block = (
+                            f"现在{sender}发送的图片：{pic_part}。引起了你的注意，你想要在群里发言或者回复这条消息。"
+                        )
+                    elif has_text and pic_part:
+                        # 既有图片又有文字
+                        reply_target_block = (
+                            f"现在{sender}发送了图片：{pic_part}，并说：{text_part}。引起了你的注意，你想要在群里发言或者回复这条消息。"
+                        )
+                    else:
+                        # 只包含文字
+                        reply_target_block = (
+                            f"现在{sender}说的:{text_part}。引起了你的注意，你想要在群里发言或者回复这条消息。"
+                        )
                 elif target:
                     reply_target_block = f"现在{target}引起了你的注意，你想要在群里发言或者回复这条消息。"
                 else:
                     reply_target_block = "现在，你想要在群里发言或者回复消息。"
             else:  # private chat
                 if sender:
-                    reply_target_block = f"现在{sender}说的:{target}。引起了你的注意，针对这条消息回复。"
+                    if has_only_pics and not has_text:
+                        # 只包含图片
+                        reply_target_block = f"现在{sender}发送的图片：{pic_part}。引起了你的注意，针对这条消息回复。"
+                    elif has_text and pic_part:
+                        # 既有图片又有文字
+                        reply_target_block = f"现在{sender}发送了图片：{pic_part}，并说：{text_part}。引起了你的注意，针对这条消息回复。"
+                    else:
+                        # 只包含文字
+                        reply_target_block = f"现在{sender}说的:{text_part}。引起了你的注意，针对这条消息回复。"
                 elif target:
                     reply_target_block = f"现在{target}引起了你的注意，针对这条消息回复。"
                 else:
@@ -918,7 +918,6 @@ class DefaultReplyer:
             reply_target_block=reply_target_block,
             raw_reply=raw_reply,
             reason=reason,
-            mood_state=mood_prompt,  # 添加情绪状态参数
             reply_style=global_config.personality.reply_style,
             keywords_reaction_prompt=keywords_reaction_prompt,
             moderation_prompt=moderation_prompt_block,
@@ -966,13 +965,13 @@ class DefaultReplyer:
             if global_config.debug.show_prompt:
                 logger.info(f"\n{prompt}\n")
             else:
-                logger.debug(f"\n{prompt}\n")
+                logger.debug(f"\nreplyer_Prompt:{prompt}\n")
 
             content, (reasoning_content, model_name, tool_calls) = await self.express_model.generate_response_async(
                 prompt
             )
 
-            logger.debug(f"replyer生成内容: {content}")
+            logger.info(f"使用 {model_name} 生成回复内容: {content}")
         return content, reasoning_content, model_name, tool_calls
 
     async def get_prompt_info(self, message: str, sender: str, target: str):
@@ -1059,6 +1058,3 @@ def weighted_sample_no_replacement(items, weights, k) -> list:
                 pool.pop(idx)
                 break
     return selected
-
-
-

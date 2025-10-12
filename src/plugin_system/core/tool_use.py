@@ -24,8 +24,9 @@ def init_tool_executor_prompt():
 请仔细分析聊天内容，考虑以下几点：
 1. 内容中是否包含需要查询信息的问题
 2. 是否有明确的工具使用指令
+你可以选择多个动作
 
-If you need to use a tool, please directly call the corresponding tool function. If you do not need to use any tool, simply output "No tool needed".
+If you need to use tools, please directly call the corresponding tool function. If you do not need to use any tool, simply output "No tool needed".
 """
     Prompt(tool_executor_prompt, "tool_executor_prompt")
 
@@ -91,7 +92,7 @@ class ToolExecutor:
         # 缓存未命中，执行工具调用
         # 获取可用工具
         tools = self._get_tool_definitions()
-        
+
         # print(f"tools: {tools}")
 
         # 获取当前时间
@@ -177,10 +178,17 @@ class ToolExecutor:
                     content = tool_info["content"]
                     if not isinstance(content, (str, list, tuple)):
                         tool_info["content"] = str(content)
+                    # 空内容直接跳过（空字符串、全空白字符串、空列表/空元组）
+                    content_check = tool_info["content"]
+                    if (
+                        (isinstance(content_check, str) and not content_check.strip())
+                        or (isinstance(content_check, (list, tuple)) and len(content_check) == 0)
+                    ):
+                        logger.debug(f"{self.log_prefix}工具{tool_name}无有效内容，跳过展示")
+                        continue
 
                     tool_results.append(tool_info)
                     used_tools.append(tool_name)
-                    logger.info(f"{self.log_prefix}工具{tool_name}执行成功，类型: {tool_info['type']}")
                     preview = content[:200]
                     logger.debug(f"{self.log_prefix}工具{tool_name}结果内容: {preview}...")
             except Exception as e:

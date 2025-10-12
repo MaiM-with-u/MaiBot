@@ -1,0 +1,34 @@
+{
+  "manifest_version": 1,
+  "name": "MaiCurious插件 (MaiCurious Actions)",
+  "version": "1.0.0",
+  "description": "可以好奇",
+  "author": {
+    "name": "SengokuCola",
+    "url": "https://github.com/MaiM-with-u"
+  },
+  "license": "GPL-v3.0-or-later",
+  
+  "host_application": {
+    "min_version": "0.11.0"
+  },
+  "homepage_url": "https://github.com/MaiM-with-u/maibot",
+  "repository_url": "https://github.com/MaiM-with-u/maibot",
+  "keywords": ["curious", "action", "built-in"],
+  "categories": ["Deep Think"],
+  
+  "default_locale": "zh-CN",
+  "locales_path": "_locales",
+  
+  "plugin_info": {
+    "is_built_in": true,
+    "plugin_type": "action_provider",
+    "components": [
+      {
+        "type": "action",
+        "name": "maicurious", 
+        "description": "发送好奇"
+      }
+    ]
+  }
+}

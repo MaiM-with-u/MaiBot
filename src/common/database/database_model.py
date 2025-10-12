@@ -185,6 +185,8 @@ class ActionRecords(BaseModel):
     action_id = TextField(index=True)  # 消息 ID (更改自 IntegerField)
     time = DoubleField()  # 消息时间戳
 
+    action_reasoning = TextField(null=True)
+
     action_name = TextField()
     action_data = TextField()
     action_done = BooleanField(default=False)
@@ -301,46 +303,47 @@ class Expression(BaseModel):
 
     situation = TextField()
     style = TextField()
-    count = FloatField()
+
+    # new mode fields
+    context = TextField(null=True)
+    up_content = TextField(null=True)
+
     last_active_time = FloatField()
     chat_id = TextField(index=True)
-    type = TextField()
     create_date = FloatField(null=True)  # 创建日期，允许为空以兼容老数据
 
     class Meta:
         table_name = "expression"
 
-
-class GraphNodes(BaseModel):
+class MemoryChest(BaseModel):
     """
-    用于存储记忆图节点的模型
+    用于存储记忆仓库的模型
     """
 
-    concept = TextField(unique=True, index=True)  # 节点概念
-    memory_items = TextField()  # JSON格式存储的记忆列表
-    weight = FloatField(default=0.0)  # 节点权重
-    hash = TextField()  # 节点哈希值
-    created_time = FloatField()  # 创建时间戳
-    last_modified = FloatField()  # 最后修改时间戳
+    title = TextField()  # 标题
+    content = TextField()  # 内容
+    chat_id = TextField(null=True)  # 聊天ID
+    locked = BooleanField(default=False)  # 是否锁定
 
     class Meta:
-        table_name = "graph_nodes"
+        table_name = "memory_chest"
 
-
-class GraphEdges(BaseModel):
+class MemoryConflict(BaseModel):
     """
-    用于存储记忆图边的模型
+    用于存储记忆整合过程中冲突内容的模型
     """
 
-    source = TextField(index=True)  # 源节点
-    target = TextField(index=True)  # 目标节点
-    strength = IntegerField()  # 连接强度
-    hash = TextField()  # 边哈希值
-    created_time = FloatField()  # 创建时间戳
-    last_modified = FloatField()  # 最后修改时间戳
+    conflict_content = TextField()  # 冲突内容
+    answer = TextField(null=True)  # 回答内容
+    create_time = FloatField()  # 创建时间
+    update_time = FloatField()  # 更新时间
+    context = TextField(null=True)  # 上下文
+    chat_id = TextField(null=True)  # 聊天ID
+    raise_time = FloatField(null=True)  # 触发次数
 
     class Meta:
-        table_name = "graph_edges"
+        table_name = "memory_conflicts"
+
 
 
 def create_tables():
@@ -359,9 +362,9 @@ def create_tables():
                 OnlineTime,
                 PersonInfo,
                 Expression,
-                GraphNodes,  # 添加图节点表
-                GraphEdges,  # 添加图边表
                 ActionRecords,  # 添加 ActionRecords 到初始化列表
+                MemoryChest,
+                MemoryConflict,  # 添加记忆冲突表
             ]
         )
 
@@ -386,9 +389,9 @@ def initialize_database(sync_constraints=False):
         OnlineTime,
         PersonInfo,
         Expression,
-        GraphNodes,
-        GraphEdges,
         ActionRecords,  # 添加 ActionRecords 到初始化列表
+        MemoryChest,
+        MemoryConflict,
     ]
 
     try:
@@ -483,9 +486,9 @@ def sync_field_constraints():
         OnlineTime,
         PersonInfo,
         Expression,
-        GraphNodes,
-        GraphEdges,
         ActionRecords,
+        MemoryChest,
+        MemoryConflict,
     ]
 
     try:
@@ -667,9 +670,9 @@ def check_field_constraints():
         OnlineTime,
         PersonInfo,
         Expression,
-        GraphNodes,
-        GraphEdges,
         ActionRecords,
+        MemoryChest,
+        MemoryConflict,
     ]
 
     inconsistencies = {}
@@ -725,11 +728,14 @@ def check_field_constraints():
         logger.exception(f"检查字段约束时出错: {e}")
 
     return inconsistencies
+
+
 def fix_image_id():
     """
     修复表情包的 image_id 字段
     """
     import uuid
+
     try:
         with db:
             for img in Images.select():
@@ -739,6 +745,7 @@ def fix_image_id():
                     logger.info(f"已为表情包 {img.id} 生成新的 image_id: {img.image_id}")
     except Exception as e:
         logger.exception(f"修复 image_id 时出错: {e}")
+
 
 # 模块加载时调用初始化函数
 initialize_database(sync_constraints=True)
