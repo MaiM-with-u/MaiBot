@@ -414,7 +414,9 @@ class BrainChatting:
                 return False, "", ""
 
             # 处理动作并获取结果（固定记录一次动作信息）
-            result = await action_handler.run()
+            # BaseAction 定义了异步方法 execute() 作为统一执行入口
+            # 这里调用 execute() 以兼容所有 Action 实现
+            result = await action_handler.execute()
             success, action_text = result
             command = ""
 
