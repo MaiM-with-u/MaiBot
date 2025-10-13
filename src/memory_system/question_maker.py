@@ -70,11 +70,15 @@ class QuestionMaker:
 
             # 按权重随机选择
             chosen_conflict = random.choices(conflicts, weights=weights, k=1)[0]
+        else:
+            # 所有冲突都已被提问过（raise_time ≥ 1），仅 5% 概率返回
+            if random.random() > 0.05:
+                return None
+            chosen_conflict = random.choice(conflicts)
 
         # 选中后，自增 raise_time 并保存
-            chosen_conflict.raise_time = (getattr(chosen_conflict, "raise_time", 0) or 0) + 1
-            chosen_conflict.save()
-
+        chosen_conflict.raise_time = (getattr(chosen_conflict, "raise_time", 0) or 0) + 1
+        chosen_conflict.save()
 
         return chosen_conflict
 
