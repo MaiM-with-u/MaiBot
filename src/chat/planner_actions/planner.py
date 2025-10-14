@@ -467,6 +467,7 @@ class ActionPlanner:
         """执行主规划器"""
         llm_content = None
         actions: List[ActionPlannerInfo] = []
+        extracted_reasoning = ""  # 在函数开始时初始化，避免 UnboundLocalError
 
         try:
             # 调用LLM
@@ -499,7 +500,6 @@ class ActionPlanner:
             ]
 
         # 解析LLM响应
-        extracted_reasoning = ""
         if llm_content:
             try:
                 json_objects, extracted_reasoning = self._extract_json_from_markdown(llm_content)
