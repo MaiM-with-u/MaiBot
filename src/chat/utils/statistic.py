@@ -519,29 +519,32 @@ class StatisticOutputTask(AsyncTask):
 
         last_all_time_stat = None
 
-        if "last_full_statistics" in local_storage:
-            # 如果存在上次完整统计数据，则使用该数据进行增量统计
-            last_stat: Dict[str, Any] = local_storage["last_full_statistics"]  # 上次完整统计数据 # type: ignore
+        try:
+            if "last_full_statistics" in local_storage:
+                # 如果存在上次完整统计数据，则使用该数据进行增量统计
+                last_stat: Dict[str, Any] = local_storage["last_full_statistics"]  # 上次完整统计数据 # type: ignore
 
-            # 修复 name_mapping 数据类型不匹配问题
-            # JSON 中存储为列表，但代码期望为元组
-            raw_name_mapping = last_stat["name_mapping"]
-            self.name_mapping = {}
-            for chat_id, value in raw_name_mapping.items():
-                if isinstance(value, list) and len(value) == 2:
-                    # 将列表转换为元组
-                    self.name_mapping[chat_id] = (value[0], value[1])
-                elif isinstance(value, tuple) and len(value) == 2:
-                    # 已经是元组，直接使用
-                    self.name_mapping[chat_id] = value
-                else:
-                    # 数据格式不正确，跳过或使用默认值
-                    logger.warning(f"name_mapping 中 chat_id {chat_id} 的数据格式不正确: {value}")
-                    continue
-            last_all_time_stat = last_stat["stat_data"]  # 上次完整统计的统计数据
-            last_stat_timestamp = datetime.fromtimestamp(last_stat["timestamp"])  # 上次完整统计数据的时间戳
-            self.stat_period = [item for item in self.stat_period if item[0] != "all_time"]  # 删除"所有时间"的统计时段
-            self.stat_period.append(("all_time", now - last_stat_timestamp, "自部署以来的"))
+                # 修复 name_mapping 数据类型不匹配问题
+                # JSON 中存储为列表，但代码期望为元组
+                raw_name_mapping = last_stat["name_mapping"]
+                self.name_mapping = {}
+                for chat_id, value in raw_name_mapping.items():
+                    if isinstance(value, list) and len(value) == 2:
+                        # 将列表转换为元组
+                        self.name_mapping[chat_id] = (value[0], value[1])
+                    elif isinstance(value, tuple) and len(value) == 2:
+                        # 已经是元组，直接使用
+                        self.name_mapping[chat_id] = value
+                    else:
+                        # 数据格式不正确，跳过或使用默认值
+                        logger.warning(f"name_mapping 中 chat_id {chat_id} 的数据格式不正确: {value}")
+                        continue
+                last_all_time_stat = last_stat["stat_data"]  # 上次完整统计的统计数据
+                last_stat_timestamp = datetime.fromtimestamp(last_stat["timestamp"])  # 上次完整统计数据的时间戳
+                self.stat_period = [item for item in self.stat_period if item[0] != "all_time"]  # 删除"所有时间"的统计时段
+                self.stat_period.append(("all_time", now - last_stat_timestamp, "自部署以来的"))
+        except Exception as e:
+            logger.warning(f"加载上次完整统计数据失败，进行全量统计，错误信息：{e}")
 
         stat_start_timestamp = [(period[0], now - period[1]) for period in self.stat_period]
 
