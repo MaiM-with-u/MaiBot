@@ -3,8 +3,47 @@ Version 0.1.5 - 2025-10-13
 
 ## 配置文件设计
 - [x] 使用 `toml` 作为配置文件格式
-- [x] 合理使用注释说明当前配置作用
-
+- [x] <del>合理使用注释说明当前配置作用</del>（提案）
+- [ ] 使用 python 方法作为配置项说明（提案）
+    - [ ] 取消`bot_config_template.toml`
+    - [ ] 取消`model_config_template.toml`
+### 移除template的方案提案
+- [ ] 方案一
+```python
+from typing import Annotated
+from dataclasses import dataclass, field
+@dataclass
+class Config:
+    value: Annotated[str, "配置项说明"] = field(default="default_value")
+```
+- [ ] 方案二（不推荐）
+```python
+from dataclasses import dataclass, field
+@dataclass
+class Config:
+    @property
+    def value(self) -> str:
+        """配置项说明"""
+        return "default_value"
+```
+- [ ] 方案三（个人推荐）
+```python
+import ast, inspect
+class AttrDocBase:
+    ...
+from dataclasses import dataclass, field
+@dataclass
+class Config(AttrDocBase):
+    value: str = field(default="default_value")
+    """配置项说明"""
+```
+- [ ] 方案四
+```python
+from dataclasses import dataclass, field
+@dataclass
+class Config:
+    value: str = field(default="default_value", metadata={"doc": "配置项说明"})
+```
 ---
 
 ## 消息部分设计
@@ -18,7 +57,7 @@ Version 0.1.5 - 2025-10-13
 ### 图片处理系统
 - [ ] 规范化Emojis与Images的命名，统一保存
 ### 消息到Prompt的构建（提案）
-- [ ] 类QQ的时间系统（即不是每条消息加时间戳，而是分大时间段加时间戳）[此功能已实现，但效果不佳]
+- [ ] <del>类QQ的时间系统（即不是每条消息加时间戳，而是分大时间段加时间戳）</del>(此功能已实现，但效果不佳)
 - [ ] 消息编号系统（已经有的）
 - [ ] 思考打断，如何判定是否打断？
     - [ ] 如何判定消息是连贯的（MoFox: 一个反比例函数？？？太神秘了）
