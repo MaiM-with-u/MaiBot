@@ -48,17 +48,22 @@ class Config:
 ### 配置文件实现热重载
 
 #### 整体架构设计
-```
-文件监视器 (FileWatcher) -> 配置管理器 (ConfigManager) -> 回调管理器 (CallbackManager)
-     ↓                            ↓                              ↓
-  配置文件                      配置数据                      业务模块回调
-```
-
-#### 核心设计原则
-- **松耦合**: 配置管理与业务逻辑分离
-- **容错性**: 配置错误保持旧配置，错误隔离防止单点失败
-- **并发安全**: 异步锁保护配置数据访问
-- **性能优化**: 防抖机制、并行回调执行
+- [ ] 文件监视器
+    - [ ] 监视文件变化
+        - [ ] 使用 `watchdog` 监视配置文件变化（提案）
+        - [ ] 备选提案：使用纯轮询监视文件变化
+    - [ ] 使用Hash检查文件变化
+    - [ ] 防抖处理
+- [ ] 配置管理器
+    - [ ] 配置文件读取和加载
+    - [ ] 重载配置
+    - [ ] 管理全部配置数据
+    - [ ] `validate_config` 方法
+- [ ] 回调管理器
+    - [ ] `callback` 注册与注销
+    - [ ] 按优先级执行回调（提案）
+    - [ ] 错误隔离
+    - [ ] 锁机制
 
 #### 工作流程
 ```
@@ -71,11 +76,9 @@ class Config:
 ```
 
 #### 回调执行策略
-```
-优先级顺序: 数字越小优先级越高 (1 > 10 > 100)
-同优先级: 异步回调并行执行
-错误处理: 单个回调失败不影响其他回调
-```
+1. 优先级顺序（提案）: 数字越小优先级越高，同优先级异步回调并行执行
+2. 错误处理: 单个回调失败不影响其他回调
+
 
 #### 代码框架
 
@@ -106,11 +109,11 @@ class ConfigManager:
         """热重载配置，返回是否成功"""
         pass
     
-    def get(self, key: str, default: Any = None) -> Any:
+    def get_item(self, key: str, default: Any = None) -> Any:
         """获取配置项，支持嵌套访问 (如 'section.key')"""
         pass
     
-    async def set(self, key: str, value: Any) -> None:
+    async def set_item(self, key: str, value: Any) -> None:
         """设置配置项并触发回调"""
         pass
     
@@ -122,7 +125,6 @@ class ConfigManager:
 `CallbackManager` - 回调管理器:
 ```python
 import asyncio
-from typing import Callable, List, Dict, Any, Union
 from dataclasses import dataclass, field
 
 @dataclass
@@ -191,38 +193,6 @@ class FileWatcher:
         """防抖处理"""
         pass
 ```
-
-#### 使用示例
-```python
-# 初始化
-config_manager = ConfigManager("config/bot_config.toml")
-await config_manager.initialize()
-
-# 注册回调 - 装饰器模式
-@config_manager.on_change("database.host", priority=10)
-async def on_db_host_change(new_host: str):
-    """数据库主机变更时重连（高优先级）"""
-    pass
-
-# 注册回调 - 显式模式
-async def on_log_level_change(new_level: str):
-    """日志级别变更"""
-    pass
-
-config_manager.register_callback(
-    "logging.level", 
-    on_log_level_change,
-    priority=100,
-    name="log_level_updater"
-)
-
-# 手动触发重载
-await config_manager.reload_config()
-
-# 禁用特定回调
-config_manager.disable_callback("database.host", "db_reconnect")
-``` 
----
 
 ## 消息部分设计
 解决原有的将消息类与数据库类存储不匹配的问题，现在存储所有消息类的所有属性
@@ -315,9 +285,23 @@ config_manager.disable_callback("database.host", "db_reconnect")
 ### <del>设计一个插件沙盒系统</del>（放弃）
 ### 插件管理
 - [ ] 插件管理器类 `PluginManager` 的更新
-    - [ ] 细节待定
+    - [ ] 重写现有的插件文件加载逻辑，精简代码，方便重载
+    - [ ] 其余细节待定
 - [ ] 组件管理器类 `ComponentManager` 的更新
-    - [ ] 细节待定
+    - [ ] 配合插件重载系统的更好的组件管理代码
+    - [ ] 组件全局控制和局部控制的平级化（提案）
+        - [ ] 重新设计组件注册和注销逻辑，分离激活和注册
+    - [ ] 可以修改组件的属性
+    - [ ] 其余细节待定
+- [ ] 因重载机制设计的更丰富的`plugin_meta`和`component_meta`
+    - [ ] `component_meta`增加`plugin_file`字段，指向插件文件路径，保证重载时组件能正确更新
+    - [ ] `plugin_meta`增加`sub_components`字段，指示该插件包含的组件列表，方便重载时更新
+### 插件激活方式的动态设计
+- [ ] 设计可变的插件激活方式
+    - [ ] 直接读写类属性`activate_types`
+### 真正的插件重载
+- [ ] 使用上文中提到的配置文件热重载机制
+    - [ ] FileWatcher的复用
 ### 传递内容设计
 对于传入的Prompt使用上文提到的Prompt类进行管理，方便内容修改避免正则匹配式查找
 ### MCP 接入（大饼）
@@ -336,6 +320,14 @@ config_manager.disable_callback("database.host", "db_reconnect")
 - [ ] python_dependencies分析
 - [ ] 自动安装（提案）
 - [ ] plugin_dependencies分析
+### 插件系统API更改
+#### Events 设计
+- [ ] 设计events.api
+    - [ ] `emit(type: EventType | str, * , **kwargs)` 广播事件，使用关键字参数保证传入正确
+#### 组件控制API更新
+- [ ] 增加可以更改组件属性的方法
+    - [ ] 验证组件属性的存在
+    - [ ] 修改组件属性
 
 ---
 
@@ -402,6 +394,7 @@ config_manager.disable_callback("database.host", "db_reconnect")
     - [ ] 垃圾回收
 - [ ] 数据库模型提供通用的转换机制，转为DataModel使用
 - [ ] 插件依赖的自动安装
+- [ ] 热重载系统的权重系统是否需要
 
 ---
 
