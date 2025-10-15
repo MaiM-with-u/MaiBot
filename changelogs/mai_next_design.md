@@ -44,6 +44,184 @@ from dataclasses import dataclass, field
 class Config:
     value: str = field(default="default_value", metadata={"doc": "配置项说明"})
 ```
+
+### 配置文件实现热重载
+
+#### 整体架构设计
+```
+文件监视器 (FileWatcher) -> 配置管理器 (ConfigManager) -> 回调管理器 (CallbackManager)
+     ↓                            ↓                              ↓
+  配置文件                      配置数据                      业务模块回调
+```
+
+#### 核心设计原则
+- **松耦合**: 配置管理与业务逻辑分离
+- **容错性**: 配置错误保持旧配置，错误隔离防止单点失败
+- **并发安全**: 异步锁保护配置数据访问
+- **性能优化**: 防抖机制、并行回调执行
+
+#### 工作流程
+```
+1. 文件监视器检测变化
+2. 配置管理器加锁重载
+3. 验证新配置 (失败保持旧配置)
+4. 更新内存数据
+5. 回调管理器按优先级执行回调 (错误隔离)
+6. 释放锁
+```
+
+#### 回调执行策略
+```
+优先级顺序: 数字越小优先级越高 (1 > 10 > 100)
+同优先级: 异步回调并行执行
+错误处理: 单个回调失败不影响其他回调
+```
+
+#### 代码框架
+
+`ConfigManager` - 配置管理器:
+```python
+import asyncio
+import tomlkit
+from typing import Any, Dict, Optional
+from pathlib import Path
+
+class ConfigManager:
+    def __init__(self, config_path: str):
+        self.config_path: Path = Path(config_path)
+        self.config_data: Dict[str, Any] = {}
+        self._lock: asyncio.Lock = asyncio.Lock()
+        self._file_watcher: Optional["FileWatcher"] = None
+        self._callback_manager: Optional["CallbackManager"] = None
+    
+    async def initialize(self) -> None:
+        """异步初始化，加载配置并启动监视"""
+        pass
+    
+    async def load_config(self) -> Dict[str, Any]:
+        """异步加载配置文件"""
+        pass
+    
+    async def reload_config(self) -> bool:
+        """热重载配置，返回是否成功"""
+        pass
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """获取配置项，支持嵌套访问 (如 'section.key')"""
+        pass
+    
+    async def set(self, key: str, value: Any) -> None:
+        """设置配置项并触发回调"""
+        pass
+    
+    def validate_config(self, config: Dict[str, Any]) -> bool:
+        """验证配置合法性"""
+        pass
+```
+
+`CallbackManager` - 回调管理器:
+```python
+import asyncio
+from typing import Callable, List, Dict, Any, Union
+from dataclasses import dataclass, field
+
+@dataclass
+class CallbackEntry:
+    callback: Callable
+    priority: int = 100
+    enabled: bool = True
+    name: str = field(default="")
+
+class CallbackManager:
+    def __init__(self):
+        self._callbacks: Dict[str, List[CallbackEntry]] = {}
+        self._global_callbacks: List[CallbackEntry] = []
+    
+    def register(
+        self, 
+        key: str, 
+        callback: Callable[[Any], Union[None, asyncio.Future]], 
+        priority: int = 100,
+        name: str = ""
+    ) -> None:
+        """注册回调函数，priority为正整数，数字越小优先级越高"""
+        pass
+    
+    def unregister(self, key: str, callback: Callable) -> None:
+        """注销回调函数"""
+        pass
+    
+    async def trigger(self, key: str, value: Any) -> None:
+        """触发回调，按优先级执行（数字小的先执行），错误隔离"""
+        pass
+    
+    def enable_callback(self, key: str, name: str) -> None:
+        """启用指定回调"""
+        pass
+    
+    def disable_callback(self, key: str, name: str) -> None:
+        """禁用指定回调"""
+        pass
+```
+
+`FileWatcher` - 文件监视器:
+```python
+import asyncio
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+from pathlib import Path
+
+class FileWatcher:
+    def __init__(self, file_path: Path, debounce_ms: int = 500):
+        self.file_path: Path = file_path
+        self.debounce_ms: int = debounce_ms
+        self._observer: Optional[Observer] = None
+        self._on_change_callback: Optional[Callable] = None
+        self._debounce_task: Optional[asyncio.Task] = None
+    
+    def start(self, on_change: Callable) -> None:
+        """启动文件监视"""
+        pass
+    
+    def stop(self) -> None:
+        """停止文件监视"""
+        pass
+    
+    async def _debounced_change(self) -> None:
+        """防抖处理"""
+        pass
+```
+
+#### 使用示例
+```python
+# 初始化
+config_manager = ConfigManager("config/bot_config.toml")
+await config_manager.initialize()
+
+# 注册回调 - 装饰器模式
+@config_manager.on_change("database.host", priority=10)
+async def on_db_host_change(new_host: str):
+    """数据库主机变更时重连（高优先级）"""
+    pass
+
+# 注册回调 - 显式模式
+async def on_log_level_change(new_level: str):
+    """日志级别变更"""
+    pass
+
+config_manager.register_callback(
+    "logging.level", 
+    on_log_level_change,
+    priority=100,
+    name="log_level_updater"
+)
+
+# 手动触发重载
+await config_manager.reload_config()
+
+# 禁用特定回调
+config_manager.disable_callback("database.host", "db_reconnect")
+``` 
 ---
 
 ## 消息部分设计
