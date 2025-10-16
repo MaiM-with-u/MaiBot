@@ -570,7 +570,7 @@ class ImageManager:
 
             # 获取VLM描述
             description, _ = await self.vlm.generate_response_for_image(
-                prompt, image_base64, image_format, temperature=0.4, max_tokens=300
+                prompt, image_base64, image_format, temperature=0.4
             )
 
             if description is None:
