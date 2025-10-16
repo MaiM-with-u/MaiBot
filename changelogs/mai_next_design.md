@@ -328,6 +328,21 @@ class FileWatcher:
 - [ ] 增加可以更改组件属性的方法
     - [ ] 验证组件属性的存在
     - [ ] 修改组件属性
+#### 全局常量API设计
+- [ ] 设计 `api.constants` 模块
+    - [ ] 提供全局常量访问
+    - [ ] 设计常量注册和注销方法
+    - [ ] 系统内置常量通过`dataclass`的`frozen=True`实现不可变
+    - [ ] 方便调用设计
+```python
+from dataclasses import dataclass
+@dataclass(frozen=True)
+class SystemConstants:
+    VERSION: str = "xxx"
+    ADA_PLUGIN: bool = True
+
+SYSTEM_CONSTANTS = SystemConstants()
+```
 
 ---
 
