@@ -120,6 +120,7 @@ max_tokens = 800
 
 [model_task_config.vlm] # 图像识别模型
 model_list = ["qwen2.5-vl-72b"]
+img_tokens = 300                         # 图片token配置
 max_tokens = 800
 
 [model_task_config.voice] # 语音识别模型
