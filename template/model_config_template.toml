@@ -1,5 +1,5 @@
 [inner]
-version = "1.7.4"
+version = "1.7.5"
 
 # 配置文件版本号迭代规则同bot_config.toml
 
@@ -120,6 +120,7 @@ max_tokens = 800
 
 [model_task_config.vlm] # 图像识别模型
 model_list = ["qwen2.5-vl-72b"]
+img_tokens = 300
 max_tokens = 800
 
 [model_task_config.voice] # 语音识别模型
