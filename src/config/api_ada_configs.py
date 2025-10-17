@@ -87,7 +87,9 @@ class TaskConfig(ConfigBase):
 
     temperature: float = 0.3
     """模型温度"""
-
+    
+    img_tokens: int = 300
+    """图像任务最大输出token数"""
 
 @dataclass
 class ModelTaskConfig(ConfigBase):
