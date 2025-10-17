@@ -273,7 +273,7 @@ class ImageManager:
             prompt = global_config.personality.visual_style
             logger.info(f"[VLM调用] 为图片生成新描述 (Hash: {image_hash[:8]}...)")
             description, _ = await self.vlm.generate_response_for_image(
-                prompt, image_base64, image_format, temperature=0.4, max_tokens=300
+                prompt, image_base64, image_format, temperature=0.4, max_tokens=model_config.model_task_config.vlm.img_tokens or None
             )
 
             if description is None:
@@ -570,7 +570,7 @@ class ImageManager:
 
             # 获取VLM描述
             description, _ = await self.vlm.generate_response_for_image(
-                prompt, image_base64, image_format, temperature=0.4, max_tokens=300
+                prompt, image_base64, image_format, temperature=0.4, max_tokens=model_config.model_task_config.vlm.img_tokens or None
             )
 
             if description is None:
