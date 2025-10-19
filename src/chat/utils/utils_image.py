@@ -44,6 +44,11 @@ class ImageManager:
             except Exception as e:
                 logger.error(f"数据库连接或表创建失败: {e}")
 
+            try:
+                self._cleanup_invalid_descriptions()
+            except Exception as e:
+                logger.warning(f"数据库清理失败: {e}")
+
             self._initialized = True
 
     def _ensure_image_dir(self):
@@ -106,6 +111,34 @@ class ImageManager:
         emotion_list = emoji.emotion
         tag_str = ",".join(emotion_list)
         return f"[表情包：{tag_str}]"
+
+    def _cleanup_invalid_descriptions(self):
+        """清理数据库中 description 为空或为 'None' 的记录"""
+        invalid_exact = ["", "None"]
+
+        deleted_images = 0
+        deleted_descriptions = 0
+
+        # 清理 Images 表
+        for img in Images.select():
+            desc = (img.description or "").strip()  
+            if desc in invalid_exact:
+                logger.warning(f"[清理] 删除无效图片描述: {img.image_id} -> {desc}")
+                img.delete_instance()
+                deleted_images += 1
+
+        # 清理 ImageDescriptions 表
+        for desc_row in ImageDescriptions.select():
+            desc = (desc_row.description or "").strip()   
+            if desc in invalid_exact:
+                logger.warning(f"[清理] 删除无效缓存描述: {desc_row.image_description_hash} -> {desc}")
+                desc_row.delete_instance()
+                deleted_descriptions += 1
+
+        if deleted_images or deleted_descriptions:
+            logger.info(f"[清理完成] 删除 Images: {deleted_images} 条, ImageDescriptions: {deleted_descriptions} 条")
+        else:
+            logger.info("[清理完成] 未发现无效描述记录")
 
     async def get_emoji_description(self, image_base64: str) -> str:
         """获取表情包描述，优先使用Emoji表中的缓存数据"""
