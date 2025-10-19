@@ -1,5 +1,5 @@
 # Mai NEXT 设计文档
-Version 0.1.5 - 2025-10-13
+Version 0.1.9 - 2025-10-19
 
 ## 配置文件设计
 - [x] 使用 `toml` 作为配置文件格式
@@ -196,6 +196,11 @@ class FileWatcher:
 
 ## 消息部分设计
 解决原有的将消息类与数据库类存储不匹配的问题，现在存储所有消息类的所有属性
+
+完全合并`stream_id`和`chat_id`为`chat_id`，规范名称
+
+`chat_stream`重命名为`chat_session`，表示一个会话
+
 ### 消息类设计
 - [ ] 支持并使用maim_message新的`SenderInfo`和`ReceiverInfo`构建消息
 - [ ] 适配器处理跟进该更新
@@ -248,7 +253,13 @@ class FileWatcher:
 ### Emojis与Images表设计
 - [ ] 设计图片专有ID，并作为文件名
 ### Expressions表设计
-
+- [ ] 待定
+### 表实际设计
+#### ActionRecords 表
+- [ ] 动作唯一ID `action_id`
+- [ ] 动作执行时间 `action_time`
+- [ ] 动作名称 `action_name`
+- [ ] 动作参数 `action_params` （JSON格式存储）（原`action_data`）
 ---
 
 ## 数据模型部分设计
@@ -417,3 +428,39 @@ SYSTEM_CONSTANTS = SystemConstants()
 已经完成，要点如下：
 - 使用 pyproject.toml 和 requirements.txt 管理依赖
 - 二者应保持同步修改，同时以 pyproject.toml 为主（建议使用git hook）
+
+# Maim_Message 新版使用计划
+SenderInfo: 将作为消息来源者
+ReceiverInfo: 将作为消息接收者
+尝试更新MessageBaseInfo的sender_info和receiver_info为上述两个类的列表（提案）
+给出样例如下
+群聊
+```mermaid
+sequenceDiagram
+    participant GroupNotice
+    participant A
+    participant B
+    participant Bot
+    A->>B: Message("Hello B", id=1)
+    A->>B: Message("@B Hello B", id=2)
+    A->>Bot: Message("@Bot Hello Bot", id=3)
+    Bot->>A: Message("Hello A", id=4)
+    Bot->>B: Message("@B Hello B", id=5)
+    A->>B: Message("@B @Bot Hello Guys", id=6)
+    A->>Bot: Message("@B @Bot Hello Guys", id=6)
+    A->>GroupNotice: Message("@ALL Hello Everyone", id=7)
+```
+上述消息的Info如下
+| Message ID | SenderInfo | ReceiverInfo |
+|-|-----|-----|
+| 1 | [A] |  NULL |
+| 2 | [A] | [B] |
+| 3 | [A] | [Bot] |
+| 4 | [Bot] | [A] |
+| 5 | [Bot] | [B] |
+| 6 | [A] | [B, Bot] |
+| 7 | [A] | [ALL*] |
+
+*ALL为一个特殊类型，尝试用`user_id="all"`表示
+
+Bot可以通过ReceiverInfo判断自己是否被提及，同时在ReceiverInfo表明自己回复的对象
