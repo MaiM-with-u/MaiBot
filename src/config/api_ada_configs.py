@@ -83,12 +83,7 @@ class APIProvider(ConfigBase):
             raise ValueError("API密钥不能为空，请在配置中设置有效的API密钥。")
 
         # 按顺序去重
-        ordered_keys: List[str] = []
-        seen: Set[str] = set()
-        for key in raw_keys:
-            if key not in seen:
-                ordered_keys.append(key)
-                seen.add(key)
+        ordered_keys = list(dict.fromkeys(raw_keys))
 
         self._ordered_keys = ordered_keys
         self._key_index = 0
