@@ -203,6 +203,7 @@ class FileWatcher:
 
 ### 消息类设计
 - [ ] 支持并使用maim_message新的`SenderInfo`和`ReceiverInfo`构建消息
+    - [ ] 具体使用参考附录
 - [ ] 适配器处理跟进该更新
 - [ ] 修复适配器的类型检查问题
 - [ ] 设计更好的平台消息ID回传机制
@@ -276,14 +277,24 @@ class FileWatcher:
     - [ ] `__init__(self, template: list[str], *, **kwargs)` 维持现有的template设计，但不进行format，直到最后传入LLM时再进行render
         - [ ] `__init__`中允许传入任意的键值对，存储在`self.context`中
         - [ ] `self.prompt_name` 作为Prompt的名称
+        - [ ] `self.construct_function: Dict[str, Callable | AsyncCallable]` 构建Prompt内容所需的函数字典
+            - [ ] 格式：`{"block_name": function_reference}`
+        - [ ] `self.content_block: Dict[str, str]`: 实际的Prompt内容块
+            - [ ] 格式：`{"block_name": "Unrendered Prompt Block"}`
     - [ ] `render(self) -> str` 使用非递归渲染方式渲染Prompt内容
-    - [ ] `add_block(self, prompt_block: "Prompt", block_name: str)` 将另一个Prompt的内容更新到当前Prompt中
-        - [ ] 实现重名属性警告/错误
+    - [ ] `add_construct_function(self, name: str, func: Callable | AsyncCallable, *, suppress: bool = False)` 添加构造函数
+        - [ ] 实现重名警告/错误（偏向错误）
+        - [ ] `suppress`: 是否覆盖已有的构造函数
+    - [ ] `remove_construct_function(self, name: str)` 移除指定名称的构造函数
+    - [ ] `add_block(self, prompt_block: "Prompt", block_name: str, *, suppress: bool = False)` 将另一个Prompt的内容更新到当前Prompt中
+        - [ ] 实现重名属性警告/错误（偏向错误）
+        - [ ] 实现重名构造函数警告/错误（偏向错误）
+        - [ ] `suppress`: 是否覆盖已有的内容块和构造函数
     - [ ] `remove_block(self, block_name: str)` 移除指定名称的Prompt块
 - [ ] 设计 PromptManager 类
     - [ ] `__init__(self)` 初始化一个空的Prompt管理器
     - [ ] `add_prompt(self, name: str, prompt: Prompt)` 添加一个新的Prompt
-        - [ ] 实现重名警告/错误
+        - [ ] 实现重名警告/错误（偏向错误）
     - [ ] `get_prompt(self, name: str) -> Prompt` 根据名称获取Prompt
         - [ ] 实现不存在时的错误处理
     - [ ] `remove_prompt(self, name: str)` 移除指定名称的Prompt
@@ -297,16 +308,28 @@ class FileWatcher:
 ### 插件管理
 - [ ] 插件管理器类 `PluginManager` 的更新
     - [ ] 重写现有的插件文件加载逻辑，精简代码，方便重载
+    - [ ] 学习AstrBot的基于子类加载的插件加载方式，放弃@register_plugin（提案）
+        - [ ] 直接 breaking change 删除 @register_plugin 函数，不保留过去插件的兼容性（提案）
+    - [ ] 设计插件重载系统
+        - [ ] 插件配置文件重载
+            - [ ] 复用`FileWatcher`实现配置文件热重载
+        - [ ] 插件代码重载
+            - [ ] 从插件缓存中移除此插件对应的模块
+                - [ ] 从组件管理器中移除该插件对应的组件
+            - [ ] 重新导入该插件模块
     - [ ] 其余细节待定
 - [ ] 组件管理器类 `ComponentManager` 的更新
     - [ ] 配合插件重载系统的更好的组件管理代码
     - [ ] 组件全局控制和局部控制的平级化（提案）
         - [ ] 重新设计组件注册和注销逻辑，分离激活和注册
     - [ ] 可以修改组件的属性
+    - [ ] 组件系统卸载
+        - [ ] 联动插件卸载（方便重载设计）
     - [ ] 其余细节待定
 - [ ] 因重载机制设计的更丰富的`plugin_meta`和`component_meta`
     - [ ] `component_meta`增加`plugin_file`字段，指向插件文件路径，保证重载时组件能正确更新
     - [ ] `plugin_meta`增加`sub_components`字段，指示该插件包含的组件列表，方便重载时更新
+        - [ ] `sub_components`内容为组件类名列表
 ### 插件激活方式的动态设计
 - [ ] 设计可变的插件激活方式
     - [ ] 直接读写类属性`activate_types`
@@ -321,9 +344,14 @@ class FileWatcher:
     - [ ] MCP 调用内容传递
     - [ ] MCP 调用结果处理
 ### 工具结果的缓存设计
-- [ ] `put_cache` 方法
+可能的使用案例参考[附录-工具缓存](#工具缓存可能用例)
+- [ ] `put_cache(**kwargs, *, _component_name: str)` 方法
+    - [ ] 设计为父类的方法，插件继承后使用
+    - [ ] `_component_name` 指定当前组件名称，由MaiNext自动传入
+    
 - [ ] `get_cache` 方法
-- [ ] `need_cache` 变量管理
+- [ ] `need_cache` 变量管理是否调用缓存结果
+    - [ ] 仅在设置为True时为插件创立缓存空间
 ### Events依赖机制（提案）
 通过Events的互相依赖完成链式任务
 ### 正式的插件依赖管理系统
@@ -428,12 +456,18 @@ SYSTEM_CONSTANTS = SystemConstants()
 
 ---
 
+# PYTEST设计
+设计一个pytest测试系统，在代码完成后运行pytest进行测试
+
+---
+
 # 依赖管理
 已经完成，要点如下：
 - 使用 pyproject.toml 和 requirements.txt 管理依赖
 - 二者应保持同步修改，同时以 pyproject.toml 为主（建议使用git hook）
 
-# Maim_Message 新版使用计划
+# 附录
+## Maim_Message 新版使用计划
 SenderInfo: 将作为消息来源者
 ReceiverInfo: 将作为消息接收者
 尝试更新MessageBaseInfo的sender_info和receiver_info为上述两个类的列表（提案）
@@ -468,3 +502,8 @@ sequenceDiagram
 *ALL为一个特殊类型，尝试用`user_id="all"`表示
 
 Bot可以通过ReceiverInfo判断自己是否被提及，同时在ReceiverInfo表明自己回复的对象
+
+## 工具缓存可能用例
+考虑一个天气插件，将时间按照半小时进行划分，即每半小时查询一次天气，半小时内的查询均使用缓存结果。
+- `need_cache` 设置为 True 表示使用缓存结果
+- `put_cache` 在查询天气后将结果`{<time>: <result>}` 存入缓存
