@@ -191,15 +191,19 @@ class ChatBot:
             # 确保所有任务已启动
             await self._ensure_started()
 
+            message_info = message_data.get("message_info")
+            if not isinstance(message_info, dict):
+                logger.warning("消息缺少 message_info 字段，跳过处理: %s", message_data)
+                return
 
-            if message_data["message_info"].get("group_info") is not None:
-                message_data["message_info"]["group_info"]["group_id"] = str(
-                    message_data["message_info"]["group_info"]["group_id"]
-                )
-            if message_data["message_info"].get("user_info") is not None:
-                message_data["message_info"]["user_info"]["user_id"] = str(
-                    message_data["message_info"]["user_info"]["user_id"]
-                )
+            group_info_dict = message_info.get("group_info")
+            if isinstance(group_info_dict, dict) and group_info_dict.get("group_id") is not None:
+                group_info_dict["group_id"] = str(group_info_dict["group_id"])
+
+            user_info_dict = message_info.get("user_info")
+            if isinstance(user_info_dict, dict) and user_info_dict.get("user_id") is not None:
+                user_info_dict["user_id"] = str(user_info_dict["user_id"])
+
             # print(message_data)
             # logger.debug(str(message_data))
             message = MessageRecv(message_data)
