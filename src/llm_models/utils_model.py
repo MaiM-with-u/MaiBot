@@ -283,8 +283,9 @@ class LLMRequest:
             except RespNotOkException as e:
                 # 针对鉴权/限流错误，尝试轮换API Key
                 if e.status_code in {401, 403, 429}:
-                    rotated_key = api_provider.rotate_api_key(exclude=tried_api_keys)
-                    if rotated_key:
+                    if rotated_key := api_provider.rotate_api_key(
+                        exclude=tried_api_keys
+                    ):
                         logger.warning(
                             f"模型 '{model_info.name}' 在提供商 '{api_provider.name}' 上触发 {e.status_code}，已切换至新的API Key。"
                         )
