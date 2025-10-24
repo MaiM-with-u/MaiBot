@@ -421,6 +421,10 @@ SYSTEM_CONSTANTS = SystemConstants()
     - [ ] （提案）是否维护使用同一个模型，即选择工具的和调用工具的LLM是否相同
         - [ ] `generate(**kwargs, model: Optional[str] = None)` 允许传入不同的模型
 - [ ] 多轮对话中，Prompt不重复构建减少上下文
+### 网络相关内容提案
+增加自定义证书的导入功能
+- [ ] 允许用户传入自定义CA证书路径
+- [ ] 允许用户选择忽略SSL验证（不推荐）
 
 ---
 
