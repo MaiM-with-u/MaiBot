@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import List, Optional, Set
 
 from .config_base import ConfigBase
 
@@ -13,8 +14,11 @@ class APIProvider(ConfigBase):
     base_url: str
     """API基础URL"""
 
-    api_key: str = field(default_factory=str, repr=False)
-    """API密钥列表"""
+    api_key: str | List[str] = field(default_factory=str, repr=False)
+    """API密钥（兼容字符串或字符串列表）"""
+
+    api_keys: List[str] = field(default_factory=list, repr=False)
+    """API密钥优先级列表（可选，覆盖单个api_key设置）"""
 
     client_type: str = field(default="openai")
     """客户端类型（如openai/google等，默认为openai）"""
@@ -28,13 +32,64 @@ class APIProvider(ConfigBase):
     retry_interval: int = 10
     """重试间隔（如果API调用失败，重试的间隔时间，单位：秒）"""
 
+    _ordered_keys: List[str] = field(init=False, repr=False, default_factory=list)
+    _key_index: int = field(init=False, repr=False, default=0)
+
     def get_api_key(self) -> str:
-        return self.api_key
+        """返回当前生效的API Key"""
+        return self._ordered_keys[self._key_index]
+
+    def rotate_api_key(self, exclude: Optional[Set[str]] = None) -> Optional[str]:
+        """切换到下一枚可用的API Key，返回新Key；若无可切换则返回None"""
+        if len(self._ordered_keys) <= 1:
+            return None
+
+        original_index = self._key_index
+        key_count = len(self._ordered_keys)
+
+        for _ in range(1, key_count):
+            self._key_index = (self._key_index + 1) % key_count
+            candidate = self._ordered_keys[self._key_index]
+            if exclude and candidate in exclude:
+                continue
+            self.api_key = candidate
+            return candidate
+
+        # 无可用Key，回退到原位置
+        self._key_index = original_index
+        self.api_key = self._ordered_keys[self._key_index]
+        return None
 
     def __post_init__(self):
         """确保api_key在repr中不被显示"""
-        if not self.api_key:
+        raw_keys: List[str] = []
+
+        def _collect_keys(value):
+            if not value:
+                return
+            if isinstance(value, str):
+                # 支持逗号或换行分隔
+                parts = [item.strip() for item in value.replace("\n", ",").split(",") if item.strip()]
+                raw_keys.extend(parts)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, str) and item.strip():
+                        raw_keys.append(item.strip())
+
+        _collect_keys(self.api_key)
+        _collect_keys(self.api_keys)
+
+        if not raw_keys:
             raise ValueError("API密钥不能为空，请在配置中设置有效的API密钥。")
+
+        # 按顺序去重
+        ordered_keys = list(dict.fromkeys(raw_keys))
+
+        self._ordered_keys = ordered_keys
+        self._key_index = 0
+        self.api_keys = ordered_keys
+        self.api_key = ordered_keys[0]
+
         if not self.base_url and self.client_type != "gemini":
             raise ValueError("API基础URL不能为空，请在配置中设置有效的基础URL。")
         if not self.name:

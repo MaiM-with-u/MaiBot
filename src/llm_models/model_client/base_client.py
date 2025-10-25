@@ -184,5 +184,9 @@ class ClientRegistry:
                 raise KeyError(f"'{api_provider.client_type}' 类型的 Client 未注册")
         return self.client_instance_cache[api_provider.name]
 
+    def invalidate_provider(self, provider_name: str) -> None:
+        """清理指定提供商的客户端缓存"""
+        self.client_instance_cache.pop(provider_name, None)
+
 
 client_registry = ClientRegistry()

@@ -241,6 +241,7 @@ class LLMRequest:
         """
         retry_remain = api_provider.max_retry
         compressed_messages: Optional[List[Message]] = None
+        tried_api_keys: Set[str] = {api_provider.get_api_key()}
 
         while retry_remain > 0:
             try:
@@ -280,6 +281,21 @@ class LLMRequest:
                 await asyncio.sleep(api_provider.retry_interval)
 
             except RespNotOkException as e:
+                # 针对鉴权/限流错误，尝试轮换API Key
+                if e.status_code in {401, 403, 429}:
+                    if rotated_key := api_provider.rotate_api_key(
+                        exclude=tried_api_keys
+                    ):
+                        logger.warning(
+                            f"模型 '{model_info.name}' 在提供商 '{api_provider.name}' 上触发 {e.status_code}，已切换至新的API Key。"
+                        )
+                        tried_api_keys.add(rotated_key)
+                        client_registry.invalidate_provider(api_provider.name)
+                        client = client_registry.get_client_class_instance(api_provider, force_new=True)
+                        compressed_messages = None
+                        retry_remain = api_provider.max_retry
+                        continue
+
                 # 可重试的HTTP错误
                 if e.status_code == 429 or e.status_code >= 500:
                     retry_remain -= 1
