@@ -177,6 +177,7 @@ def main():  # sourcery skip: comprehension-to-generator, extract-method
                     elif doc_item:
                         with open_ie_doc_lock:
                             open_ie_doc.append(doc_item)
+                        logger.info('已处理"%s"', doc_item.get("passage", ""))
                     progress.update(task, advance=1)
             except KeyboardInterrupt:
                 logger.info("\n接收到中断信号，正在优雅地关闭程序...")
