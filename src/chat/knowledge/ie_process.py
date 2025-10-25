@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import time
 from typing import List, Union
 
@@ -92,6 +93,48 @@ def _entity_extract(llm_req: LLMRequest, paragraph: str) -> List[str]:
     return entity_extract_result
 
 
+def _fallback_rdf_triples(paragraph: str, entities: list[str]) -> List[List[str]]:
+    """当LLM返回空结果时，基于简单规则兜底生成至少一条三元组"""
+    text = paragraph.replace("\ufeff", "").strip()
+    if not text or not entities:
+        return []
+
+    # 选取最有可能作为主语的实体，优先匹配段落开头的实体
+    subject = next((entity for entity in entities if text.startswith(entity)), None)
+    if subject is None:
+        subject = next((entity for entity in entities if entity in text), None)
+    if subject is None:
+        return []
+
+    # 去掉主语部分，提取剩余文本
+    subject_index = text.find(subject)
+    remainder = text[subject_index + len(subject) :].lstrip("：: ，, 、\u3000")
+    if not remainder:
+        return []
+
+    # 识别潜在谓词，默认使用“是”
+    relation = "是"
+    relation_candidates = ["是", "意味着", "代表", "属于", "指", "体现"]
+    for rel in relation_candidates:
+        if remainder.startswith(rel):
+            relation = rel
+            remainder = remainder[len(rel) :]
+            break
+
+    # 截取第一句作为宾语，避免过长
+    sentence_split = re.split(r"[。；;！!]", remainder, maxsplit=1)
+    object_text = sentence_split[0].strip("：: ，, 「」『』“”\"'")
+    if not object_text:
+        return []
+
+    # 控制宾语长度，避免生成过长的描述
+    max_object_len = 120
+    if len(object_text) > max_object_len:
+        object_text = object_text[:max_object_len].rstrip("，, 的")
+
+    return [[subject, relation, object_text]]
+
+
 def _rdf_triple_extract(llm_req: LLMRequest, paragraph: str, entities: list) -> List[List[str]]:
     """对段落进行实体提取，返回提取出的实体列表（JSON格式）"""
     rdf_extract_context = prompt_template.build_rdf_triple_extract_context(
@@ -126,6 +169,15 @@ def _rdf_triple_extract(llm_req: LLMRequest, paragraph: str, entities: list) -> 
         else:
             # 如果找不到合适的列表，抛出异常
             raise ValueError(f"RDF三元组提取结果格式错误，期望列表但得到: {type(rdf_triple_result)}")
+
+    if not rdf_triple_result:
+        fallback_triples = _fallback_rdf_triples(paragraph, entities)
+        if fallback_triples:
+            logger.warning("RDF三元组为空，已使用规则兜底生成三元组")
+            rdf_triple_result = fallback_triples
+        else:
+            raise ValueError("RDF三元组提取结果为空")
+
     # 验证三元组格式
     for triple in rdf_triple_result:
         if (
