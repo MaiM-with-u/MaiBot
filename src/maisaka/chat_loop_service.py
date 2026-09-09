@@ -58,6 +58,7 @@ from src.maisaka.context.messages import (
 from src.maisaka.display.prompt_cli_renderer import PromptCLIVisualizer
 from src.maisaka.memory.mid_term import is_mid_term_memory_message
 from src.maisaka.focus import focus_mode_manager
+from src.maisaka.visual.history_image_limiter import limit_history_images
 from src.maisaka.visual.message_limiter import limit_latest_images_in_messages
 from src.maisaka.visual.mode_utils import resolve_enable_visual_planner
 
@@ -919,7 +920,11 @@ class MaisakaChatLoopService:
 
         previous_context_timestamp: datetime | None = None
         deferred_boundary_timestamps: List[datetime] = []
-        for msg in selected_history:
+        request_history = (
+            limit_history_images(selected_history, max_image_num=global_config.visual.max_image_num)
+            if enable_visual_message else selected_history
+        )
+        for msg in request_history:
             context_items = build_context_items_from_history_entry(
                 msg,
                 enable_visual_message=enable_visual_message,
@@ -1021,11 +1026,10 @@ class MaisakaChatLoopService:
             ),
             system_prompt=system_prompt,
         )
-        if enable_visual_message:
-            built_messages = limit_latest_images_in_messages(
-                built_messages,
-                max_image_num=global_config.visual.max_image_num,
-            )
+        built_messages = limit_latest_images_in_messages(
+            built_messages,
+            max_image_num=global_config.visual.max_image_num,
+        )
 
         def context_factory(_client: BaseClient) -> List[ContextItem]:
             """返回当前轮次已经构建好的请求 Context Items。
@@ -1082,11 +1086,10 @@ class MaisakaChatLoopService:
                 )
             except Exception as exc:
                 logger.warning(f"Hook maisaka.planner.before_request 返回的 items 无法反序列化，已忽略: {exc}")
-        if enable_visual_message:
-            built_messages = limit_latest_images_in_messages(
-                built_messages,
-                max_image_num=global_config.visual.max_image_num,
-            )
+        built_messages = limit_latest_images_in_messages(
+            built_messages,
+            max_image_num=global_config.visual.max_image_num,
+        )
         raw_tool_definitions = before_request_kwargs.get("tool_definitions")
         if isinstance(raw_tool_definitions, list):
             all_tools = [item for item in raw_tool_definitions if isinstance(item, dict)]

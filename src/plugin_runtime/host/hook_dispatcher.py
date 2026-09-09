@@ -26,9 +26,11 @@ import contextlib
 from src.common.logger import get_logger
 from src.common.shutdown import is_shutdown_requested
 from src.config.config import global_config
+from src.plugin_runtime.protocol.codec import FrameTooLargeError
 from src.plugin_runtime.protocol.errors import ErrorCode, RPCError
 
 from .circuit_breaker import get_plugin_circuit_breaker
+from .hook_request_budget import HookRequestBudget
 from .hook_spec_registry import HookSpec, HookSpecRegistry
 
 if TYPE_CHECKING:
@@ -216,7 +218,14 @@ class HookDispatcher:
         if not invocation_targets:
             return dispatch_result
 
+        budget_targets = [
+            (target.entry.plugin_id, target.entry.name, self._resolve_timeout_ms(hook_spec, target))
+            for target in invocation_targets
+        ]
+        request_budget = HookRequestBudget(normalized_hook_name, budget_targets)
         for target in invocation_targets:
+            current_kwargs = request_budget.fit(current_kwargs)
+            dispatch_result.kwargs = current_kwargs
             if is_shutdown_requested():
                 return dispatch_result
 
@@ -255,6 +264,7 @@ class HookDispatcher:
             if dispatch_result.aborted:
                 break
 
+        dispatch_result.kwargs = request_budget.fit(dispatch_result.kwargs, outbound=False)
         return dispatch_result
 
     def _resolve_supervisors(self) -> Sequence["PluginRunnerSupervisor"]:
@@ -467,6 +477,10 @@ class HookDispatcher:
                 success=False,
                 error_message=error_message,
             )
+        except FrameTooLargeError:
+            # Host 尚未发送请求，释放探测许可但不能据此认定插件已恢复。
+            get_plugin_circuit_breaker().release_unexecuted(circuit_permit)
+            raise
         except RPCError as exc:
             if self._should_record_circuit_failure(exc):
                 get_plugin_circuit_breaker().record_failure(circuit_permit, str(exc))
