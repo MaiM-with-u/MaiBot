@@ -54,7 +54,9 @@ from src.maisaka.context.messages import (
 from src.maisaka.context.planner_messages import extract_quote_ids_from_message_sequence
 from src.maisaka.display.prompt_cli_renderer import PromptCLIVisualizer
 from src.maisaka.memory.mid_term import is_mid_term_memory_message
+from src.maisaka.visual.history_image_limiter import limit_history_images
 from src.maisaka.visual.message_limiter import limit_latest_images_in_messages
+from src.plugin_runtime.protocol.codec import FrameTooLargeError
 from src.plugin_runtime.hook_payloads import deserialize_prompt_items, serialize_prompt_items
 
 from .maisaka_expression_selector import maisaka_expression_selector
@@ -653,10 +655,10 @@ class BaseMaisakaReplyGenerator:
     ) -> List[ContextItem]:
         items: List[ContextItem] = []
 
-        for message in chat_history:
-            if self._is_replyer_filtered_history_message(message):
-                continue
-
+        request_history = [message for message in chat_history if not self._is_replyer_filtered_history_message(message)]
+        if enable_visual_message:
+            request_history = limit_history_images(request_history, max_image_num=global_config.visual.max_image_num)
+        for message in request_history:
             if isinstance(message, SessionBackedMessage):
                 guided_reply = self._extract_guided_bot_reply(message)
                 if guided_reply:
@@ -760,6 +762,9 @@ class BaseMaisakaReplyGenerator:
     ) -> List[ContextItem]:
         """触发 replyer 模型请求前 Hook，允许插件按 Item 改写请求。"""
 
+        request_messages = limit_latest_images_in_messages(
+            request_messages, max_image_num=global_config.visual.max_image_num
+        )
         try:
             hook_result = await self._get_runtime_manager().invoke_hook(
                 "maisaka.replyer.before_model_request",
@@ -769,8 +774,8 @@ class BaseMaisakaReplyGenerator:
                 request_type=self.request_type,
                 task_name=active_task_name,
                 requested_model_name=active_model_name or "",
-                selected_model_name=str(getattr(model_info, "name", "") or ""),
-                selected_model_visual=bool(getattr(model_info, "visual", False)),
+                selected_model_name=model_info.name if model_info is not None else "",
+                selected_model_visual=model_info.visual if model_info is not None else False,
                 attempt=attempt,
                 retry_count=retry_count,
                 max_retries=REPLYER_MAX_HOOK_RETRIES,
@@ -779,6 +784,8 @@ class BaseMaisakaReplyGenerator:
                 selected_expression_ids=list(selected_expression_ids),
                 reply_tool_args=dict(reply_tool_args),
             )
+        except FrameTooLargeError:
+            raise
         except Exception as exc:
             logger.warning(f"Maisaka 回复器 before_model_request Hook 调用失败，将继续使用当前请求消息: {exc}")
             return request_messages
@@ -788,11 +795,14 @@ class BaseMaisakaReplyGenerator:
             return request_messages
 
         try:
-            return deserialize_prompt_items(
+            modified_messages = deserialize_prompt_items(
                 raw_items,
                 item_schema_version=hook_result.kwargs.get("item_schema_version"),
                 mode=ContextProtocolMode.REQUEST_CONTEXT,
                 original_items=request_messages,
+            )
+            return limit_latest_images_in_messages(
+                modified_messages, max_image_num=global_config.visual.max_image_num
             )
         except Exception as exc:
             logger.warning(f"Hook maisaka.replyer.before_model_request 返回的 items 无法反序列化，已忽略: {exc}")

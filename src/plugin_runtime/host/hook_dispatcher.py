@@ -26,9 +26,11 @@ import contextlib
 from src.common.logger import get_logger
 from src.common.shutdown import is_shutdown_requested
 from src.config.config import global_config
+from src.plugin_runtime.protocol.codec import FrameTooLargeError
 from src.plugin_runtime.protocol.errors import ErrorCode, RPCError
 
 from .circuit_breaker import get_plugin_circuit_breaker
+from .hook_request_budget import fit_request_hook_kwargs
 from .hook_spec_registry import HookSpec, HookSpecRegistry
 
 if TYPE_CHECKING:
@@ -216,7 +218,13 @@ class HookDispatcher:
         if not invocation_targets:
             return dispatch_result
 
+        budget_targets = [
+            (target.entry.plugin_id, target.entry.name, self._resolve_timeout_ms(hook_spec, target))
+            for target in invocation_targets
+        ]
         for target in invocation_targets:
+            current_kwargs = fit_request_hook_kwargs(normalized_hook_name, current_kwargs, targets=budget_targets)
+            dispatch_result.kwargs = current_kwargs
             if is_shutdown_requested():
                 return dispatch_result
 
@@ -255,6 +263,9 @@ class HookDispatcher:
             if dispatch_result.aborted:
                 break
 
+        dispatch_result.kwargs = fit_request_hook_kwargs(
+            normalized_hook_name, dispatch_result.kwargs, targets=budget_targets
+        )
         return dispatch_result
 
     def _resolve_supervisors(self) -> Sequence["PluginRunnerSupervisor"]:
@@ -467,6 +478,9 @@ class HookDispatcher:
                 success=False,
                 error_message=error_message,
             )
+        except FrameTooLargeError:
+            # Host 发送前的载荷错误不属于插件处理器故障，交给请求方明确处理。
+            raise
         except RPCError as exc:
             if self._should_record_circuit_failure(exc):
                 get_plugin_circuit_breaker().record_failure(circuit_permit, str(exc))
