@@ -1,7 +1,7 @@
 """插件运行时熔断器。"""
 
 from dataclasses import dataclass
-from typing import Any, Dict, Literal
+from typing import Any, Dict, Literal, Optional
 
 import time
 
@@ -39,6 +39,7 @@ class _CircuitState:
     cooldown_level: int = 0
     opened_until: float = 0.0
     half_open_inflight: bool = False
+    half_open_permit: Optional[CircuitPermit] = None
     last_success_at: float = 0.0
     last_recovered_at: float = 0.0
     last_skip_log_at: float = 0.0
@@ -84,6 +85,7 @@ class PluginCircuitBreaker:
         if state.state == "open" and now >= state.opened_until:
             state.state = "half_open"
             state.half_open_inflight = False
+            state.half_open_permit = None
             logger.info(f"插件 {normalized_plugin_id} 熔断冷却结束，进入半开测试")
 
         if state.state == "half_open":
@@ -96,13 +98,15 @@ class PluginCircuitBreaker:
                     reason="插件半开测试已有进行中的调用",
                 )
             state.half_open_inflight = True
-            return CircuitPermit(
+            permit = CircuitPermit(
                 plugin_id=normalized_plugin_id,
                 component_name=component_name,
                 operation=operation,
                 allowed=True,
                 half_open=True,
             )
+            state.half_open_permit = permit
+            return permit
 
         return CircuitPermit(
             plugin_id=normalized_plugin_id,
@@ -110,6 +114,16 @@ class PluginCircuitBreaker:
             operation=operation,
             allowed=True,
         )
+
+    def release_unexecuted(self, permit: CircuitPermit) -> None:
+        """释放未发送调用的半开许可，保留失败历史和冷却等级。
+
+        用许可身份避免重复释放旧许可时误清除新探测，不为已移除的状态重新建档。
+        """
+        state = self._states.get(permit.plugin_id)
+        if state is not None and state.state == "half_open" and state.half_open_permit is permit:
+            state.half_open_inflight = False
+            state.half_open_permit = None
 
     def record_success(self, permit: CircuitPermit) -> None:
         """记录一次插件调用成功。"""
@@ -123,6 +137,7 @@ class PluginCircuitBreaker:
         self._reset_cooldown_if_stable(state, now)
         state.consecutive_failures = 0
         state.half_open_inflight = False
+        state.half_open_permit = None
         state.last_success_at = now
 
         if was_half_open:
@@ -141,6 +156,7 @@ class PluginCircuitBreaker:
         state = self._states.setdefault(permit.plugin_id, _CircuitState())
         self._reset_cooldown_if_stable(state, now)
         state.half_open_inflight = False
+        state.half_open_permit = None
 
         if permit.half_open or state.state == "half_open":
             self._open_circuit(permit, reason, state, now)
@@ -165,6 +181,7 @@ class PluginCircuitBreaker:
         state.cooldown_level += 1
         state.opened_until = now + cooldown_sec
         state.half_open_inflight = False
+        state.half_open_permit = None
         state.last_skip_log_at = 0.0
         logger.warning(
             f"插件 {permit.plugin_id} 已熔断 {cooldown_sec:.0f}s: "
